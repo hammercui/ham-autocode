@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "context": {
+    "advisoryThreshold": 30,
+    "compressThreshold": 50,
+    "criticalThreshold": 70
+  },
+  "validation": {
+    "mode": "strict",
+    "maxAttempts": 2,
+    "gates": ["lint", "typecheck", "test"],
+    "onFinalFail": "block"
+  },
+  "routing": {
+    "confirmThreshold": 90,
+    "codexMinSpecScore": 80,
+    "codexMinIsolationScore": 70,
+    "defaultTarget": "claude-code"
+  },
+  "recovery": {
+    "lowRiskStrategy": "checkpoint",
+    "highRiskThreshold": 70,
+    "highRiskStrategy": "worktree"
+  }
+}
