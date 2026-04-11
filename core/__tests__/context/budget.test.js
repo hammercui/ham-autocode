@@ -1,6 +1,6 @@
 // core/__tests__/context/budget.test.js
-const { ContextBudget } = require('../../context/budget');
-const { ContextManager } = require('../../context/manager');
+const { ContextBudget } = require('../../../dist/context/budget');
+const { ContextManager } = require('../../../dist/context/manager');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');

@@ -3,7 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const git = require('../../utils/git');
+const git = require('../../../dist/utils/git').default;
 
 const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ham-git-test-'));
 

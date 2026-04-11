@@ -22,8 +22,8 @@ Save the current pipeline state and stop execution gracefully.
 ### Step 1: Read Current State via Core Engine
 
 ```bash
-node core/index.js pipeline status
-node core/index.js dag status
+node dist/index.js pipeline status
+node dist/index.js dag status
 ```
 
 ### Step 2: Update State
@@ -50,7 +50,7 @@ active_agent_teams → list of teammate names (or empty)
 
 Also log via core engine:
 ```bash
-node core/index.js pipeline log "paused at Phase [X], step: [description]"
+node dist/index.js pipeline log "paused at Phase [X], step: [description]"
 ```
 
 See `schemas/pipeline.schema.json` for the complete schema.

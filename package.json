@@ -1,0 +1,37 @@
+{
+  "name": "ham-autocode",
+  "version": "2.1.0",
+  "description": "Claude Code Harness — AI Agent factory system with DAG scheduler, context engine, agent routing, validation gates & recovery",
+  "main": "dist/index.js",
+  "bin": {
+    "ham-autocode": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node dist/__tests__/run-all.js",
+    "test:quick": "tsc && node dist/__tests__/run-all.js",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "claude-code",
+    "harness",
+    "agent",
+    "autonomous-development",
+    "dag-scheduler",
+    "plugin"
+  ],
+  "author": "hammercui",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hammercui/ham-autocode.git"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

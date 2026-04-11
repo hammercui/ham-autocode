@@ -36,38 +36,38 @@ Every step MUST use the v2 core engine CLI for state management. This is non-neg
 ### Initialize State
 
 ```bash
-node core/index.js pipeline init "[project-name]"
+node dist/index.js pipeline init "[project-name]"
 ```
 
 ### Update State (BEFORE and AFTER every action)
 
 Before starting a step:
 ```bash
-node core/index.js pipeline log "started [description]"
+node dist/index.js pipeline log "started [description]"
 ```
 
 After completing a step:
 ```bash
-node core/index.js pipeline log "completed [description]"
+node dist/index.js pipeline log "completed [description]"
 ```
 
 ### Check DAG Progress
 ```bash
-node core/index.js dag status      # overall stats
-node core/index.js dag next-wave   # next executable wave
-node core/index.js context budget  # context budget status
+node dist/index.js dag status      # overall stats
+node dist/index.js dag next-wave   # next executable wave
+node dist/index.js context budget  # context budget status
 ```
 
 ### Route Tasks
 ```bash
-node core/index.js route batch       # route all pending tasks
-node core/index.js route <task-id>   # route single task
+node dist/index.js route batch       # route all pending tasks
+node dist/index.js route <task-id>   # route single task
 ```
 
 ### Validate Changes
 ```bash
-node core/index.js validate detect       # detect available gates
-node core/index.js validate <task-id>    # run gates for a task
+node dist/index.js validate detect       # detect available gates
+node dist/index.js validate <task-id>    # run gates for a task
 ```
 
 This ensures:

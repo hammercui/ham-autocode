@@ -1,31 +1,39 @@
-// core/context/budget.js
-'use strict';
-const path = require('path');
-const { loadConfig } = require('../state/config');
-const { atomicWriteJSON, readJSON } = require('../state/atomic');
+// core/context/budget.ts
+import path from 'path';
+import type { BudgetStatus, BudgetLevel, ContextConfig } from '../types.js';
+import { loadConfig } from '../state/config.js';
+import { atomicWriteJSON, readJSON } from '../state/atomic.js';
+
+interface BudgetState {
+  schemaVersion: number;
+  consumed: number;
+  updatedAt: string;
+}
 
 /**
  * Context budget tracker.
  * Tracks cumulative token estimates and provides threshold warnings.
  */
-class ContextBudget {
-  constructor(projectDir) {
-    this.projectDir = projectDir;
+export class ContextBudget {
+  private readonly config: ContextConfig;
+  private readonly statePath: string;
+  private consumed: number;
+
+  constructor(projectDir: string) {
     this.config = loadConfig(projectDir).context;
     this.statePath = path.join(projectDir, '.ham-autocode', 'context', 'budget.json');
     this.consumed = this.loadState();
-    this.capacity = 100; // percentage-based (0-100)
   }
 
   /** Add tokens to consumed count, return current usage percentage */
-  consume(tokens) {
+  consume(tokens: number): number {
     this.consumed += tokens;
     this.persist();
     return this.usagePercent();
   }
 
   /** Current usage as percentage (0-100) */
-  usagePercent() {
+  usagePercent(): number {
     // Map consumed tokens to approximate context window usage
     // 200k context window ~ 200000 tokens
     const CONTEXT_WINDOW = 200000;
@@ -33,7 +41,7 @@ class ContextBudget {
   }
 
   /** Get current threshold level: 'ok' | 'advisory' | 'compress' | 'critical' */
-  level() {
+  level(): BudgetLevel {
     const pct = this.usagePercent();
     if (pct >= this.config.criticalThreshold) return 'critical';
     if (pct >= this.config.compressThreshold) return 'compress';
@@ -42,7 +50,7 @@ class ContextBudget {
   }
 
   /** Get budget status summary */
-  status() {
+  status(): BudgetStatus {
     const level = this.level();
     return {
       consumed: this.consumed,
@@ -54,18 +62,18 @@ class ContextBudget {
   }
 
   /** Reset budget (e.g., after context compression or new session) */
-  reset() {
+  reset(): void {
     this.consumed = 0;
     this.persist();
   }
 
-  loadState() {
-    const { data, error } = readJSON(this.statePath);
+  private loadState(): number {
+    const { data, error } = readJSON(this.statePath) as { data: BudgetState | null; error: NodeJS.ErrnoException | null };
     if (error && error.code !== 'ENOENT') throw error;
     return data?.consumed || 0;
   }
 
-  persist() {
+  private persist(): void {
     atomicWriteJSON(this.statePath, {
       schemaVersion: 2,
       consumed: this.consumed,
@@ -73,5 +81,3 @@ class ContextBudget {
     });
   }
 }
-
-module.exports = { ContextBudget };

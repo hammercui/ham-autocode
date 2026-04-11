@@ -2,7 +2,7 @@
 # ham-autocode v2.0 SessionStart Hook
 # Uses core engine CLI to inject pipeline state as context.
 
-CORE_CLI="${CLAUDE_PROJECT_DIR:-.}/core/index.js"
+CORE_CLI="${CLAUDE_PROJECT_DIR:-.}/dist/index.js"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 
 # Check if core engine exists

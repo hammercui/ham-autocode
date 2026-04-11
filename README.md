@@ -175,71 +175,71 @@ Runs: validation gates --> code review --> QA testing --> auto-fix --> create PR
 The Core Engine is a pure Node.js CLI (zero npm dependencies) that skills call for state management, task scheduling, and routing decisions.
 
 ```bash
-node core/index.js <command> [subcommand] [options]
+node dist/index.js <command> [subcommand] [options]
 ```
 
 ### Pipeline State
 
 ```bash
-node core/index.js pipeline init "my-project"    # Initialize pipeline
-node core/index.js pipeline status                # Read current state
-node core/index.js pipeline log "started phase 4" # Append log entry
-node core/index.js pipeline pause                 # Set status to paused
-node core/index.js pipeline resume                # Set status to running
-node core/index.js pipeline mark-interrupted      # Mark as interrupted (used by hooks)
+node dist/index.js pipeline init "my-project"    # Initialize pipeline
+node dist/index.js pipeline status                # Read current state
+node dist/index.js pipeline log "started phase 4" # Append log entry
+node dist/index.js pipeline pause                 # Set status to paused
+node dist/index.js pipeline resume                # Set status to running
+node dist/index.js pipeline mark-interrupted      # Mark as interrupted (used by hooks)
 ```
 
 ### DAG Task Scheduling
 
 ```bash
-node core/index.js dag init PLAN.md M001 phase-1  # Parse plan into tasks
-node core/index.js dag status                      # Show completion stats
-node core/index.js dag next-wave                   # Get next executable tasks
-node core/index.js dag complete <task-id>           # Mark task done
-node core/index.js dag fail <task-id> <error-type>  # Mark task failed
-node core/index.js dag retry <task-id>              # Reset task to pending
-node core/index.js dag skip <task-id>               # Skip a task
+node dist/index.js dag init PLAN.md M001 phase-1  # Parse plan into tasks
+node dist/index.js dag status                      # Show completion stats
+node dist/index.js dag next-wave                   # Get next executable tasks
+node dist/index.js dag complete <task-id>           # Mark task done
+node dist/index.js dag fail <task-id> <error-type>  # Mark task failed
+node dist/index.js dag retry <task-id>              # Reset task to pending
+node dist/index.js dag skip <task-id>               # Skip a task
 ```
 
 ### Agent Routing
 
 ```bash
-node core/index.js route batch            # Route all pending tasks
-node core/index.js route <task-id>        # Route single task (returns scores + target)
-node core/index.js route confirm <task-id> # Confirm high-risk routing decision
+node dist/index.js route batch            # Route all pending tasks
+node dist/index.js route <task-id>        # Route single task (returns scores + target)
+node dist/index.js route confirm <task-id> # Confirm high-risk routing decision
 ```
 
 ### Context Budget
 
 ```bash
-node core/index.js context budget              # Show token usage level
-node core/index.js context prepare <task-id>   # Estimate tokens for a task
+node dist/index.js context budget              # Show token usage level
+node dist/index.js context prepare <task-id>   # Estimate tokens for a task
 ```
 
 ### Validation Gates
 
 ```bash
-node core/index.js validate detect        # Auto-detect available gates (lint, test, etc.)
-node core/index.js validate <task-id>     # Run gates for a task (two-strike policy)
+node dist/index.js validate detect        # Auto-detect available gates (lint, test, etc.)
+node dist/index.js validate <task-id>     # Run gates for a task (two-strike policy)
 ```
 
 ### Recovery
 
 ```bash
-node core/index.js recover checkpoint <task-id>      # Create git tag checkpoint
-node core/index.js recover rollback <task-id>         # Rollback to checkpoint
-node core/index.js recover worktree-create <task-id>  # Create isolated worktree
-node core/index.js recover worktree-merge <task-id>   # Merge worktree back
-node core/index.js recover worktree-remove <task-id>  # Remove worktree
+node dist/index.js recover checkpoint <task-id>      # Create git tag checkpoint
+node dist/index.js recover rollback <task-id>         # Rollback to checkpoint
+node dist/index.js recover worktree-create <task-id>  # Create isolated worktree
+node dist/index.js recover worktree-merge <task-id>   # Merge worktree back
+node dist/index.js recover worktree-remove <task-id>  # Remove worktree
 ```
 
 ### Config & Utilities
 
 ```bash
-node core/index.js config show            # Show effective config (defaults + overrides)
-node core/index.js config validate        # Validate config values
-node core/index.js token estimate <file>  # Estimate token count for a file
-node core/index.js token index [dir]      # Build file index with token estimates
+node dist/index.js config show            # Show effective config (defaults + overrides)
+node dist/index.js config validate        # Validate config values
+node dist/index.js token estimate <file>  # Estimate token count for a file
+node dist/index.js token index [dir]      # Build file index with token estimates
 ```
 
 ---

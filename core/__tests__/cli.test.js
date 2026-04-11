@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { dispatch, usage } = require('../index');
+const { dispatch, usage } = require('../../dist/index');
 
 const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ham-cli-test-'));
 

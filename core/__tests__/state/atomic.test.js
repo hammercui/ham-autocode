@@ -1,5 +1,5 @@
 // core/__tests__/state/atomic.test.js
-const { atomicWriteJSON, readJSON } = require('../../state/atomic');
+const { atomicWriteJSON, readJSON } = require('../../../dist/state/atomic');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');

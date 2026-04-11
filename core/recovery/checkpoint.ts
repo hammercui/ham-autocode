@@ -1,9 +1,3 @@
-// core/recovery/checkpoint.js
-'use strict';
-const git = require('../utils/git');
-
-const TAG_PREFIX = 'ham-checkpoint/';
-
 /**
  * Git tag-based checkpoint: create, rollback, cleanup.
  * Uses lightweight tags with a prefix to namespace checkpoints.
@@ -11,8 +5,30 @@ const TAG_PREFIX = 'ham-checkpoint/';
  * interpolation of task-controlled values.
  */
 
+import git from '../utils/git.js';
+import type { TaskState, RecoveryConfig, RecoveryStrategy } from '../types.js';
+
+export const TAG_PREFIX = 'ham-checkpoint/';
+
+interface CheckpointCreateResult {
+  ok: boolean;
+  ref: string | null;
+  error: string | null;
+}
+
+interface CheckpointRollbackResult {
+  ok: boolean;
+  error: string | null;
+}
+
+interface CheckpointCleanupEntry {
+  tag: string;
+  ok: boolean;
+  output: string;
+}
+
 /** Create a checkpoint tag before risky operations */
-function createCheckpoint(taskId, cwd) {
+export function createCheckpoint(taskId: string, cwd: string): CheckpointCreateResult {
   const name = `${TAG_PREFIX}${taskId}-${Date.now()}`;
   const result = git.tag(name, cwd);
   if (!result.ok) {
@@ -22,7 +38,7 @@ function createCheckpoint(taskId, cwd) {
 }
 
 /** Rollback to a checkpoint by restoring task-specific files from the tag */
-function rollbackToCheckpoint(ref, cwd, files) {
+export function rollbackToCheckpoint(ref: string, cwd: string, files?: string[]): CheckpointRollbackResult {
   const verify = git.log(1, cwd);
   if (!verify.ok) return { ok: false, error: 'Not a git repository' };
 
@@ -38,7 +54,7 @@ function rollbackToCheckpoint(ref, cwd, files) {
 }
 
 /** List all checkpoint tags */
-function listCheckpoints(cwd) {
+export function listCheckpoints(cwd: string): string[] {
   const result = git.listTags(`${TAG_PREFIX}*`, cwd);
   if (!result.ok) {
     return [];
@@ -47,10 +63,10 @@ function listCheckpoints(cwd) {
 }
 
 /** Clean up checkpoint tags for a specific task */
-function cleanupCheckpoints(taskId, cwd) {
+export function cleanupCheckpoints(taskId: string, cwd: string): CheckpointCleanupEntry[] {
   const prefix = `${TAG_PREFIX}${taskId}-`;
   const tags = listCheckpoints(cwd).filter(t => t.startsWith(prefix));
-  const results = [];
+  const results: CheckpointCleanupEntry[] = [];
   for (const tag of tags) {
     results.push({ tag, ...git.deleteTag(tag, cwd) });
   }
@@ -58,13 +74,20 @@ function cleanupCheckpoints(taskId, cwd) {
 }
 
 /** Clean up ALL checkpoint tags */
-function cleanupAllCheckpoints(cwd) {
+export function cleanupAllCheckpoints(cwd: string): CheckpointCleanupEntry[] {
   const tags = listCheckpoints(cwd);
-  const results = [];
+  const results: CheckpointCleanupEntry[] = [];
   for (const tag of tags) {
     results.push({ tag, ...git.deleteTag(tag, cwd) });
   }
   return results;
 }
 
-module.exports = { createCheckpoint, rollbackToCheckpoint, listCheckpoints, cleanupCheckpoints, cleanupAllCheckpoints, TAG_PREFIX };
+/**
+ * Gap A7: Auto-select recovery strategy based on task complexity.
+ * High-risk tasks (complexityScore >= threshold) use worktree isolation;
+ * low-risk tasks use lightweight checkpoint tags.
+ */
+export function autoSelectStrategy(task: TaskState, config: RecoveryConfig): RecoveryStrategy {
+  return task.scores.complexityScore >= config.highRiskThreshold ? 'worktree' : 'checkpoint';
+}

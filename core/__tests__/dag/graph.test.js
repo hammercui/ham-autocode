@@ -1,6 +1,6 @@
 // core/__tests__/dag/graph.test.js
-const { topoSort } = require('../../dag/graph');
-const { nextWave, dagStats } = require('../../dag/scheduler');
+const { topoSort } = require('../../../dist/dag/graph');
+const { nextWave, dagStats } = require('../../../dist/dag/scheduler');
 const assert = require('assert');
 
 // topoSort test

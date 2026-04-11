@@ -1,21 +1,46 @@
-// core/recovery/worktree.js
-'use strict';
-const path = require('path');
-const git = require('../utils/git');
-
-const WORKTREE_PREFIX = 'ham-wt-';
-
-function getWorktreePath(taskId, cwd) {
-  return path.join(cwd, '.ham-autocode', 'worktrees', taskId);
-}
-
 /**
  * Git worktree lifecycle: create, merge, remove.
  * Used for high-risk tasks that need isolation.
  */
 
+import path from 'path';
+import git from '../utils/git.js';
+
+export const WORKTREE_PREFIX = 'ham-wt-';
+
+interface WorktreeCreateResult {
+  ok: boolean;
+  path: string | null;
+  branch: string | null;
+  error: string | null;
+}
+
+interface WorktreeMergeResult {
+  ok: boolean;
+  error: string | null;
+  conflicts: boolean;
+}
+
+interface WorktreeRemoveResult {
+  ok: boolean;
+  worktreeRemoved: boolean;
+  branchDeleted: boolean;
+  error: string | null;
+}
+
+interface WorktreeStatusResult {
+  exists: boolean;
+  path: string;
+  branch: string;
+  dirty: boolean;
+}
+
+function getWorktreePath(taskId: string, cwd: string): string {
+  return path.join(cwd, '.ham-autocode', 'worktrees', taskId);
+}
+
 /** Create an isolated worktree for a task */
-function createWorktree(taskId, cwd) {
+export function createWorktree(taskId: string, cwd: string): WorktreeCreateResult {
   const branch = `${WORKTREE_PREFIX}${taskId}`;
   const worktreePath = getWorktreePath(taskId, cwd);
 
@@ -27,7 +52,7 @@ function createWorktree(taskId, cwd) {
 }
 
 /** Merge worktree branch back into current branch */
-function mergeWorktree(taskId, cwd) {
+export function mergeWorktree(taskId: string, cwd: string): WorktreeMergeResult {
   const branch = `${WORKTREE_PREFIX}${taskId}`;
   const result = git.merge(branch, cwd);
   if (!result.ok) {
@@ -37,13 +62,13 @@ function mergeWorktree(taskId, cwd) {
 }
 
 /** Remove a worktree and its branch */
-function removeWorktree(taskId, cwd) {
+export function removeWorktree(taskId: string, cwd: string): WorktreeRemoveResult {
   const branch = `${WORKTREE_PREFIX}${taskId}`;
   const worktreePath = getWorktreePath(taskId, cwd);
 
   const removeResult = git.worktreeRemove(worktreePath, cwd);
   const branchResult = git.branchDelete(branch, cwd);
-  const errors = [];
+  const errors: string[] = [];
   if (!removeResult.ok) errors.push(removeResult.output);
   if (!branchResult.ok) errors.push(branchResult.output);
 
@@ -56,7 +81,7 @@ function removeWorktree(taskId, cwd) {
 }
 
 /** Get status of a worktree */
-function worktreeStatus(taskId, cwd) {
+export function worktreeStatus(taskId: string, cwd: string): WorktreeStatusResult {
   const worktreePath = getWorktreePath(taskId, cwd);
   const statusResult = git.status(worktreePath);
   return {
@@ -66,5 +91,3 @@ function worktreeStatus(taskId, cwd) {
     dirty: statusResult.ok && statusResult.output.length > 0,
   };
 }
-
-module.exports = { createWorktree, mergeWorktree, removeWorktree, worktreeStatus, WORKTREE_PREFIX };

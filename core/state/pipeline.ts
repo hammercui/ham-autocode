@@ -1,33 +1,33 @@
-// core/state/pipeline.js
-'use strict';
-const path = require('path');
-const { atomicWriteJSON, readJSON } = require('./atomic');
-const { withLock } = require('./lock');
-const { migrate } = require('./migrate');
+// core/state/pipeline.ts
+import path from 'path';
+import { atomicWriteJSON, readJSON } from './atomic.js';
+import { withLock } from './lock.js';
+import { migrate } from './migrate.js';
+import type { PipelineState, PipelineStatus } from '../types.js';
 
-function pipelinePath(projectDir) {
+function pipelinePath(projectDir: string): string {
   return path.join(projectDir, '.ham-autocode', 'pipeline.json');
 }
 
-function stateDir(projectDir) {
+function stateDir(projectDir: string): string {
   return path.join(projectDir, '.ham-autocode');
 }
 
-function readPipeline(projectDir) {
-  const { data, error } = readJSON(pipelinePath(projectDir));
+export function readPipeline(projectDir: string): PipelineState | null {
+  const { data, error } = readJSON<PipelineState>(pipelinePath(projectDir));
   if (error && error.code !== 'ENOENT') throw error;
   return data ? migrate(data) : null;
 }
 
-function writePipeline(projectDir, data) {
+export function writePipeline(projectDir: string, data: PipelineState): void {
   data.updated_at = new Date().toISOString();
   withLock(stateDir(projectDir), () => {
     atomicWriteJSON(pipelinePath(projectDir), data);
   });
 }
 
-function initPipeline(projectDir, projectName) {
-  const data = {
+export function initPipeline(projectDir: string, projectName: string): PipelineState {
+  const data: PipelineState = {
     schemaVersion: 2,
     project: projectName,
     status: 'running',
@@ -40,7 +40,7 @@ function initPipeline(projectDir, projectName) {
   return data;
 }
 
-function appendLog(projectDir, action) {
+export function appendLog(projectDir: string, action: string): PipelineState | null {
   return withLock(stateDir(projectDir), () => {
     const pipeline = readPipeline(projectDir);
     if (!pipeline) return null;
@@ -50,7 +50,11 @@ function appendLog(projectDir, action) {
   });
 }
 
-function setPipelineStatus(projectDir, status, extra = {}) {
+export function setPipelineStatus(
+  projectDir: string,
+  status: PipelineStatus,
+  extra: Partial<PipelineState> = {},
+): PipelineState {
   return withLock(stateDir(projectDir), () => {
     const pipeline = readPipeline(projectDir);
     if (!pipeline) throw new Error('No pipeline found');
@@ -60,5 +64,3 @@ function setPipelineStatus(projectDir, status, extra = {}) {
     return pipeline;
   });
 }
-
-module.exports = { readPipeline, writePipeline, initPipeline, appendLog, setPipelineStatus };

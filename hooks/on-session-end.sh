@@ -2,7 +2,7 @@
 # ham-autocode v2.0 SessionEnd Hook
 # Uses core engine CLI to mark pipeline as interrupted.
 
-CORE_CLI="${CLAUDE_PROJECT_DIR:-.}/core/index.js"
+CORE_CLI="${CLAUDE_PROJECT_DIR:-.}/dist/index.js"
 
 # Check if core engine exists
 if [ ! -f "$CORE_CLI" ]; then

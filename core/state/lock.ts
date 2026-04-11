@@ -1,12 +1,11 @@
-// core/state/lock.js
-'use strict';
-const fs = require('fs');
-const path = require('path');
+// core/state/lock.ts
+import fs from 'fs';
+import path from 'path';
 
 const LOCK_DIR = '.lock';
 const LOCK_TIMEOUT = 5000; // ms
 
-function acquireLock(stateDir) {
+export function acquireLock(stateDir: string): boolean {
   // Ensure stateDir exists before attempting lock
   if (!fs.existsSync(stateDir)) {
     fs.mkdirSync(stateDir, { recursive: true });
@@ -18,7 +17,7 @@ function acquireLock(stateDir) {
       fs.mkdirSync(lockPath, { recursive: false });
       return true;
     } catch (e) {
-      if (e.code === 'EEXIST') {
+      if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
         // Check if stale (> 30s old)
         try {
           const stat = fs.statSync(lockPath);
@@ -40,14 +39,12 @@ function acquireLock(stateDir) {
   return false;
 }
 
-function releaseLock(stateDir) {
+export function releaseLock(stateDir: string): void {
   const lockPath = path.join(stateDir, LOCK_DIR);
   try { fs.rmdirSync(lockPath); } catch { /* already released */ }
 }
 
-function withLock(stateDir, fn) {
+export function withLock<T>(stateDir: string, fn: () => T): T {
   if (!acquireLock(stateDir)) throw new Error('Failed to acquire state lock');
   try { return fn(); } finally { releaseLock(stateDir); }
 }
-
-module.exports = { acquireLock, releaseLock, withLock };

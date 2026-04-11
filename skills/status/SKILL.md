@@ -24,16 +24,16 @@ Read and display the current ham-autocode pipeline state.
 
 ```bash
 # Get pipeline status
-node core/index.js pipeline status
+node dist/index.js pipeline status
 
 # Get DAG statistics
-node core/index.js dag status
+node dist/index.js dag status
 
 # Get context budget
-node core/index.js context budget
+node dist/index.js context budget
 
 # Get next wave of executable tasks
-node core/index.js dag next-wave
+node dist/index.js dag next-wave
 ```
 
 If pipeline not found, report:

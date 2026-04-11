@@ -1,17 +1,17 @@
-// core/state/task-graph.js
-'use strict';
-const fs = require('fs');
-const path = require('path');
-const { atomicWriteJSON, readJSON } = require('./atomic');
-const { withLock } = require('./lock');
+// core/state/task-graph.ts
+import fs from 'fs';
+import path from 'path';
+import { atomicWriteJSON, readJSON } from './atomic.js';
+import { withLock } from './lock.js';
+import type { TaskState, TaskStatus } from '../types.js';
 
 const TASK_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
-function tasksDir(projectDir) {
+export function tasksDir(projectDir: string): string {
   return path.join(projectDir, '.ham-autocode', 'tasks');
 }
 
-function taskPath(projectDir, taskId) {
+function taskPath(projectDir: string, taskId: string): string {
   const validTaskId = validateTaskId(taskId);
   const dir = tasksDir(projectDir);
   const filePath = path.resolve(dir, validTaskId + '.json');
@@ -22,20 +22,20 @@ function taskPath(projectDir, taskId) {
   return filePath;
 }
 
-function validateTaskId(taskId) {
+function validateTaskId(taskId: string): string {
   if (typeof taskId !== 'string' || !TASK_ID_PATTERN.test(taskId)) {
     throw new Error(`Invalid taskId: ${taskId}`);
   }
   return taskId;
 }
 
-function readTask(projectDir, taskId) {
-  const { data, error } = readJSON(taskPath(projectDir, taskId));
+export function readTask(projectDir: string, taskId: string): TaskState | null {
+  const { data, error } = readJSON<TaskState>(taskPath(projectDir, taskId));
   if (error && error.code !== 'ENOENT') throw error;
   return data;
 }
 
-function writeTask(projectDir, task) {
+export function writeTask(projectDir: string, task: TaskState): void {
   validateTaskId(task.id);
   const dir = tasksDir(projectDir);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -45,20 +45,25 @@ function writeTask(projectDir, task) {
   });
 }
 
-function readAllTasks(projectDir) {
+export function readAllTasks(projectDir: string): TaskState[] {
   const dir = tasksDir(projectDir);
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
     .filter(f => f.endsWith('.json'))
     .map(f => {
-      const { data, error } = readJSON(path.join(dir, f));
+      const { data, error } = readJSON<TaskState>(path.join(dir, f));
       if (error) throw error;
       return data;
     })
-    .filter(Boolean);
+    .filter((d): d is TaskState => d !== null);
 }
 
-function updateTaskStatus(projectDir, taskId, status, extra = {}) {
+export function updateTaskStatus(
+  projectDir: string,
+  taskId: string,
+  status: TaskStatus,
+  extra: Partial<TaskState> = {},
+): TaskState {
   const dir = path.join(projectDir, '.ham-autocode');
   return withLock(dir, () => {
     const task = readTask(projectDir, taskId);
@@ -69,5 +74,3 @@ function updateTaskStatus(projectDir, taskId, status, extra = {}) {
     return task;
   });
 }
-
-module.exports = { readTask, writeTask, readAllTasks, updateTaskStatus, tasksDir };

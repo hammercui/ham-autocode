@@ -1,18 +1,23 @@
-// core/executor/claude-app.js
-'use strict';
-const { BaseAdapter } = require('./adapter');
-
 /**
- * Claude App adapter — project manager for lightweight tasks.
+ * Claude App adapter -- project manager for lightweight tasks.
  * Handles: config changes, docs, hotfixes, status conversations.
  * Instruction format: concise prompt suitable for conversational UI.
  */
-class ClaudeAppAdapter extends BaseAdapter {
+
+import { BaseAdapter } from './adapter.js';
+import type { ExecutionContext, RawResult, ParsedResult } from './adapter.js';
+import type { TaskState } from '../types.js';
+
+interface ClaudeAppResult extends ParsedResult {
+  conversationId: string | null;
+}
+
+export class ClaudeAppAdapter extends BaseAdapter {
   constructor() {
     super('claude-app');
   }
 
-  generateInstruction(task, context) {
+  generateInstruction(task: TaskState, _context?: ExecutionContext): string {
     const fileList = (task.files || []).map(f => `\`${f}\``).join(', ');
 
     return [
@@ -26,13 +31,11 @@ class ClaudeAppAdapter extends BaseAdapter {
     ].filter(Boolean).join('\n');
   }
 
-  parseResult(rawResult) {
+  parseResult(rawResult?: RawResult | null): ClaudeAppResult {
     const base = super.parseResult(rawResult);
     return {
       ...base,
-      conversationId: rawResult?.conversationId || null,
+      conversationId: rawResult?.conversationId as string | null ?? null,
     };
   }
 }
-
-module.exports = { ClaudeAppAdapter };

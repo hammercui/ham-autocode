@@ -1,5 +1,5 @@
 // core/__tests__/utils/token.test.js
-const { estimateTokens } = require('../../utils/token');
+const { estimateTokens } = require('../../../dist/utils/token');
 const assert = require('assert');
 
 assert.strictEqual(estimateTokens(''), 0);

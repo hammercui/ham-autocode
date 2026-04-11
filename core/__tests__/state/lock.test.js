@@ -1,5 +1,5 @@
 // core/__tests__/state/lock.test.js
-const { acquireLock, releaseLock, withLock } = require('../../state/lock');
+const { acquireLock, releaseLock, withLock } = require('../../../dist/state/lock');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');

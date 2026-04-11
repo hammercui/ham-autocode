@@ -1,18 +1,24 @@
-// core/executor/claude-code.js
-'use strict';
-const { BaseAdapter } = require('./adapter');
-
 /**
- * Claude Code adapter — lead engineer.
+ * Claude Code adapter -- lead engineer.
  * Handles complex tasks: architecture, multi-file coordination, TDD.
  * Instruction format: full prompt with context, spec, and acceptance criteria.
  */
-class ClaudeCodeAdapter extends BaseAdapter {
+
+import { BaseAdapter } from './adapter.js';
+import type { ExecutionContext, RawResult, ParsedResult } from './adapter.js';
+import type { TaskState } from '../types.js';
+
+interface ClaudeCodeResult extends ParsedResult {
+  sessionId: string | null;
+  commitHash: string | null;
+}
+
+export class ClaudeCodeAdapter extends BaseAdapter {
   constructor() {
     super('claude-code');
   }
 
-  generateInstruction(task, context) {
+  generateInstruction(task: TaskState, context?: ExecutionContext): string {
     const fileList = (task.files || []).map(f => `- \`${f}\``).join('\n');
     const contextFiles = (context?.files || [])
       .map(f => `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\``)
@@ -39,15 +45,13 @@ class ClaudeCodeAdapter extends BaseAdapter {
     ].filter(Boolean).join('\n');
   }
 
-  parseResult(rawResult) {
+  parseResult(rawResult?: RawResult | null): ClaudeCodeResult {
     const base = super.parseResult(rawResult);
     // Claude Code returns structured output
     return {
       ...base,
-      sessionId: rawResult?.sessionId || null,
-      commitHash: rawResult?.commitHash || null,
+      sessionId: rawResult?.sessionId as string | null ?? null,
+      commitHash: rawResult?.commitHash as string | null ?? null,
     };
   }
 }
-
-module.exports = { ClaudeCodeAdapter };

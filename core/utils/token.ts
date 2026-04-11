@@ -1,16 +1,16 @@
-// core/utils/token.js
-'use strict';
-const fs = require('fs');
-const path = require('path');
+// core/utils/token.ts
+import fs from 'fs';
+import path from 'path';
+import type { FileIndex } from '../types.js';
 
 /** Estimate token count from text (chars / 4, ~20-30% error margin) */
-function estimateTokens(text) {
+export function estimateTokens(text: string): number {
   if (!text) return 0;
   return Math.ceil(text.length / 4);
 }
 
 /** Estimate tokens for a file by path */
-function estimateFileTokens(filePath) {
+export function estimateFileTokens(filePath: string): number {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     return estimateTokens(content);
@@ -20,10 +20,13 @@ function estimateFileTokens(filePath) {
 }
 
 /** Build file index with token estimates for a directory */
-function buildFileIndex(rootDir, extensions = ['.js', '.ts', '.py', '.md', '.json']) {
-  const index = {};
-  function walk(dir) {
-    let entries;
+export function buildFileIndex(
+  rootDir: string,
+  extensions: string[] = ['.js', '.ts', '.py', '.md', '.json'],
+): FileIndex {
+  const index: FileIndex = {};
+  function walk(dir: string): void {
+    let entries: fs.Dirent[];
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
@@ -39,5 +42,3 @@ function buildFileIndex(rootDir, extensions = ['.js', '.ts', '.py', '.md', '.jso
   walk(rootDir);
   return index;
 }
-
-module.exports = { estimateTokens, estimateFileTokens, buildFileIndex };

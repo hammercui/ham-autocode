@@ -1,6 +1,6 @@
 // core/__tests__/routing/scorer.test.js
-const { scoreSpec, scoreComplexity, scoreIsolation, scoreTask } = require('../../routing/scorer');
-const { routeTask } = require('../../routing/router');
+const { scoreSpec, scoreComplexity, scoreIsolation, scoreTask } = require('../../../dist/routing/scorer');
+const { routeTask } = require('../../../dist/routing/router');
 const assert = require('assert');
 
 // scoreSpec tests

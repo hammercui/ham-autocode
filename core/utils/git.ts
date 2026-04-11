@@ -1,10 +1,11 @@
-'use strict';
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFileSync } = require('child_process');
+// core/utils/git.ts
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { execFileSync } from 'child_process';
+import type { GitResult } from '../types.js';
 
-function validateGitArg(value, label) {
+function validateGitArg(value: string, label: string): string {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new Error(`Invalid ${label}`);
   }
@@ -14,7 +15,7 @@ function validateGitArg(value, label) {
   return value;
 }
 
-function validateGitPath(targetPath, cwd) {
+function validateGitPath(targetPath: string, cwd: string): string {
   const normalized = path.resolve(cwd, validateGitArg(targetPath, 'path'));
   const root = path.resolve(cwd);
   if (normalized !== root && !normalized.startsWith(root + path.sep)) {
@@ -23,14 +24,14 @@ function validateGitPath(targetPath, cwd) {
   return targetPath;
 }
 
-function validateGitPaths(files, cwd) {
+function validateGitPaths(files: string[], cwd: string): string[] {
   if (!Array.isArray(files) || files.length === 0) {
     throw new Error('Invalid files list');
   }
   return files.map(file => validateGitPath(file, cwd));
 }
 
-function run(args, cwd) {
+function run(args: string[], cwd: string): GitResult {
   const tmpBase = path.join(os.tmpdir(), `ham-git-${process.pid}-${Date.now()}`);
   const stdoutPath = `${tmpBase}.out`;
   const stderrPath = `${tmpBase}.err`;
@@ -47,7 +48,7 @@ function run(args, cwd) {
   } catch (e) {
     const stderr = fs.existsSync(stderrPath) ? fs.readFileSync(stderrPath, 'utf8') : '';
     const stdout = fs.existsSync(stdoutPath) ? fs.readFileSync(stdoutPath, 'utf8') : '';
-    return { ok: false, output: (stderr || stdout || e.message || '').toString().trim() };
+    return { ok: false, output: (stderr || stdout || (e as Error).message || '').toString().trim() };
   } finally {
     fs.closeSync(stdoutFd);
     fs.closeSync(stderrFd);
@@ -57,44 +58,44 @@ function run(args, cwd) {
 }
 
 const git = {
-  tag(name, cwd) {
+  tag(name: string, cwd: string): GitResult {
     return run(['tag', validateGitArg(name, 'tag name')], cwd);
   },
-  deleteTag(name, cwd) {
+  deleteTag(name: string, cwd: string): GitResult {
     return run(['tag', '-d', validateGitArg(name, 'tag name')], cwd);
   },
-  checkoutFiles(ref, files, cwd) {
+  checkoutFiles(ref: string, files: string[], cwd: string): GitResult {
     return run(['checkout', validateGitArg(ref, 'ref'), '--', ...validateGitPaths(files, cwd)], cwd);
   },
-  checkoutAll(ref, cwd) {
+  checkoutAll(ref: string, cwd: string): GitResult {
     return run(['checkout', validateGitArg(ref, 'ref'), '--', '.'], cwd);
   },
-  worktreeAdd(path_, branch, cwd) {
+  worktreeAdd(path_: string, branch: string, cwd: string): GitResult {
     validateGitPath(path_, cwd);
     return run(['worktree', 'add', path_, '-b', validateGitArg(branch, 'branch name')], cwd);
   },
-  worktreeRemove(path_, cwd) {
+  worktreeRemove(path_: string, cwd: string): GitResult {
     validateGitPath(path_, cwd);
     return run(['worktree', 'remove', path_, '--force'], cwd);
   },
-  branchDelete(name, cwd) {
+  branchDelete(name: string, cwd: string): GitResult {
     return run(['branch', '-D', validateGitArg(name, 'branch name')], cwd);
   },
-  merge(branch, cwd) {
+  merge(branch: string, cwd: string): GitResult {
     return run(['merge', validateGitArg(branch, 'branch name')], cwd);
   },
-  status(cwd) {
+  status(cwd: string): GitResult {
     return run(['status', '--porcelain'], cwd);
   },
-  log(n, cwd) {
+  log(n: number, cwd: string): GitResult {
     return run(['log', '--oneline', `-${Number(n) || 1}`], cwd);
   },
-  diff(cwd) {
+  diff(cwd: string): GitResult {
     return run(['diff', '--stat'], cwd);
   },
-  listTags(pattern, cwd) {
+  listTags(pattern: string, cwd: string): GitResult {
     return run(['tag', '-l', validateGitArg(pattern, 'tag pattern')], cwd);
   },
 };
 
-module.exports = git;
+export default git;

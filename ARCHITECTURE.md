@@ -104,7 +104,7 @@ v2.0 通过 Core Engine 的 Agent Router 自动路由，基于三维评分：
 高风险确认:
   complexityScore >= 90 → needsConfirmation=true
   Skill 询问用户确认后再执行
-  CLI: node core/index.js route confirm <task-id>
+  CLI: node dist/index.js route confirm <task-id>
 ```
 
 > **Codex 任务分配原则：** Codex 能力不弱，不是"只能做简单活"。
@@ -176,7 +176,7 @@ Skill (SKILL.md)
 ```
 任务执行完成
   ↓
-node core/index.js validate <task-id>
+node dist/index.js validate <task-id>
   ↓
 自动检测门控: lint → typecheck → test
   ↓
@@ -218,9 +218,9 @@ Core Engine 只**建议**行动，不强制执行。
 Hooks 是**回调进 Core**，不是 Core 驱动 Hooks：
 
 ```
-Claude Code runtime → SessionStart  → calls node core/index.js session-start
-Claude Code runtime → SessionEnd    → calls node core/index.js session-end
-Claude Code runtime → PostToolUse   → calls node core/index.js post-tool-use
+Claude Code runtime → SessionStart  → calls node dist/index.js session-start
+Claude Code runtime → SessionEnd    → calls node dist/index.js session-end
+Claude Code runtime → PostToolUse   → calls node dist/index.js post-tool-use
 ```
 
 Core Engine 是被动的 — 响应 Hook 和 CLI 调用，永不主动发起。
@@ -231,57 +231,57 @@ Core Engine 是被动的 — 响应 Hook 和 CLI 调用，永不主动发起。
 
 ```bash
 # ===== Hooks（由 Claude Code 运行时调用）=====
-node core/index.js session-start          # 注入 pipeline 状态为上下文
-node core/index.js session-end            # 若正在运行则标记 interrupted
-node core/index.js post-tool-use          # Token 预算建议
+node dist/index.js session-start          # 注入 pipeline 状态为上下文
+node dist/index.js session-end            # 若正在运行则标记 interrupted
+node dist/index.js post-tool-use          # Token 预算建议
 
 # ===== Config =====
-node core/index.js config show            # 显示生效配置
-node core/index.js config validate        # 校验 harness.json
+node dist/index.js config show            # 显示生效配置
+node dist/index.js config validate        # 校验 harness.json
 
 # ===== Pipeline =====
-node core/index.js pipeline init <name>   # 初始化 pipeline
-node core/index.js pipeline status        # 显示 pipeline 状态
-node core/index.js pipeline log <action>  # 追加操作日志
-node core/index.js pipeline pause         # 标记暂停
-node core/index.js pipeline resume        # 标记运行
+node dist/index.js pipeline init <name>   # 初始化 pipeline
+node dist/index.js pipeline status        # 显示 pipeline 状态
+node dist/index.js pipeline log <action>  # 追加操作日志
+node dist/index.js pipeline pause         # 标记暂停
+node dist/index.js pipeline resume        # 标记运行
 
 # ===== DAG =====
-node core/index.js dag init [plan] [milestone] [phase]  # 解析 PLAN.md/WBS → 构建任务图
-node core/index.js dag next-wave          # 获取下一波可执行任务
-node core/index.js dag complete <id>      # 标记完成，解锁下游
-node core/index.js dag fail <id> <type>   # 标记失败（含错误类型）
-node core/index.js dag retry <id>         # 重置失败任务为 pending
-node core/index.js dag skip <id>          # 标记跳过，解锁下游
-node core/index.js dag unblock <id>       # 强制解锁
-node core/index.js dag status             # 显示完整 DAG 状态
+node dist/index.js dag init [plan] [milestone] [phase]  # 解析 PLAN.md/WBS → 构建任务图
+node dist/index.js dag next-wave          # 获取下一波可执行任务
+node dist/index.js dag complete <id>      # 标记完成，解锁下游
+node dist/index.js dag fail <id> <type>   # 标记失败（含错误类型）
+node dist/index.js dag retry <id>         # 重置失败任务为 pending
+node dist/index.js dag skip <id>          # 标记跳过，解锁下游
+node dist/index.js dag unblock <id>       # 强制解锁
+node dist/index.js dag status             # 显示完整 DAG 状态
 
 # ===== Context =====
-node core/index.js context prepare <id>   # 获取文件 + 预算
-node core/index.js context budget         # 显示当前预算估算
+node dist/index.js context prepare <id>   # 获取文件 + 预算
+node dist/index.js context budget         # 显示当前预算估算
 
 # ===== Routing =====
-node core/index.js route <id>             # 获取单任务路由决策
-node core/index.js route batch            # 批量路由所有 pending 任务
-node core/index.js route confirm <id>     # 人工确认高风险路由
+node dist/index.js route <id>             # 获取单任务路由决策
+node dist/index.js route batch            # 批量路由所有 pending 任务
+node dist/index.js route confirm <id>     # 人工确认高风险路由
 
 # ===== Validation =====
-node core/index.js validate detect        # 自动检测项目 lint/test 命令
-node core/index.js validate <id>          # 运行验证门控
+node dist/index.js validate detect        # 自动检测项目 lint/test 命令
+node dist/index.js validate <id>          # 运行验证门控
 
 # ===== Recovery =====
-node core/index.js recover checkpoint <id>       # 创建 checkpoint
-node core/index.js recover rollback <id>         # 回滚任务变更
-node core/index.js recover worktree-create <id>  # 创建 worktree
-node core/index.js recover worktree-merge <id>   # 合并成功的 worktree
-node core/index.js recover worktree-remove <id>  # 移除失败的 worktree
+node dist/index.js recover checkpoint <id>       # 创建 checkpoint
+node dist/index.js recover rollback <id>         # 回滚任务变更
+node dist/index.js recover worktree-create <id>  # 创建 worktree
+node dist/index.js recover worktree-merge <id>   # 合并成功的 worktree
+node dist/index.js recover worktree-remove <id>  # 移除失败的 worktree
 
 # ===== Token =====
-node core/index.js token estimate <file>  # 估算单文件 token 数
-node core/index.js token index [dir]      # 构建目录文件索引
+node dist/index.js token estimate <file>  # 估算单文件 token 数
+node dist/index.js token index [dir]      # 构建目录文件索引
 
 # ===== Help =====
-node core/index.js help                   # 显示帮助
+node dist/index.js help                   # 显示帮助
 ```
 
 ---
@@ -323,7 +323,7 @@ node core/index.js help                   # 显示帮助
 |------|------------|------|
 | 2.1 | `/gsd:new-project` | 深度上下文收集，生成 PROJECT.md |
 | 2.2 | `/gsd:new-milestone` | 创建里程碑 |
-| 2.3 | `node core/index.js pipeline init` | 初始化 pipeline 状态 |
+| 2.3 | `node dist/index.js pipeline init` | 初始化 pipeline 状态 |
 
 **输出物：** PROJECT.md, ROADMAP.md, .planning/, .ham-autocode/pipeline.json
 
@@ -333,8 +333,8 @@ node core/index.js help                   # 显示帮助
 |------|------------|------|
 | 3.1 | `/gsd:discuss-phase --auto` | 收集阶段上下文 |
 | 3.2 | `/gsd:plan-phase` | 创建 PLAN.md |
-| 3.3 | `node core/index.js dag init` | 解析 PLAN.md → 构建任务 DAG |
-| 3.4 | `node core/index.js route batch` | 批量路由所有任务 |
+| 3.3 | `node dist/index.js dag init` | 解析 PLAN.md → 构建任务 DAG |
+| 3.4 | `node dist/index.js route batch` | 批量路由所有任务 |
 | 3.5 | `/plan-eng-review` | 工程视角锁定架构 |
 
 **输出物：** PLAN.md, .ham-autocode/tasks/*.json (含路由决策)
@@ -346,29 +346,29 @@ node core/index.js help                   # 显示帮助
 ```
 1. Skill 读取 harness.json（或使用默认值）
 
-2. node core/index.js dag init
+2. node dist/index.js dag init
    → 解析 PLAN.md/WBS → 创建 .ham-autocode/tasks/*.json
 
-3. node core/index.js route batch
+3. node dist/index.js route batch
    → 评分所有任务，分配路由目标
    → 返回需人工确认的高风险任务
 
-4. node core/index.js dag next-wave
+4. node dist/index.js dag next-wave
    → 返回可执行的下一波任务
 
 5. 对波次中每个任务:
-   a. node core/index.js context prepare <task-id>  → 文件 + 预算
-   b. node core/index.js recover checkpoint <id>    → 创建恢复点
+   a. node dist/index.js context prepare <task-id>  → 文件 + 预算
+   b. node dist/index.js recover checkpoint <id>    → 创建恢复点
    c. 按 routing.target 委派:
       - claude-code → subagent 执行
       - codex → 输出任务规格
       - claude-app → 输出轻量描述
    d. 执行完成后:
-      - 成功 → node core/index.js validate <id>
-        - 通过 → node core/index.js dag complete <id>
+      - 成功 → node dist/index.js validate <id>
+        - 通过 → node dist/index.js dag complete <id>
         - 失败且可重试 → 重试
-        - 失败且耗尽次数 → node core/index.js dag fail <id> validation_fail
-      - Agent 错误 → node core/index.js dag fail <id> agent_error
+        - 失败且耗尽次数 → node dist/index.js dag fail <id> validation_fail
+      - Agent 错误 → node dist/index.js dag fail <id> agent_error
 
 6. 重复 4-5 直到 dag next-wave 返回空
 
@@ -472,9 +472,9 @@ ham-autocode/                                # Plugin 根目录
 │   └── infra.md                             # 基础设施 agent (Sonnet)
 ├── hooks/                                   # 3 个 Lifecycle Hook
 │   ├── hooks.json                           # Hook 注册配置
-│   ├── on-session-start.sh                  # → node core/index.js session-start
-│   ├── on-session-end.sh                    # → node core/index.js session-end
-│   └── on-post-tool-use.sh                  # → node core/index.js post-tool-use
+│   ├── on-session-start.sh                  # → node dist/index.js session-start
+│   ├── on-session-end.sh                    # → node dist/index.js session-end
+│   └── on-post-tool-use.sh                  # → node dist/index.js post-tool-use
 ├── schemas/
 │   ├── pipeline.schema.json                 # pipeline.json Schema
 │   ├── task.schema.json                     # task.json Schema

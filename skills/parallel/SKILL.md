@@ -35,16 +35,16 @@ You are setting up parallel development using the DAG scheduler and agent routin
 
 ```bash
 # Parse plan into task objects
-node core/index.js dag init .planning/phases/*/PLAN.md
+node dist/index.js dag init .planning/phases/*/PLAN.md
 
 # Score and route all tasks
-node core/index.js route batch
+node dist/index.js route batch
 
 # Check what's ready to execute
-node core/index.js dag next-wave
+node dist/index.js dag next-wave
 
 # Verify context budget
-node core/index.js context budget
+node dist/index.js context budget
 ```
 
 ## Step 2: Task Routing via Core Engine
@@ -61,7 +61,7 @@ Routing rules:
 
 ```bash
 # See routing decisions
-node core/index.js route batch
+node dist/index.js route batch
 ```
 
 ## Step 3: Create Agent Team for Claude Code Tasks
@@ -79,7 +79,7 @@ Create team with:
 For each task routed to Codex, use the executor adapter:
 ```bash
 # The core engine generates structured specs
-node core/index.js route [task-id]
+node dist/index.js route [task-id]
 ```
 
 Present specs to user for Codex execution.
@@ -88,13 +88,13 @@ Present specs to user for Codex execution.
 
 ```bash
 # Get current wave
-node core/index.js dag next-wave
+node dist/index.js dag next-wave
 
 # After completing tasks, update status
-node core/index.js dag complete <task-id>
+node dist/index.js dag complete <task-id>
 
 # Check progress
-node core/index.js dag status
+node dist/index.js dag status
 ```
 
 ## Step 6: Validation and Recovery
@@ -102,25 +102,25 @@ node core/index.js dag status
 After each task completion:
 ```bash
 # Run validation gates
-node core/index.js validate <task-id>
+node dist/index.js validate <task-id>
 
 # If validation fails, use recovery
-node core/index.js recover checkpoint <task-id>
-node core/index.js recover rollback <task-id>
+node dist/index.js recover checkpoint <task-id>
+node dist/index.js recover rollback <task-id>
 ```
 
 ## Step 7: Monitor and Merge
 
 1. Monitor Agent Teams progress
 2. Integrate Codex outputs
-3. Run `node core/index.js validate <task-id>` after integration
+3. Run `node dist/index.js validate <task-id>` after integration
 4. Continue with next DAG wave
 
 ## Rules
 
-- Use `node core/index.js dag next-wave` to determine task execution order
-- Use `node core/index.js route batch` for routing decisions
-- Check `node core/index.js context budget` before heavy operations
+- Use `node dist/index.js dag next-wave` to determine task execution order
+- Use `node dist/index.js route batch` for routing decisions
+- Check `node dist/index.js context budget` before heavy operations
 - Create checkpoints before risky tasks
 - 5-6 tasks per teammate, no file overlap
 - Save team assignments to pipeline state for recovery

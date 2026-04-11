@@ -1,26 +1,23 @@
 #!/usr/bin/env node
-'use strict';
 
-const path = require('path');
+import path from 'path';
+import { loadConfig } from './state/config.js';
+import { readPipeline, initPipeline, appendLog, setPipelineStatus } from './state/pipeline.js';
+import { readTask, writeTask, readAllTasks, updateTaskStatus } from './state/task-graph.js';
+import { nextWave, dagStats } from './dag/scheduler.js';
+import { initTasksFromPlan } from './dag/parser.js';
+import { ContextBudget } from './context/budget.js';
+import { ContextManager } from './context/manager.js';
+import { routeTask, routeAllTasks } from './routing/router.js';
+import { detectGates } from './validation/detector.js';
+import { validateTask } from './validation/gates.js';
+import { createCheckpoint, rollbackToCheckpoint as doRollback } from './recovery/checkpoint.js';
+import { createWorktree, mergeWorktree, removeWorktree } from './recovery/worktree.js';
+import { estimateFileTokens, buildFileIndex } from './utils/token.js';
+import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType } from './types.js';
 
-const modules = {
-  config: () => require('./state/config'),
-  pipeline: () => require('./state/pipeline'),
-  taskGraph: () => require('./state/task-graph'),
-  scheduler: () => require('./dag/scheduler'),
-  parser: () => require('./dag/parser'),
-  budget: () => require('./context/budget'),
-  manager: () => require('./context/manager'),
-  router: () => require('./routing/router'),
-  detector: () => require('./validation/detector'),
-  gates: () => require('./validation/gates'),
-  checkpoint: () => require('./recovery/checkpoint'),
-  worktree: () => require('./recovery/worktree'),
-  token: () => require('./utils/token'),
-};
-
-function usage() {
-  return `ham-autocode core engine v2.0
+function usage(): string {
+  return `ham-autocode core engine v2.1
 
 Usage: node core/index.js <command> [subcommand] [options]
 
@@ -58,13 +55,9 @@ Commands:
   help`;
 }
 
-function setTaskState(projectDir, taskId, status, extra) {
-  return modules.taskGraph().updateTaskStatus(projectDir, taskId, status, extra);
-}
-
-function validateConfigShape(config) {
-  const errors = [];
-  const ranges = [
+function validateConfigShape(config: HarnessConfig): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const ranges: [string, unknown][] = [
     ['context.advisoryThreshold', config.context?.advisoryThreshold],
     ['context.compressThreshold', config.context?.compressThreshold],
     ['context.criticalThreshold', config.context?.criticalThreshold],
@@ -91,7 +84,8 @@ function validateConfigShape(config) {
   return { valid: errors.length === 0, errors };
 }
 
-function dispatch(args, projectDir) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dispatch(args: string[], projectDir: string): any {
   if (!args.length) return usage();
 
   const cmd = args[0];
@@ -99,42 +93,39 @@ function dispatch(args, projectDir) {
 
   switch (cmd) {
     case 'config': {
-      const configModule = modules.config();
       if (sub === 'show') {
-        return configModule.loadConfig(projectDir);
+        return loadConfig(projectDir);
       }
       if (sub === 'validate') {
-        const config = configModule.loadConfig(projectDir);
-        return validateConfigShape(config);
+        return validateConfigShape(loadConfig(projectDir));
       }
       throw new Error(`Unknown config subcommand: ${sub}`);
     }
 
     case 'pipeline': {
-      const pipeline = modules.pipeline();
       if (sub === 'init') {
         const name = args[2] || path.basename(projectDir);
-        return pipeline.initPipeline(projectDir, name);
+        return initPipeline(projectDir, name);
       }
       if (sub === 'status') {
-        const data = pipeline.readPipeline(projectDir);
+        const data = readPipeline(projectDir);
         if (!data) throw new Error('No pipeline found');
         return data;
       }
       if (sub === 'log') {
         const action = args.slice(2).join(' ');
-        pipeline.appendLog(projectDir, action);
+        appendLog(projectDir, action);
         return { ok: true, action };
       }
       if (sub === 'pause') {
-        return pipeline.setPipelineStatus(projectDir, 'paused', { paused_at: new Date().toISOString() });
+        return setPipelineStatus(projectDir, 'paused' as PipelineStatus, { paused_at: new Date().toISOString() });
       }
       if (sub === 'resume') {
-        return pipeline.setPipelineStatus(projectDir, 'running', { resumed_at: new Date().toISOString() });
+        return setPipelineStatus(projectDir, 'running' as PipelineStatus, { resumed_at: new Date().toISOString() });
       }
       if (sub === 'mark-interrupted') {
         try {
-          return pipeline.setPipelineStatus(projectDir, 'interrupted', { interrupted_at: new Date().toISOString() });
+          return setPipelineStatus(projectDir, 'interrupted' as PipelineStatus, { interrupted_at: new Date().toISOString() });
         } catch {
           return { ok: false, reason: 'no pipeline or not running' };
         }
@@ -143,69 +134,64 @@ function dispatch(args, projectDir) {
     }
 
     case 'dag': {
-      const tg = modules.taskGraph();
-      const scheduler = modules.scheduler();
-
       if (sub === 'init') {
-        const result = modules.parser().initTasksFromPlan(projectDir, args[2], args[3], args[4]);
+        const result = initTasksFromPlan(projectDir, args[2], args[3], args[4]);
         return { planFile: result.planFile, count: result.count, tasks: result.tasks.map(t => t.id) };
       }
       if (sub === 'next-wave') {
-        const tasks = tg.readAllTasks(projectDir);
-        return scheduler.nextWave(tasks).map(t => ({ id: t.id, name: t.name }));
+        const tasks = readAllTasks(projectDir);
+        return nextWave(tasks).map(t => ({ id: t.id, name: t.name }));
       }
       if (sub === 'complete') {
-        return setTaskState(projectDir, args[2], 'done', { execution: { completedAt: new Date().toISOString() } });
+        return updateTaskStatus(projectDir, args[2], 'done' as TaskStatus, { execution: { completedAt: new Date().toISOString() } });
       }
       if (sub === 'fail') {
         const taskId = args[2];
         const errorType = args[3];
         if (!taskId || !errorType) throw new Error('Usage: dag fail <task-id> <error-type>');
-        return setTaskState(projectDir, taskId, 'failed', {
+        return updateTaskStatus(projectDir, taskId, 'failed' as TaskStatus, {
           execution: {
             completedAt: new Date().toISOString(),
-            errorType,
+            errorType: errorType as ErrorType,
             error: errorType,
           },
         });
       }
       if (sub === 'retry') {
-        const task = tg.readTask(projectDir, args[2]);
+        const task = readTask(projectDir, args[2]);
         if (!task) throw new Error(`Task ${args[2]} not found`);
         task.status = 'pending';
         task.execution = { ...(task.execution || {}), error: null, errorType: null, completedAt: null };
         task.validation = { ...(task.validation || {}), attempts: 0, results: [] };
-        tg.writeTask(projectDir, task);
+        writeTask(projectDir, task);
         return task;
       }
       if (sub === 'skip') {
-        return setTaskState(projectDir, args[2], 'skipped');
+        return updateTaskStatus(projectDir, args[2], 'skipped' as TaskStatus);
       }
       if (sub === 'unblock') {
-        const task = tg.readTask(projectDir, args[2]);
+        const task = readTask(projectDir, args[2]);
         if (!task) throw new Error(`Task ${args[2]} not found`);
         task.status = 'pending';
         task.blockedBy = [];
-        tg.writeTask(projectDir, task);
+        writeTask(projectDir, task);
         return task;
       }
       if (sub === 'status') {
-        return scheduler.dagStats(tg.readAllTasks(projectDir));
+        return dagStats(readAllTasks(projectDir));
       }
       throw new Error(`Unknown dag subcommand: ${sub}`);
     }
 
     case 'context': {
-      const { ContextBudget } = modules.budget();
       if (sub === 'budget') {
         return new ContextBudget(projectDir).status();
       }
       if (sub === 'prepare') {
         const taskId = args[2];
         if (!taskId) throw new Error('Usage: context prepare <task-id>');
-        const task = modules.taskGraph().readTask(projectDir, taskId);
+        const task = readTask(projectDir, taskId);
         if (!task) throw new Error(`Task ${taskId} not found`);
-        const { ContextManager } = modules.manager();
         const mgr = new ContextManager(projectDir);
         const prepared = mgr.prepareForTask(task);
         const budgetStatus = mgr.budgetStatus();
@@ -221,42 +207,37 @@ function dispatch(args, projectDir) {
     }
 
     case 'route': {
-      const router = modules.router();
-      const tg = modules.taskGraph();
-
       if (sub === 'batch') {
-        return router.routeAllTasks(tg.readAllTasks(projectDir), projectDir)
+        return routeAllTasks(readAllTasks(projectDir), projectDir)
           .map(task => ({ id: task.id, routing: task.routing }));
       }
       if (sub === 'confirm') {
         const taskId = args[2];
         if (!taskId) throw new Error('Usage: route confirm <task-id>');
-        const task = tg.readTask(projectDir, taskId);
+        const task = readTask(projectDir, taskId);
         if (!task) throw new Error(`Task ${taskId} not found`);
-        task.routing = { ...(task.routing || {}), confirmed: true, needsConfirmation: false };
-        tg.writeTask(projectDir, task);
+        task.routing = { ...(task.routing || {} as any), confirmed: true, needsConfirmation: false };
+        writeTask(projectDir, task);
         return task.routing;
       }
 
       const taskId = sub;
       if (!taskId) throw new Error('Usage: route <task-id>');
-      const task = tg.readTask(projectDir, taskId);
+      const task = readTask(projectDir, taskId);
       if (!task) throw new Error(`Task ${taskId} not found`);
-      return modules.router().routeTask(task, tg.readAllTasks(projectDir), projectDir);
+      return routeTask(task, readAllTasks(projectDir), projectDir);
     }
 
     case 'validate': {
-      const gates = modules.gates();
       if (sub === 'detect') {
-        return modules.detector().detectGates(projectDir);
+        return detectGates(projectDir);
       }
 
       const taskId = sub;
       if (!taskId) throw new Error('Usage: validate <task-id>');
-      const tg = modules.taskGraph();
-      const task = tg.readTask(projectDir, taskId);
+      const task = readTask(projectDir, taskId);
       if (!task) throw new Error(`Task ${taskId} not found`);
-      const result = gates.validateTask(task, projectDir);
+      const result = validateTask(task, projectDir, doRollback);
       task.validation = {
         ...(task.validation || {}),
         attempts: result.attempts,
@@ -264,46 +245,43 @@ function dispatch(args, projectDir) {
         results: result.results,
         gates: result.gates,
       };
-      tg.writeTask(projectDir, task);
+      writeTask(projectDir, task);
       return result;
     }
 
     case 'recover': {
       if (!sub) throw new Error('Usage: recover <subcommand> <task-id>. Subcommands: checkpoint, rollback, worktree-create, worktree-merge, worktree-remove');
-      const tg = modules.taskGraph();
-      const checkpoint = modules.checkpoint();
-      const worktree = modules.worktree();
       const taskId = args[2];
       if (!taskId) throw new Error(`Usage: recover ${sub} <task-id>`);
-      const task = tg.readTask(projectDir, taskId);
+      const task = readTask(projectDir, taskId);
       if (!task) throw new Error(`Task ${taskId} not found`);
 
       if (sub === 'checkpoint') {
-        const result = checkpoint.createCheckpoint(taskId, projectDir);
+        const result = createCheckpoint(taskId, projectDir);
         if (result.ok) {
           task.recovery = { ...(task.recovery || {}), strategy: 'checkpoint', checkpointRef: result.ref };
-          tg.writeTask(projectDir, task);
+          writeTask(projectDir, task);
         }
         return result;
       }
       if (sub === 'rollback') {
         const ref = task.recovery?.checkpointRef;
         if (!ref) throw new Error(`Task ${taskId} has no checkpoint`);
-        return checkpoint.rollbackToCheckpoint(ref, projectDir, task.files || []);
+        return doRollback(ref, projectDir, task.files || []);
       }
       if (sub === 'worktree-create') {
-        const result = worktree.createWorktree(taskId, projectDir);
+        const result = createWorktree(taskId, projectDir);
         if (result.ok) {
           task.recovery = { ...(task.recovery || {}), strategy: 'worktree', worktreePath: result.path, branch: result.branch };
-          tg.writeTask(projectDir, task);
+          writeTask(projectDir, task);
         }
         return result;
       }
       if (sub === 'worktree-merge') {
-        return worktree.mergeWorktree(taskId, projectDir);
+        return mergeWorktree(taskId, projectDir);
       }
       if (sub === 'worktree-remove') {
-        return worktree.removeWorktree(taskId, projectDir);
+        return removeWorktree(taskId, projectDir);
       }
       throw new Error(`Unknown recover subcommand: ${sub}`);
     }
@@ -312,10 +290,10 @@ function dispatch(args, projectDir) {
       if (sub === 'estimate') {
         const file = args[2];
         if (!file) throw new Error('Usage: token estimate <file>');
-        return { file, tokens: modules.token().estimateFileTokens(file) };
+        return { file, tokens: estimateFileTokens(file) };
       }
       if (sub === 'index') {
-        return modules.token().buildFileIndex(args[2] || projectDir);
+        return buildFileIndex(args[2] || projectDir);
       }
       throw new Error(`Unknown token subcommand: ${sub}`);
     }
@@ -328,11 +306,11 @@ function dispatch(args, projectDir) {
   }
 }
 
-function formatOutput(result) {
+function formatOutput(result: unknown): string {
   return typeof result === 'string' ? result : JSON.stringify(result, null, 2);
 }
 
-function main(argv = process.argv.slice(2), env = process.env) {
+export function main(argv: string[] = process.argv.slice(2), env: Record<string, string | undefined> = process.env): number {
   const projectDir = env.HAM_PROJECT_DIR || process.cwd();
   try {
     const result = dispatch(argv, projectDir);
@@ -340,14 +318,20 @@ function main(argv = process.argv.slice(2), env = process.env) {
       console.log(formatOutput(result));
     }
     return 0;
-  } catch (e) {
-    console.error(`Error: ${e.message}`);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`Error: ${msg}`);
     return 1;
   }
 }
 
-module.exports = { usage, dispatch, main };
+export { usage, dispatch };
 
-if (require.main === module) {
+// Run as CLI
+const isMain = process.argv[1] && (
+  process.argv[1].endsWith('index.js') ||
+  process.argv[1].endsWith('index.ts')
+);
+if (isMain) {
   process.exit(main());
 }

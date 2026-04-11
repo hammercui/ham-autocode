@@ -1,6 +1,3 @@
-// core/routing/scorer.js
-'use strict';
-
 /**
  * Score a task across 3 dimensions for routing decisions.
  * specScore (0-100): How complete is the task specification
@@ -8,8 +5,10 @@
  * isolationScore (0-100): How isolated is the task from others
  */
 
+import type { TaskState, TaskScores } from '../types.js';
+
 /** Score spec completeness (0-100) */
-function scoreSpec(task) {
+export function scoreSpec(task: TaskState): number {
   if (!task.spec) return 0;
   let score = task.spec.completeness || 0;
   if (score > 0) return Math.min(100, score);
@@ -22,14 +21,14 @@ function scoreSpec(task) {
 }
 
 /** Score complexity (0-100, higher = more complex) */
-function scoreComplexity(task) {
+export function scoreComplexity(task: TaskState): number {
   const fileWeight = (task.files || []).length * 20;
   const depWeight = (task.blockedBy || []).length * 15;
   return Math.min(100, fileWeight + depWeight);
 }
 
 /** Score isolation (0-100, higher = more isolated) */
-function scoreIsolation(task, allTasks) {
+export function scoreIsolation(task: TaskState, allTasks: TaskState[]): number {
   if (!allTasks || allTasks.length <= 1) return 100;
 
   const taskFiles = new Set(task.files || []);
@@ -53,12 +52,10 @@ function scoreIsolation(task, allTasks) {
 }
 
 /** Compute all 3 scores for a task */
-function scoreTask(task, allTasks) {
+export function scoreTask(task: TaskState, allTasks: TaskState[]): TaskScores {
   return {
     specScore: scoreSpec(task),
     complexityScore: scoreComplexity(task),
     isolationScore: scoreIsolation(task, allTasks),
   };
 }
-
-module.exports = { scoreSpec, scoreComplexity, scoreIsolation, scoreTask };

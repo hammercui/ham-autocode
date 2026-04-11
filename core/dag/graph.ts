@@ -1,10 +1,15 @@
-// core/dag/graph.js
-'use strict';
+// core/dag/graph.ts
+import type { TaskState, TopoSortResult } from '../types.js';
+
+interface GraphNode {
+  task: TaskState;
+  edges: Set<string>;
+}
 
 /** Topological sort using Kahn's algorithm. Returns { sorted, cycles } */
-function topoSort(tasks) {
-  const graph = new Map(); // id → { task, edges: Set }
-  const inDegree = new Map();
+export function topoSort(tasks: TaskState[]): TopoSortResult {
+  const graph = new Map<string, GraphNode>();
+  const inDegree = new Map<string, number>();
   const taskIds = new Set(tasks.map(t => t.id));
 
   for (const t of tasks) {
@@ -13,19 +18,19 @@ function topoSort(tasks) {
     inDegree.set(t.id, edges.size);
   }
 
-  const queue = [];
+  const queue: string[] = [];
   for (const [id, deg] of inDegree) {
     if (deg === 0) queue.push(id);
   }
 
-  const sorted = [];
+  const sorted: TaskState[] = [];
   while (queue.length > 0) {
-    const id = queue.shift();
-    sorted.push(graph.get(id).task);
+    const id = queue.shift()!;
+    sorted.push(graph.get(id)!.task);
     for (const [otherId, node] of graph) {
       if (node.edges.has(id)) {
         node.edges.delete(id);
-        inDegree.set(otherId, inDegree.get(otherId) - 1);
+        inDegree.set(otherId, inDegree.get(otherId)! - 1);
         if (inDegree.get(otherId) === 0) queue.push(otherId);
       }
     }
@@ -36,12 +41,12 @@ function topoSort(tasks) {
 }
 
 /** Detect if adding edge from→to would create a cycle */
-function wouldCycle(tasks, fromId, toId) {
+export function wouldCycle(tasks: TaskState[], fromId: string, toId: string): boolean {
   // BFS from toId, see if we can reach fromId
-  const visited = new Set();
-  const queue = [toId];
+  const visited = new Set<string>();
+  const queue: string[] = [toId];
   while (queue.length > 0) {
-    const current = queue.shift();
+    const current = queue.shift()!;
     if (current === fromId) return true;
     if (visited.has(current)) continue;
     visited.add(current);
@@ -52,5 +57,3 @@ function wouldCycle(tasks, fromId, toId) {
   }
   return false;
 }
-
-module.exports = { topoSort, wouldCycle };

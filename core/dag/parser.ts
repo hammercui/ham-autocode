@@ -1,19 +1,19 @@
-// core/dag/parser.js
-'use strict';
-const fs = require('fs');
-const path = require('path');
-const { writeTask } = require('../state/task-graph');
+// core/dag/parser.ts
+import fs from 'fs';
+import path from 'path';
+import type { TaskState, ParseResult } from '../types.js';
+import { writeTask } from '../state/task-graph.js';
 
 /**
  * Parse a structured plan file into task objects.
  * Expects markdown with task blocks containing id, name, files, dependencies, spec.
  * This is a best-effort parser — AI fills gaps for unstructured plans.
  */
-function parsePlanToTasks(planContent, milestone, phase) {
-  const tasks = [];
+export function parsePlanToTasks(planContent: string, milestone?: string, phase?: string): TaskState[] {
+  const tasks: TaskState[] = [];
   // Match markdown headers that look like tasks: ### Task N: Name
   const taskRegex = /###\s+(?:Task\s+)?(\d+)[:.]\s*(.+)/g;
-  let match;
+  let match: RegExpExecArray | null;
   let taskNum = 1;
 
   while ((match = taskRegex.exec(planContent)) !== null) {
@@ -25,9 +25,9 @@ function parsePlanToTasks(planContent, milestone, phase) {
     const nextHeader = planContent.indexOf('\n### ', sectionStart + 1);
     const section = planContent.slice(sectionStart, nextHeader > -1 ? nextHeader : undefined);
 
-    const files = [];
+    const files: string[] = [];
     const fileRegex = /[`"]([^\s`"]+\.[a-zA-Z]+)[`"]/g;
-    let fileMatch;
+    let fileMatch: RegExpExecArray | null;
     while ((fileMatch = fileRegex.exec(section)) !== null) {
       if (!files.includes(fileMatch[1])) files.push(fileMatch[1]);
     }
@@ -58,7 +58,7 @@ function parsePlanToTasks(planContent, milestone, phase) {
   return tasks;
 }
 
-function findPlanFile(projectDir) {
+export function findPlanFile(projectDir: string): string | null {
   const candidates = [
     path.join(projectDir, 'PLAN.md'),
     path.join(projectDir, 'WBS.md'),
@@ -73,7 +73,12 @@ function findPlanFile(projectDir) {
   return null;
 }
 
-function initTasksFromPlan(projectDir, planFile, milestone, phase) {
+export function initTasksFromPlan(
+  projectDir: string,
+  planFile: string | null | undefined,
+  milestone?: string,
+  phase?: string,
+): ParseResult {
   const resolvedPlanFile = planFile ? path.resolve(projectDir, planFile) : findPlanFile(projectDir);
   if (!resolvedPlanFile || !fs.existsSync(resolvedPlanFile)) {
     throw new Error('No PLAN.md or WBS.md found for dag init');
@@ -91,5 +96,3 @@ function initTasksFromPlan(projectDir, planFile, milestone, phase) {
     tasks,
   };
 }
-
-module.exports = { parsePlanToTasks, findPlanFile, initTasksFromPlan };

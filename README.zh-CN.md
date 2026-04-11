@@ -175,71 +175,71 @@ node ham-autocode/core/index.js help
 Core Engine 是纯 Node.js CLI（零 npm 依赖），Skill 通过它管理状态、调度任务和路由决策。
 
 ```bash
-node core/index.js <command> [subcommand] [options]
+node dist/index.js <command> [subcommand] [options]
 ```
 
 ### 流水线状态
 
 ```bash
-node core/index.js pipeline init "my-project"    # 初始化流水线
-node core/index.js pipeline status                # 读取当前状态
-node core/index.js pipeline log "started phase 4" # 追加日志
-node core/index.js pipeline pause                 # 设置为暂停
-node core/index.js pipeline resume                # 设置为运行
-node core/index.js pipeline mark-interrupted      # 标记为中断（hook 使用）
+node dist/index.js pipeline init "my-project"    # 初始化流水线
+node dist/index.js pipeline status                # 读取当前状态
+node dist/index.js pipeline log "started phase 4" # 追加日志
+node dist/index.js pipeline pause                 # 设置为暂停
+node dist/index.js pipeline resume                # 设置为运行
+node dist/index.js pipeline mark-interrupted      # 标记为中断（hook 使用）
 ```
 
 ### DAG 任务调度
 
 ```bash
-node core/index.js dag init PLAN.md M001 phase-1  # 解析计划为任务
-node core/index.js dag status                      # 显示完成统计
-node core/index.js dag next-wave                   # 获取下一波可执行任务
-node core/index.js dag complete <task-id>           # 标记任务完成
-node core/index.js dag fail <task-id> <error-type>  # 标记任务失败
-node core/index.js dag retry <task-id>              # 重置任务为待执行
-node core/index.js dag skip <task-id>               # 跳过任务
+node dist/index.js dag init PLAN.md M001 phase-1  # 解析计划为任务
+node dist/index.js dag status                      # 显示完成统计
+node dist/index.js dag next-wave                   # 获取下一波可执行任务
+node dist/index.js dag complete <task-id>           # 标记任务完成
+node dist/index.js dag fail <task-id> <error-type>  # 标记任务失败
+node dist/index.js dag retry <task-id>              # 重置任务为待执行
+node dist/index.js dag skip <task-id>               # 跳过任务
 ```
 
 ### Agent 路由
 
 ```bash
-node core/index.js route batch            # 批量路由所有待执行任务
-node core/index.js route <task-id>        # 路由单个任务（返回评分+目标）
-node core/index.js route confirm <task-id> # 确认高风险路由决策
+node dist/index.js route batch            # 批量路由所有待执行任务
+node dist/index.js route <task-id>        # 路由单个任务（返回评分+目标）
+node dist/index.js route confirm <task-id> # 确认高风险路由决策
 ```
 
 ### Context 预算
 
 ```bash
-node core/index.js context budget              # 显示 Token 使用水平
-node core/index.js context prepare <task-id>   # 估算任务所需 Token
+node dist/index.js context budget              # 显示 Token 使用水平
+node dist/index.js context prepare <task-id>   # 估算任务所需 Token
 ```
 
 ### 验证门控
 
 ```bash
-node core/index.js validate detect        # 自动检测可用门控（lint、test 等）
-node core/index.js validate <task-id>     # 对任务运行门控（两击出局策略）
+node dist/index.js validate detect        # 自动检测可用门控（lint、test 等）
+node dist/index.js validate <task-id>     # 对任务运行门控（两击出局策略）
 ```
 
 ### 恢复引擎
 
 ```bash
-node core/index.js recover checkpoint <task-id>      # 创建 git tag 检查点
-node core/index.js recover rollback <task-id>         # 回滚到检查点
-node core/index.js recover worktree-create <task-id>  # 创建隔离 worktree
-node core/index.js recover worktree-merge <task-id>   # 合并 worktree
-node core/index.js recover worktree-remove <task-id>  # 移除 worktree
+node dist/index.js recover checkpoint <task-id>      # 创建 git tag 检查点
+node dist/index.js recover rollback <task-id>         # 回滚到检查点
+node dist/index.js recover worktree-create <task-id>  # 创建隔离 worktree
+node dist/index.js recover worktree-merge <task-id>   # 合并 worktree
+node dist/index.js recover worktree-remove <task-id>  # 移除 worktree
 ```
 
 ### 配置与工具
 
 ```bash
-node core/index.js config show            # 显示生效配置（默认值 + 覆盖值）
-node core/index.js config validate        # 验证配置值
-node core/index.js token estimate <file>  # 估算文件 Token 数
-node core/index.js token index [dir]      # 构建目录文件索引（含 Token 估算）
+node dist/index.js config show            # 显示生效配置（默认值 + 覆盖值）
+node dist/index.js config validate        # 验证配置值
+node dist/index.js token estimate <file>  # 估算文件 Token 数
+node dist/index.js token index [dir]      # 构建目录文件索引（含 Token 估算）
 ```
 
 ---

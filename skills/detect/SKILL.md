@@ -105,16 +105,16 @@ Use the v2 core engine CLI to route tasks:
 
 ```bash
 # Parse plan into DAG tasks
-node core/index.js dag init <plan-file> [milestone] [phase]
+node dist/index.js dag init <plan-file> [milestone] [phase]
 
 # Route all tasks to appropriate executors
-node core/index.js route batch
+node dist/index.js route batch
 
 # Check current DAG status
-node core/index.js dag status
+node dist/index.js dag status
 
 # Route individual tasks
-node core/index.js route <task-id>
+node dist/index.js route <task-id>
 ```
 
 Based on diagnosis:
