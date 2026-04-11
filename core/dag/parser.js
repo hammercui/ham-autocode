@@ -1,6 +1,8 @@
 // core/dag/parser.js
 'use strict';
 const fs = require('fs');
+const path = require('path');
+const { writeTask } = require('../state/task-graph');
 
 /**
  * Parse a structured plan file into task objects.
@@ -56,4 +58,38 @@ function parsePlanToTasks(planContent, milestone, phase) {
   return tasks;
 }
 
-module.exports = { parsePlanToTasks };
+function findPlanFile(projectDir) {
+  const candidates = [
+    path.join(projectDir, 'PLAN.md'),
+    path.join(projectDir, 'WBS.md'),
+    path.join(projectDir, 'docs', 'PLAN.md'),
+    path.join(projectDir, 'docs', 'WBS.md'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return null;
+}
+
+function initTasksFromPlan(projectDir, planFile, milestone, phase) {
+  const resolvedPlanFile = planFile ? path.resolve(projectDir, planFile) : findPlanFile(projectDir);
+  if (!resolvedPlanFile || !fs.existsSync(resolvedPlanFile)) {
+    throw new Error('No PLAN.md or WBS.md found for dag init');
+  }
+
+  const content = fs.readFileSync(resolvedPlanFile, 'utf8');
+  const tasks = parsePlanToTasks(content, milestone, phase);
+  for (const task of tasks) {
+    writeTask(projectDir, task);
+  }
+
+  return {
+    planFile: resolvedPlanFile,
+    count: tasks.length,
+    tasks,
+  };
+}
+
+module.exports = { parsePlanToTasks, findPlanFile, initTasksFromPlan };
