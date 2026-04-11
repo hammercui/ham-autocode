@@ -9,14 +9,30 @@
 
 ## What is ham-autocode?
 
-ham-autocode is a **Claude Code Plugin** that automates the entire software development lifecycle:
+ham-autocode is an implementation of the **Harness Architecture** for Claude Code -- the infrastructure layer that turns AI coding agents from "can run" into "runs reliably."
+
+> **Agent** = the worker (Claude Code / Codex)
+> **Skill** = the methodology (GSD / gstack / Superpowers)
+> **Harness** = the factory system (manages workers + process + quality + state + recovery)
+
+Inspired by engineering practices at Stripe ("Minions"), Shopify (Sidekick), and Airbnb (TypeScript Migration), the Harness pattern adds five critical layers that pure agent + skill setups lack:
+
+| Harness Layer | What it solves | ham-autocode implementation |
+|---------------|---------------|---------------------------|
+| **Context Engine** | Context rot after 60% window usage | Token budget tracking, selective file loading, 3-tier protection |
+| **DAG Orchestration** | Linear pipelines can't parallelize | Topological sort, wave-based scheduling, dependency tracking |
+| **Validation Gates** | Manual QA is inconsistent | Auto-detect lint/test, two-strike policy, per-task gates |
+| **Recovery Engine** | One failure kills the whole run | Git checkpoint + worktree isolation, two-tier strategy |
+| **Agent Routing** | Manual task assignment doesn't scale | 3-dimension scoring, auto-routing to Claude Code/Codex/App |
+
+ham-autocode packages these as a **Claude Code Plugin** (easy install) with a **Node.js Core Engine** (reliable execution), automating the full development lifecycle:
 
 ```
 Idea --> Initiation --> Requirements --> Planning --> Execution --> Review --> Ship
          (gstack)        (GSD)          (GSD)      (Agent Teams)  (gstack)  (gstack)
 ```
 
-It combines three community frameworks into a unified pipeline:
+It combines three community frameworks into the pipeline:
 
 | Framework | Role | What it does |
 |-----------|------|-------------|
@@ -24,7 +40,7 @@ It combines three community frameworks into a unified pipeline:
 | **GSD** | Stability layer | Project init, milestones, autonomous execution |
 | **Superpowers** | Execution layer | TDD methodology, code review, debugging |
 
-The v2.0 **Core Engine** (Node.js, zero dependencies) adds: DAG task scheduling, context budget management, intelligent agent routing, validation gates, and recovery mechanisms.
+For the full gap analysis between the Harness ideal and current implementation, see [GAP-ANALYSIS.md](docs/GAP-ANALYSIS.md).
 
 ---
 
