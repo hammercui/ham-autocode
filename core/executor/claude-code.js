@@ -35,7 +35,7 @@ class ClaudeCodeAdapter extends BaseAdapter {
       `1. Implement according to the spec above`,
       `2. Follow TDD: write tests first, then implement`,
       `3. Run all relevant tests before marking complete`,
-      `4. Commit with atomic, descriptive messages`,
+      `4. Report completion and validation status, but do not commit changes automatically`,
     ].filter(Boolean).join('\n');
   }
 
