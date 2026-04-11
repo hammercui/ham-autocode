@@ -14,7 +14,8 @@ function stateDir(projectDir) {
 }
 
 function readPipeline(projectDir) {
-  const data = readJSON(pipelinePath(projectDir));
+  const { data, error } = readJSON(pipelinePath(projectDir));
+  if (error && error.code !== 'ENOENT') throw error;
   return data ? migrate(data) : null;
 }
 
@@ -40,19 +41,24 @@ function initPipeline(projectDir, projectName) {
 }
 
 function appendLog(projectDir, action) {
-  const pipeline = readPipeline(projectDir);
-  if (!pipeline) return;
-  pipeline.log.push({ time: new Date().toISOString(), action });
-  writePipeline(projectDir, pipeline);
+  return withLock(stateDir(projectDir), () => {
+    const pipeline = readPipeline(projectDir);
+    if (!pipeline) return null;
+    pipeline.log.push({ time: new Date().toISOString(), action });
+    atomicWriteJSON(pipelinePath(projectDir), pipeline);
+    return pipeline;
+  });
 }
 
 function setPipelineStatus(projectDir, status, extra = {}) {
-  const pipeline = readPipeline(projectDir);
-  if (!pipeline) throw new Error('No pipeline found');
-  pipeline.status = status;
-  Object.assign(pipeline, extra);
-  writePipeline(projectDir, pipeline);
-  return pipeline;
+  return withLock(stateDir(projectDir), () => {
+    const pipeline = readPipeline(projectDir);
+    if (!pipeline) throw new Error('No pipeline found');
+    pipeline.status = status;
+    Object.assign(pipeline, extra);
+    atomicWriteJSON(pipelinePath(projectDir), pipeline);
+    return pipeline;
+  });
 }
 
 module.exports = { readPipeline, writePipeline, initPipeline, appendLog, setPipelineStatus };

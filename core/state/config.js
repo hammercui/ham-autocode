@@ -24,8 +24,10 @@ function deepMerge(target, source) {
 }
 
 function loadConfig(projectDir) {
-  const userConfig = readJSON(path.join(projectDir, '.ham-autocode', 'harness.json'));
-  return userConfig ? deepMerge(DEFAULTS, userConfig) : { ...DEFAULTS };
+  const defaults = JSON.parse(JSON.stringify(DEFAULTS));
+  const { data: userConfig, error } = readJSON(path.join(projectDir, '.ham-autocode', 'harness.json'));
+  if (error && error.code !== 'ENOENT') throw error;
+  return userConfig ? deepMerge(defaults, userConfig) : defaults;
 }
 
 module.exports = { loadConfig, DEFAULTS };

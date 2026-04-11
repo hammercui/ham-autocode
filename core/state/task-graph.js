@@ -30,7 +30,9 @@ function validateTaskId(taskId) {
 }
 
 function readTask(projectDir, taskId) {
-  return readJSON(taskPath(projectDir, taskId));
+  const { data, error } = readJSON(taskPath(projectDir, taskId));
+  if (error && error.code !== 'ENOENT') throw error;
+  return data;
 }
 
 function writeTask(projectDir, task) {
@@ -48,17 +50,24 @@ function readAllTasks(projectDir) {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
     .filter(f => f.endsWith('.json'))
-    .map(f => readJSON(path.join(dir, f)))
+    .map(f => {
+      const { data, error } = readJSON(path.join(dir, f));
+      if (error) throw error;
+      return data;
+    })
     .filter(Boolean);
 }
 
 function updateTaskStatus(projectDir, taskId, status, extra = {}) {
-  const task = readTask(projectDir, taskId);
-  if (!task) throw new Error(`Task ${taskId} not found`);
-  task.status = status;
-  Object.assign(task, extra);
-  writeTask(projectDir, task);
-  return task;
+  const dir = path.join(projectDir, '.ham-autocode');
+  return withLock(dir, () => {
+    const task = readTask(projectDir, taskId);
+    if (!task) throw new Error(`Task ${taskId} not found`);
+    task.status = status;
+    Object.assign(task, extra);
+    atomicWriteJSON(taskPath(projectDir, task.id), task);
+    return task;
+  });
 }
 
 module.exports = { readTask, writeTask, readAllTasks, updateTaskStatus, tasksDir };

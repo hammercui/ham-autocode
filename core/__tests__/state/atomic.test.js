@@ -10,11 +10,14 @@ const testFile = path.join(tmpDir, 'test.json');
 
 // Test write and read
 atomicWriteJSON(testFile, { hello: 'world' });
-const data = readJSON(testFile);
+const { data, error } = readJSON(testFile);
+assert.strictEqual(error, null);
 assert.deepStrictEqual(data, { hello: 'world' });
 
 // Test readJSON on non-existent file
-assert.strictEqual(readJSON(path.join(tmpDir, 'nope.json')), null);
+const missing = readJSON(path.join(tmpDir, 'nope.json'));
+assert.strictEqual(missing.data, null);
+assert.ok(missing.error);
 
 // Cleanup
 fs.rmSync(tmpDir, { recursive: true });

@@ -13,9 +13,12 @@ function atomicWriteJSON(filePath, data) {
 
 function readJSON(filePath) {
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch {
-    return null;
+    return { data: JSON.parse(fs.readFileSync(filePath, 'utf8')), error: null };
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return { data: null, error };
+    }
+    return { data: null, error };
   }
 }
 

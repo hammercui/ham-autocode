@@ -38,6 +38,11 @@ budget.reset();
 assert.strictEqual(budget.consumed, 0);
 assert.strictEqual(budget.level(), 'ok');
 
+// Persistence across instances
+budget.consume(1234);
+const reloadedBudget = new ContextBudget(tmpDir);
+assert.strictEqual(reloadedBudget.consumed, 1234);
+
 // Test ContextManager
 const srcDir = path.join(tmpDir, 'src');
 fs.mkdirSync(srcDir, { recursive: true });
@@ -58,6 +63,7 @@ const ctx = mgr.prepareForTask(task);
 assert.strictEqual(ctx.files.length, 1);
 assert.ok(ctx.files[0].content.includes('hello'));
 assert.ok(ctx.budgetStatus);
+assert.ok(ctx.recommendation);
 
 // Cleanup
 fs.rmSync(tmpDir, { recursive: true, force: true });

@@ -1,6 +1,8 @@
 // core/context/budget.js
 'use strict';
+const path = require('path');
 const { loadConfig } = require('../state/config');
+const { atomicWriteJSON, readJSON } = require('../state/atomic');
 
 /**
  * Context budget tracker.
@@ -8,14 +10,17 @@ const { loadConfig } = require('../state/config');
  */
 class ContextBudget {
   constructor(projectDir) {
+    this.projectDir = projectDir;
     this.config = loadConfig(projectDir).context;
-    this.consumed = 0;
+    this.statePath = path.join(projectDir, '.ham-autocode', 'context', 'budget.json');
+    this.consumed = this.loadState();
     this.capacity = 100; // percentage-based (0-100)
   }
 
   /** Add tokens to consumed count, return current usage percentage */
   consume(tokens) {
     this.consumed += tokens;
+    this.persist();
     return this.usagePercent();
   }
 
@@ -38,10 +43,12 @@ class ContextBudget {
 
   /** Get budget status summary */
   status() {
+    const level = this.level();
     return {
       consumed: this.consumed,
       usagePercent: this.usagePercent(),
-      level: this.level(),
+      level,
+      recommendation: level === 'ok' ? 'normal' : level,
       thresholds: { ...this.config },
     };
   }
@@ -49,6 +56,21 @@ class ContextBudget {
   /** Reset budget (e.g., after context compression or new session) */
   reset() {
     this.consumed = 0;
+    this.persist();
+  }
+
+  loadState() {
+    const { data, error } = readJSON(this.statePath);
+    if (error && error.code !== 'ENOENT') throw error;
+    return data?.consumed || 0;
+  }
+
+  persist() {
+    atomicWriteJSON(this.statePath, {
+      schemaVersion: 2,
+      consumed: this.consumed,
+      updatedAt: new Date().toISOString(),
+    });
   }
 }
 
