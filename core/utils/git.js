@@ -1,4 +1,6 @@
 'use strict';
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
@@ -29,13 +31,28 @@ function validateGitPaths(files, cwd) {
 }
 
 function run(args, cwd) {
+  const tmpBase = path.join(os.tmpdir(), `ham-git-${process.pid}-${Date.now()}`);
+  const stdoutPath = `${tmpBase}.out`;
+  const stderrPath = `${tmpBase}.err`;
+  const stdoutFd = fs.openSync(stdoutPath, 'w');
+  const stderrFd = fs.openSync(stderrPath, 'w');
+
   try {
-    return {
-      ok: true,
-      output: execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 30000 }).trim(),
-    };
+    execFileSync('git', args, {
+      cwd,
+      timeout: 30000,
+      stdio: ['ignore', stdoutFd, stderrFd],
+    });
+    return { ok: true, output: fs.readFileSync(stdoutPath, 'utf8').trim() };
   } catch (e) {
-    return { ok: false, output: (e.stderr || e.stdout || e.message || '').toString().trim() };
+    const stderr = fs.existsSync(stderrPath) ? fs.readFileSync(stderrPath, 'utf8') : '';
+    const stdout = fs.existsSync(stdoutPath) ? fs.readFileSync(stdoutPath, 'utf8') : '';
+    return { ok: false, output: (stderr || stdout || e.message || '').toString().trim() };
+  } finally {
+    fs.closeSync(stdoutFd);
+    fs.closeSync(stderrFd);
+    if (fs.existsSync(stdoutPath)) fs.rmSync(stdoutPath, { force: true });
+    if (fs.existsSync(stderrPath)) fs.rmSync(stderrPath, { force: true });
   }
 }
 
