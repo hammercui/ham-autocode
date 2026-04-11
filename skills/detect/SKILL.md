@@ -6,7 +6,7 @@ description: |
   where to continue. Prevents re-executing completed work.
   Use when: "detect state", "project status", "where are we", "continue project",
   "resume existing project", or when starting work on any project that may have progress.
-version: 1.0.0
+version: 2.0.0
 allowed-tools:
   - Read
   - Bash
@@ -99,7 +99,23 @@ Look for:
 2. [Claude Code tasks vs Codex tasks]
 ```
 
-### Step 4: Route to Next Action
+### Step 4: Route to Next Action via Core Engine
+
+Use the v2 core engine CLI to route tasks:
+
+```bash
+# Parse plan into DAG tasks
+node core/index.js dag parse <plan-file> [milestone] [phase]
+
+# Route all tasks to appropriate executors
+node core/index.js route all
+
+# Check current DAG status
+node core/index.js dag status
+
+# Score individual tasks
+node core/index.js route score <task-id>
+```
 
 Based on diagnosis:
 - Which phases to SKIP (already done)

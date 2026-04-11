@@ -7,7 +7,7 @@ description: |
   to .ham-autocode/pipeline.json, and supports pause/resume.
   Use when: "auto develop", "full pipeline", "build this project",
   "run the full workflow", or "autonomous mode".
-version: 1.0.0
+version: 2.0.0
 benefits-from:
   - detect
 allowed-tools:
@@ -29,44 +29,45 @@ allowed-tools:
 You are running the complete development lifecycle for a project.
 Three-layer framework: **gstack thinks, GSD stabilizes, Superpowers executes.**
 
-## CRITICAL: State Management Protocol
+## CRITICAL: State Management via Core Engine CLI
 
-Every step MUST update `.ham-autocode/pipeline.json`. This is non-negotiable.
+Every step MUST use the v2 core engine CLI for state management. This is non-negotiable.
 
 ### Initialize State
 
-At the very beginning, create `.ham-autocode/pipeline.json` if it doesn't exist:
-
-```json
-{
-  "project": "[project name from directory]",
-  "status": "running",
-  "started_at": "[ISO timestamp]",
-  "updated_at": "[ISO timestamp]",
-  "current_phase": 0,
-  "current_step": "initializing",
-  "phases": {
-    "1": {"status": "pending", "name": "Initiation"},
-    "2": {"status": "pending", "name": "Requirements"},
-    "3": {"status": "pending", "name": "Planning"},
-    "4": {"status": "pending", "name": "Execution"},
-    "5": {"status": "pending", "name": "Review"},
-    "6": {"status": "pending", "name": "Ship"}
-  },
-  "log": []
-}
+```bash
+node core/index.js pipeline init "[project-name]"
 ```
 
 ### Update State (BEFORE and AFTER every action)
 
 Before starting a step:
-- Set `current_phase`, `current_step`, `updated_at`
-- Set that phase's status to `"running"`
-- Append to `log`: `{"time": "[now]", "action": "started [description]"}`
+```bash
+node core/index.js pipeline log "started [description]"
+```
 
 After completing a step:
-- Set that phase's status to `"done"` with `completed_at`
-- Append to `log`: `{"time": "[now]", "action": "completed [description]"}`
+```bash
+node core/index.js pipeline log "completed [description]"
+```
+
+### Check DAG Progress
+```bash
+node core/index.js dag status    # overall stats
+node core/index.js dag next      # next executable wave
+node core/index.js context budget # context budget status
+```
+
+### Route Tasks
+```bash
+node core/index.js route all     # route all pending tasks
+node core/index.js route task <task-id>  # route single task
+```
+
+### Validate Changes
+```bash
+node core/index.js validate run  # run all detected gates
+```
 
 This ensures:
 1. `/ham-autocode:status` always shows real-time progress

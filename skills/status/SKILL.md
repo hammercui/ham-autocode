@@ -6,7 +6,7 @@ description: |
   Reads from .ham-autocode/pipeline.json state file.
   Use when: "progress", "status", "where are we", "show progress",
   "what phase", or when checking pipeline state.
-version: 1.0.0
+version: 2.0.0
 allowed-tools:
   - Read
   - Bash
@@ -20,11 +20,23 @@ Read and display the current ham-autocode pipeline state.
 
 ## Protocol
 
-### Step 1: Read State File
+### Step 1: Read State via Core Engine CLI
 
-Read `.ham-autocode/pipeline.json` from the project root.
+```bash
+# Get pipeline status
+node core/index.js pipeline status
 
-If it doesn't exist, report:
+# Get DAG statistics
+node core/index.js dag status
+
+# Get context budget
+node core/index.js context budget
+
+# List all tasks
+node core/index.js task list
+```
+
+If pipeline not found, report:
 ```
 Pipeline state not found. Run /ham-autocode:auto to start, or /ham-autocode:detect to analyze existing project.
 ```

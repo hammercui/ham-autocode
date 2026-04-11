@@ -5,7 +5,7 @@ description: |
   with exact position (phase, step, context). Can be resumed later with
   /ham-autocode:resume. Use when: "pause", "stop", "break", "interrupt",
   "save and stop", or when user needs to step away.
-version: 1.0.0
+version: 2.0.0
 allowed-tools:
   - Read
   - Write
@@ -19,9 +19,12 @@ Save the current pipeline state and stop execution gracefully.
 
 ## Protocol
 
-### Step 1: Read Current State
+### Step 1: Read Current State via Core Engine
 
-Read `.ham-autocode/pipeline.json`.
+```bash
+node core/index.js pipeline status
+node core/index.js dag status
+```
 
 ### Step 2: Update State
 
@@ -45,12 +48,12 @@ resume_instructions → human-readable resume guide
 active_agent_teams → list of teammate names (or empty)
 ```
 
-Also append to the `log` array:
-```json
-{"time": "[now]", "action": "paused at Phase [X], step: [description]"}
+Also log via core engine:
+```bash
+node core/index.js pipeline log "paused at Phase [X], step: [description]"
 ```
 
-See `schemas/pipeline.json` for the complete schema.
+See `schemas/pipeline.schema.json` for the complete schema.
 
 ### Step 3: Cleanup
 
