@@ -1,26 +1,29 @@
 #!/bin/bash
-# ham-autocode SessionEnd Hook
-# Marks running pipeline as "interrupted" when session ends unexpectedly.
+# ham-autocode v2.0 SessionEnd Hook
+# Uses core engine CLI to mark pipeline as interrupted.
 
-PIPELINE_FILE="${CLAUDE_PROJECT_DIR:-.}/.ham-autocode/pipeline.json"
+CORE_CLI="${CLAUDE_PROJECT_DIR:-.}/core/index.js"
 
-if [ ! -f "$PIPELINE_FILE" ]; then
+# Check if core engine exists
+if [ ! -f "$CORE_CLI" ]; then
     exit 0
 fi
 
-# Use node for Windows compatibility
+# Log the interruption via pipeline CLI
+node "$CORE_CLI" pipeline log "session ended - marking as interrupted" 2>/dev/null
+
+# Mark pipeline as interrupted using atomic write
 node -e "
-const fs = require('fs');
+const path = require('path');
+const projectDir = process.env.CLAUDE_PROJECT_DIR || '.';
 try {
-    const d = JSON.parse(fs.readFileSync('$PIPELINE_FILE', 'utf8'));
-    if (d.status === 'running') {
-        const now = new Date().toISOString();
-        d.status = 'interrupted';
-        d.interrupted_at = now;
-        d.log = d.log || [];
-        d.log.push({ time: now, action: 'session ended while pipeline was running - marked as interrupted' });
-        fs.writeFileSync('$PIPELINE_FILE', JSON.stringify(d, null, 2), 'utf8');
-    }
+  const { readPipeline, writePipeline } = require(path.join(projectDir, 'core', 'state', 'pipeline'));
+  const data = readPipeline(projectDir);
+  if (data && data.status === 'running') {
+    data.status = 'interrupted';
+    data.interrupted_at = new Date().toISOString();
+    writePipeline(projectDir, data);
+  }
 } catch(e) { /* silent */ }
 " 2>/dev/null
 

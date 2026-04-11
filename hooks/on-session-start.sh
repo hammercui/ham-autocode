@@ -1,30 +1,46 @@
 #!/bin/bash
-# ham-autocode SessionStart Hook
-# Injects pipeline state as context on session start.
+# ham-autocode v2.0 SessionStart Hook
+# Uses core engine CLI to inject pipeline state as context.
 
-PIPELINE_FILE="${CLAUDE_PROJECT_DIR:-.}/.ham-autocode/pipeline.json"
+CORE_CLI="${CLAUDE_PROJECT_DIR:-.}/core/index.js"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 
-if [ ! -f "$PIPELINE_FILE" ]; then
+# Check if core engine exists
+if [ ! -f "$CORE_CLI" ]; then
     exit 0
 fi
 
-# Use node (more reliable on Windows than python3)
+# Check if pipeline exists
+PIPELINE_STATUS=$(node "$CORE_CLI" pipeline status 2>/dev/null)
+if [ $? -ne 0 ] || [ -z "$PIPELINE_STATUS" ]; then
+    exit 0
+fi
+
+# Build context from pipeline status + DAG stats + budget
+DAG_STATUS=$(node "$CORE_CLI" dag status 2>/dev/null || echo '{}')
+BUDGET_STATUS=$(node "$CORE_CLI" context budget 2>/dev/null || echo '{}')
+
 CONTEXT=$(node -e "
-const fs = require('fs');
-try {
-    const d = JSON.parse(fs.readFileSync('$PIPELINE_FILE', 'utf8'));
-    const status = d.status || '?';
-    const phase = d.current_phase || '?';
-    const step = d.current_step || '?';
-    const project = d.project || '?';
-    const summary = 'ham-autocode pipeline: project=' + project + ', status=' + status + ', phase=' + phase + ', step=' + step;
-    const state = JSON.stringify(d, null, 2);
-    const ctx = '## ham-autocode Pipeline State\\n\\n' + summary + '\\n\\nFull state:\\n\`\`\`json\\n' + state + '\\n\`\`\`\\n\\nUse /ham-autocode:status to see progress.\\nUse /ham-autocode:resume to continue.\\nUse /ham-autocode:pause to save and stop.';
-    const output = { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: ctx } };
-    process.stdout.write(JSON.stringify(output));
-} catch(e) {
-    process.exit(0);
-}
+const pipeline = $PIPELINE_STATUS;
+const dag = $DAG_STATUS;
+const budget = $BUDGET_STATUS;
+
+const project = pipeline.project || '?';
+const status = pipeline.status || '?';
+const task = pipeline.current_task || 'none';
+const progress = dag.progress !== undefined ? dag.progress + '%' : '?';
+const budgetLevel = budget.level || 'ok';
+
+const summary = [
+  'ham-autocode pipeline: project=' + project + ', status=' + status,
+  'Current task: ' + task,
+  'Progress: ' + progress + ' (' + (dag.done || 0) + '/' + (dag.total || 0) + ' tasks)',
+  'Context budget: ' + budgetLevel,
+].join('\\n');
+
+const ctx = '## ham-autocode Pipeline State (v2.0)\\n\\n' + summary + '\\n\\nUse /ham-autocode:status for details.\\nUse /ham-autocode:resume to continue.';
+const output = { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: ctx } };
+process.stdout.write(JSON.stringify(output));
 " 2>/dev/null)
 
 if [ -n "$CONTEXT" ]; then

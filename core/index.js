@@ -50,8 +50,12 @@ Commands:
   worktree create <task-id>     Create isolated worktree
   worktree merge <task-id>      Merge worktree back
   worktree remove <task-id>     Remove worktree
+  task read <task-id>           Read a specific task
+  task list                     List all tasks
+  task update <task-id> <status> Update task status
   token estimate <file>         Estimate tokens for a file
-  token index [dir]             Build file token index`;
+  token index [dir]             Build file token index
+  help                          Show this help message`;
 }
 
 function main() {
@@ -218,6 +222,35 @@ function main() {
           console.error(`Unknown worktree subcommand: ${sub}`);
           process.exit(1);
         }
+        break;
+      }
+
+      case 'task': {
+        const tg = modules.taskGraph();
+        if (sub === 'read') {
+          const taskId = args[2];
+          if (!taskId) { console.error('Usage: task read <task-id>'); process.exit(1); }
+          const task = tg.readTask(projectDir, taskId);
+          if (!task) { console.error(`Task ${taskId} not found`); process.exit(1); }
+          console.log(JSON.stringify(task, null, 2));
+        } else if (sub === 'list') {
+          const tasks = tg.readAllTasks(projectDir);
+          console.log(JSON.stringify(tasks.map(t => ({ id: t.id, name: t.name, status: t.status, target: t.routing?.target })), null, 2));
+        } else if (sub === 'update') {
+          const taskId = args[2];
+          const status = args[3];
+          if (!taskId || !status) { console.error('Usage: task update <task-id> <status>'); process.exit(1); }
+          const updated = tg.updateTaskStatus(projectDir, taskId, status);
+          console.log(JSON.stringify(updated, null, 2));
+        } else {
+          console.error(`Unknown task subcommand: ${sub}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'help': {
+        console.log(usage());
         break;
       }
 
