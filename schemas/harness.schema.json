@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ham-autocode v2.0 Harness Configuration",
+  "description": "User configuration file at .ham-autocode/harness.json. Overrides defaults from defaults/harness.json.",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 2
+    },
+    "context": {
+      "type": "object",
+      "description": "Context budget thresholds (percentage of context window)",
+      "properties": {
+        "advisoryThreshold": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "compressThreshold": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "criticalThreshold": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation gate configuration",
+      "properties": {
+        "mode": { "type": "string", "enum": ["strict", "lenient", "off"] },
+        "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "gates": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["lint", "typecheck", "test"] }
+        },
+        "onFinalFail": { "type": "string", "enum": ["block", "warn", "skip"] }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "description": "Agent routing thresholds",
+      "properties": {
+        "confirmThreshold": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "codexMinSpecScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "codexMinIsolationScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "defaultTarget": { "type": "string", "enum": ["claude-code", "codex", "claude-app"] }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "description": "Recovery strategy configuration",
+      "properties": {
+        "lowRiskStrategy": { "type": "string", "enum": ["checkpoint", "worktree"] },
+        "highRiskThreshold": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "highRiskStrategy": { "type": "string", "enum": ["checkpoint", "worktree"] }
+      }
+    }
+  }
+}

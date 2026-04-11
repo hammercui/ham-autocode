@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ham-autocode v2.0 Pipeline State",
-  "description": "Pipeline state file for ham-autocode v2.0 Harness. Located at .ham-autocode/pipeline.json in the target project.",
+  "title": "ham-autocode Pipeline State v2",
+  "description": "Pipeline state file for ham-autocode v2.0. Located at .ham-autocode/pipeline.json in the target project.",
   "type": "object",
-  "required": ["schemaVersion", "project", "status", "started_at", "updated_at", "current_task", "log"],
+  "required": ["schemaVersion", "project", "status", "started_at", "updated_at", "log"],
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -44,10 +44,10 @@
       "description": "ID of the currently executing task"
     },
     "current_phase": {
-      "type": ["integer", "null"],
+      "type": "integer",
       "minimum": 0,
       "maximum": 6,
-      "description": "Legacy phase tracking (1-6)"
+      "description": "Current pipeline phase (0=init, 1-6=phases)"
     },
     "current_step": {
       "type": ["string", "null"],
@@ -68,7 +68,7 @@
     "active_agent_teams": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Names of active agent team members (for cleanup on pause)"
+      "description": "Names of active agent team members"
     },
     "phases": {
       "type": "object",

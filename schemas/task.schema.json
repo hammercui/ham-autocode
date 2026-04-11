@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ham-autocode v2.0 Task",
+  "description": "Individual task state file stored in .ham-autocode/tasks/<task-id>.json",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "milestone", "phase", "status", "blockedBy", "files", "spec", "scores", "routing", "recovery", "validation", "context", "execution"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^task-[0-9]{3}$",
+      "description": "Task ID (e.g., task-001)"
+    },
+    "name": {
+      "type": "string"
+    },
+    "milestone": {
+      "type": "string",
+      "description": "Milestone identifier (e.g., M001)"
+    },
+    "phase": {
+      "type": "string",
+      "description": "Phase within milestone"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "done", "failed", "blocked", "skipped"]
+    },
+    "blockedBy": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs of tasks that must complete before this one"
+    },
+    "files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Files this task creates or modifies"
+    },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "interface": { "type": "string" },
+        "acceptance": { "type": "string" },
+        "completeness": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "properties": {
+        "specScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "complexityScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "isolationScore": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "target": { "type": "string", "enum": ["claude-code", "codex", "claude-app"] },
+        "reason": { "type": "string" },
+        "needsConfirmation": { "type": "boolean" },
+        "confirmed": { "type": "boolean" }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "properties": {
+        "strategy": { "type": "string", "enum": ["checkpoint", "worktree"] },
+        "checkpointRef": { "type": ["string", "null"] }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "gates": { "type": "array", "items": { "type": "object" } },
+        "attempts": { "type": "integer", "minimum": 0 },
+        "maxAttempts": { "type": "integer", "minimum": 1 },
+        "results": { "type": "array" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "requiredFiles": { "type": "array", "items": { "type": "string" } },
+        "estimatedTokens": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": ["string", "null"] },
+        "startedAt": { "type": ["string", "null"] },
+        "completedAt": { "type": ["string", "null"] },
+        "error": { "type": ["string", "null"] },
+        "errorType": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
