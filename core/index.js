@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 
 const modules = {
@@ -33,6 +32,7 @@ Commands:
   pipeline log <action>
   pipeline pause
   pipeline resume
+  pipeline mark-interrupted
   dag init [plan-file] [milestone] [phase]
   dag next-wave
   dag complete <task-id>
@@ -131,6 +131,13 @@ function dispatch(args, projectDir) {
       }
       if (sub === 'resume') {
         return pipeline.setPipelineStatus(projectDir, 'running', { resumed_at: new Date().toISOString() });
+      }
+      if (sub === 'mark-interrupted') {
+        try {
+          return pipeline.setPipelineStatus(projectDir, 'interrupted', { interrupted_at: new Date().toISOString() });
+        } catch {
+          return { ok: false, reason: 'no pipeline or not running' };
+        }
       }
       throw new Error(`Unknown pipeline subcommand: ${sub}`);
     }
@@ -262,6 +269,7 @@ function dispatch(args, projectDir) {
     }
 
     case 'recover': {
+      if (!sub) throw new Error('Usage: recover <subcommand> <task-id>. Subcommands: checkpoint, rollback, worktree-create, worktree-merge, worktree-remove');
       const tg = modules.taskGraph();
       const checkpoint = modules.checkpoint();
       const worktree = modules.worktree();

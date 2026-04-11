@@ -32,8 +32,8 @@ node core/index.js dag status
 # Get context budget
 node core/index.js context budget
 
-# List all tasks
-node core/index.js task list
+# Get next wave of executable tasks
+node core/index.js dag next-wave
 ```
 
 If pipeline not found, report:

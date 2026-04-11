@@ -7,6 +7,10 @@ const LOCK_DIR = '.lock';
 const LOCK_TIMEOUT = 5000; // ms
 
 function acquireLock(stateDir) {
+  // Ensure stateDir exists before attempting lock
+  if (!fs.existsSync(stateDir)) {
+    fs.mkdirSync(stateDir, { recursive: true });
+  }
   const lockPath = path.join(stateDir, LOCK_DIR);
   const start = Date.now();
   while (Date.now() - start < LOCK_TIMEOUT) {

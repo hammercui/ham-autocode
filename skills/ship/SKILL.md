@@ -26,9 +26,11 @@ You are running the complete review-to-release pipeline with core engine support
 ## Phase 1: Validation Gates
 
 ```bash
-# Detect and run all validation gates
+# Detect available validation gates
 node core/index.js validate detect
-node core/index.js validate .
+
+# Run validation per task (repeat for each task)
+node core/index.js validate <task-id>
 
 # Check DAG completion
 node core/index.js dag status
@@ -61,7 +63,7 @@ Run `/review` (gstack) for PR-level review:
 Run `/qa` (gstack) for systematic testing:
 - Functional, integration, and regression tests
 - Auto-fix discovered bugs (atomic commits per fix)
-- Re-run validation after fixes: `node core/index.js validate .`
+- Re-run validation after fixes: `node core/index.js validate <task-id>`
 
 ## Phase 6: Triage Issues
 
@@ -74,9 +76,9 @@ Run `/qa` (gstack) for systematic testing:
 
 For fixes, use recovery:
 ```bash
-node core/index.js checkpoint create "pre-fix-[task-id]"
+node core/index.js recover checkpoint <task-id>
 # ... make fix ...
-node core/index.js validate .
+node core/index.js validate <task-id>
 ```
 
 ## Phase 7: Ship
@@ -86,8 +88,7 @@ node core/index.js validate .
 1. Ask user for confirmation
 2. Run `/ship` (gstack) — VERSION bump, CHANGELOG, PR
 3. Run `/document-release` — sync docs
-4. Cleanup: `node core/index.js checkpoint cleanup`
-5. Update pipeline: `node core/index.js pipeline log "shipped"`
+4. Update pipeline: `node core/index.js pipeline log "shipped"`
 
 ## Rules
 

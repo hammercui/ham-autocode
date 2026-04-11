@@ -35,13 +35,13 @@ You are setting up parallel development using the DAG scheduler and agent routin
 
 ```bash
 # Parse plan into task objects
-node core/index.js dag parse .planning/phases/*/PLAN.md
+node core/index.js dag init .planning/phases/*/PLAN.md
 
 # Score and route all tasks
-node core/index.js route all
+node core/index.js route batch
 
 # Check what's ready to execute
-node core/index.js dag next
+node core/index.js dag next-wave
 
 # Verify context budget
 node core/index.js context budget
@@ -61,7 +61,7 @@ Routing rules:
 
 ```bash
 # See routing decisions
-node core/index.js route all
+node core/index.js route batch
 ```
 
 ## Step 3: Create Agent Team for Claude Code Tasks
@@ -88,10 +88,10 @@ Present specs to user for Codex execution.
 
 ```bash
 # Get current wave
-node core/index.js dag next
+node core/index.js dag next-wave
 
 # After completing tasks, update status
-node core/index.js task update [task-id] done
+node core/index.js dag complete <task-id>
 
 # Check progress
 node core/index.js dag status
@@ -102,24 +102,24 @@ node core/index.js dag status
 After each task completion:
 ```bash
 # Run validation gates
-node core/index.js validate .
+node core/index.js validate <task-id>
 
 # If validation fails, use recovery
-node core/index.js checkpoint create [task-id]
-node core/index.js checkpoint rollback [ref]
+node core/index.js recover checkpoint <task-id>
+node core/index.js recover rollback <task-id>
 ```
 
 ## Step 7: Monitor and Merge
 
 1. Monitor Agent Teams progress
 2. Integrate Codex outputs
-3. Run `node core/index.js validate .` after integration
+3. Run `node core/index.js validate <task-id>` after integration
 4. Continue with next DAG wave
 
 ## Rules
 
-- Use `node core/index.js dag next` to determine task execution order
-- Use `node core/index.js route all` for routing decisions
+- Use `node core/index.js dag next-wave` to determine task execution order
+- Use `node core/index.js route batch` for routing decisions
 - Check `node core/index.js context budget` before heavy operations
 - Create checkpoints before risky tasks
 - 5-6 tasks per teammate, no file overlap

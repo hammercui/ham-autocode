@@ -30,7 +30,7 @@ claude --plugin-dir ./ham-autocode
 /reload-plugins
 ```
 
-## 4 个 Skill
+## 7 个 Skill
 
 | Skill | 命令 | 用途 |
 |-------|------|------|

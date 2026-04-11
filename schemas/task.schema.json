@@ -27,7 +27,7 @@
     },
     "status": {
       "type": "string",
-      "enum": ["pending", "running", "done", "failed", "blocked", "skipped"]
+      "enum": ["pending", "in_progress", "blocked", "validating", "done", "failed", "skipped"]
     },
     "blockedBy": {
       "type": "array",

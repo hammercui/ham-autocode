@@ -53,20 +53,21 @@ node core/index.js pipeline log "completed [description]"
 
 ### Check DAG Progress
 ```bash
-node core/index.js dag status    # overall stats
-node core/index.js dag next      # next executable wave
-node core/index.js context budget # context budget status
+node core/index.js dag status      # overall stats
+node core/index.js dag next-wave   # next executable wave
+node core/index.js context budget  # context budget status
 ```
 
 ### Route Tasks
 ```bash
-node core/index.js route all     # route all pending tasks
-node core/index.js route task <task-id>  # route single task
+node core/index.js route batch       # route all pending tasks
+node core/index.js route <task-id>   # route single task
 ```
 
 ### Validate Changes
 ```bash
-node core/index.js validate run  # run all detected gates
+node core/index.js validate detect       # detect available gates
+node core/index.js validate <task-id>    # run gates for a task
 ```
 
 This ensures:

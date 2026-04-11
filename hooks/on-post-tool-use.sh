@@ -9,19 +9,22 @@ if [ ! -f "$CORE_CLI" ]; then
     exit 0
 fi
 
-# Read tool name from stdin (Claude passes tool_name in hook input)
-TOOL_NAME="${CLAUDE_TOOL_NAME:-unknown}"
-
 # Track context budget - estimate tokens consumed by tool output
 BUDGET_STATUS=$(node "$CORE_CLI" context budget 2>/dev/null)
 if [ $? -ne 0 ] || [ -z "$BUDGET_STATUS" ]; then
     exit 0
 fi
 
-# Check if budget is at compress or critical level
+# Check if budget is at compress or critical level (Windows-compatible: no /dev/stdin)
 LEVEL=$(echo "$BUDGET_STATUS" | node -e "
-const data = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-process.stdout.write(data.level || 'ok');
+let chunks = [];
+process.stdin.on('data', c => chunks.push(c));
+process.stdin.on('end', () => {
+  try {
+    const data = JSON.parse(chunks.join(''));
+    process.stdout.write(data.level || 'ok');
+  } catch { process.stdout.write('ok'); }
+});
 " 2>/dev/null)
 
 if [ "$LEVEL" = "critical" ]; then

@@ -34,7 +34,7 @@ Resume the ham-autocode pipeline from its last saved state using core engine.
 ```bash
 node core/index.js pipeline status
 node core/index.js dag status
-node core/index.js dag next
+node core/index.js dag next-wave
 node core/index.js context budget
 ```
 
@@ -85,7 +85,7 @@ If GSD was active, run `/gsd:resume-work` to restore GSD context.
 
 Use DAG scheduler to determine next tasks:
 ```bash
-node core/index.js dag next
+node core/index.js dag next-wave
 ```
 
 Route and execute the next wave, following the normal auto pipeline flow.
