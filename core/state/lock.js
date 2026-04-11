@@ -24,8 +24,10 @@ function acquireLock(stateDir) {
           }
         } catch { /* ignore */ }
         // Wait and retry
+        // Busy-wait with small sleep (cross-platform, no SharedArrayBuffer needed)
         const wait = Math.floor(Math.random() * 100) + 50;
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait);
+        const end = Date.now() + wait;
+        while (Date.now() < end) { /* spin */ }
         continue;
       }
       throw e;
