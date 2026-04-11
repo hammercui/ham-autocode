@@ -3,7 +3,11 @@
 const path = require('path');
 const git = require('../utils/git');
 
-const WORKTREE_PREFIX = 'ham-worktree-';
+const WORKTREE_PREFIX = 'ham-wt-';
+
+function getWorktreePath(taskId, cwd) {
+  return path.join(cwd, '.ham-autocode', 'worktrees', taskId);
+}
 
 /**
  * Git worktree lifecycle: create, merge, remove.
@@ -13,7 +17,7 @@ const WORKTREE_PREFIX = 'ham-worktree-';
 /** Create an isolated worktree for a task */
 function createWorktree(taskId, cwd) {
   const branch = `${WORKTREE_PREFIX}${taskId}`;
-  const worktreePath = path.join(path.dirname(cwd), `.ham-worktrees`, taskId);
+  const worktreePath = getWorktreePath(taskId, cwd);
 
   const result = git.worktreeAdd(worktreePath, branch, cwd);
   if (!result.ok) {
@@ -35,22 +39,25 @@ function mergeWorktree(taskId, cwd) {
 /** Remove a worktree and its branch */
 function removeWorktree(taskId, cwd) {
   const branch = `${WORKTREE_PREFIX}${taskId}`;
-  const worktreePath = path.join(path.dirname(cwd), `.ham-worktrees`, taskId);
+  const worktreePath = getWorktreePath(taskId, cwd);
 
   const removeResult = git.worktreeRemove(worktreePath, cwd);
   const branchResult = git.branchDelete(branch, cwd);
+  const errors = [];
+  if (!removeResult.ok) errors.push(removeResult.output);
+  if (!branchResult.ok) errors.push(branchResult.output);
 
   return {
-    ok: removeResult.ok || branchResult.ok,
+    ok: removeResult.ok && branchResult.ok,
     worktreeRemoved: removeResult.ok,
     branchDeleted: branchResult.ok,
-    error: removeResult.ok ? null : removeResult.output,
+    error: errors.length > 0 ? errors.join('\n') : null,
   };
 }
 
 /** Get status of a worktree */
 function worktreeStatus(taskId, cwd) {
-  const worktreePath = path.join(path.dirname(cwd), `.ham-worktrees`, taskId);
+  const worktreePath = getWorktreePath(taskId, cwd);
   const statusResult = git.status(worktreePath);
   return {
     exists: statusResult.ok,
