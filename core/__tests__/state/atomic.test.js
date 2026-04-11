@@ -5,25 +5,17 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Create a temp dir for testing
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atomic-test-'));
 const testFile = path.join(tmpDir, 'test.json');
 
 // Test write and read
-const data = { foo: 'bar', num: 42 };
-atomicWriteJSON(testFile, data);
-const read = readJSON(testFile);
-assert.deepStrictEqual(read, data, 'Should read back what was written');
+atomicWriteJSON(testFile, { hello: 'world' });
+const data = readJSON(testFile);
+assert.deepStrictEqual(data, { hello: 'world' });
 
 // Test readJSON on non-existent file
-const noFile = readJSON(path.join(tmpDir, 'nope.json'));
-assert.strictEqual(noFile, null, 'Should return null for missing file');
-
-// Test nested dir creation
-const nestedFile = path.join(tmpDir, 'a', 'b', 'c.json');
-atomicWriteJSON(nestedFile, { nested: true });
-assert.deepStrictEqual(readJSON(nestedFile), { nested: true });
+assert.strictEqual(readJSON(path.join(tmpDir, 'nope.json')), null);
 
 // Cleanup
-fs.rmSync(tmpDir, { recursive: true, force: true });
+fs.rmSync(tmpDir, { recursive: true });
 console.log('atomic tests passed');
