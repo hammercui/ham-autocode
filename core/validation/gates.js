@@ -8,6 +8,11 @@ const { loadConfig } = require('../state/config');
  * Two-strike gate runner.
  * Runs detected validation commands, captures output, reports pass/fail.
  * On first failure: retry once. On second failure: report as failed.
+ *
+ * Security boundary:
+ * Validation commands come from the user's own repository config (package.json,
+ * Makefile, pyproject.toml, Cargo.toml). Running them is an explicit trust
+ * decision of this harness and not treated as untrusted shell input.
  */
 function runGate(gate, cwd) {
   try {

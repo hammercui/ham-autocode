@@ -7,6 +7,8 @@ const TAG_PREFIX = 'ham-checkpoint/';
 /**
  * Git tag-based checkpoint: create, rollback, cleanup.
  * Uses lightweight tags with a prefix to namespace checkpoints.
+ * Git subprocesses use argument arrays in core/utils/git.js to avoid shell
+ * interpolation of task-controlled values.
  */
 
 /** Create a checkpoint tag before risky operations */
