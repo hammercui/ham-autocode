@@ -46,4 +46,13 @@ function appendLog(projectDir, action) {
   writePipeline(projectDir, pipeline);
 }
 
-module.exports = { readPipeline, writePipeline, initPipeline, appendLog };
+function setPipelineStatus(projectDir, status, extra = {}) {
+  const pipeline = readPipeline(projectDir);
+  if (!pipeline) throw new Error('No pipeline found');
+  pipeline.status = status;
+  Object.assign(pipeline, extra);
+  writePipeline(projectDir, pipeline);
+  return pipeline;
+}
+
+module.exports = { readPipeline, writePipeline, initPipeline, appendLog, setPipelineStatus };
