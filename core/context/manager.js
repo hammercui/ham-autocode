@@ -31,6 +31,7 @@ class ContextManager {
       files: [],
       totalTokens: 0,
       budgetStatus: null,
+      recommendation: 'normal',
     };
 
     for (const relPath of requiredFiles) {
@@ -50,6 +51,7 @@ class ContextManager {
     // Update budget
     this.budget.consume(context.totalTokens);
     context.budgetStatus = this.budget.status();
+    context.recommendation = context.budgetStatus.recommendation;
 
     return context;
   }

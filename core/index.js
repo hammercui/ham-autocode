@@ -200,13 +200,14 @@ function dispatch(args, projectDir) {
         if (!task) throw new Error(`Task ${taskId} not found`);
         const { ContextManager } = modules.manager();
         const mgr = new ContextManager(projectDir);
-        mgr.prepareForTask(task);
+        const prepared = mgr.prepareForTask(task);
+        const budgetStatus = mgr.budgetStatus();
         return {
           taskId,
           requiredFiles: task.context?.requiredFiles || task.files || [],
           estimatedTokens: mgr.estimateTask(task),
-          budgetRemaining: Math.max(0, 100 - mgr.budgetStatus().usagePercent),
-          recommendation: mgr.budgetStatus().level,
+          budgetRemaining: Math.max(0, 100 - budgetStatus.usagePercent),
+          recommendation: prepared.recommendation,
         };
       }
       throw new Error(`Unknown context subcommand: ${sub}`);
