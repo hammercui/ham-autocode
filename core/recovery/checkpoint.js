@@ -19,39 +19,29 @@ function createCheckpoint(taskId, cwd) {
   return { ok: true, ref: name, error: null };
 }
 
-/** Rollback to a checkpoint by restoring files from the tag */
-function rollbackToCheckpoint(ref, cwd) {
-  // First verify the tag exists
-  const verify = git.log(1, cwd); // just to verify we're in a git repo
+/** Rollback to a checkpoint by restoring task-specific files from the tag */
+function rollbackToCheckpoint(ref, cwd, files) {
+  const verify = git.log(1, cwd);
   if (!verify.ok) return { ok: false, error: 'Not a git repository' };
 
-  // Hard reset to checkpoint (restores working tree)
-  const result = require('child_process').execSync
-    ? (() => {
-        try {
-          require('child_process').execSync(`git checkout "${ref}" -- .`, { cwd, encoding: 'utf8', timeout: 30000 });
-          return { ok: true, output: '' };
-        } catch (e) {
-          return { ok: false, output: e.stderr || e.message };
-        }
-      })()
-    : { ok: false, output: 'execSync not available' };
-
-  if (!result.ok) {
-    return { ok: false, error: `Rollback failed: ${result.output}` };
+  // If specific files provided, restore only those; otherwise restore all
+  if (files && files.length > 0) {
+    const result = git.checkoutFiles(ref, files, cwd);
+    if (!result.ok) return { ok: false, error: `Rollback failed: ${result.output}` };
+  } else {
+    const result = git.checkoutAll(ref, cwd);
+    if (!result.ok) return { ok: false, error: `Rollback failed: ${result.output}` };
   }
   return { ok: true, error: null };
 }
 
 /** List all checkpoint tags */
 function listCheckpoints(cwd) {
-  const { execSync } = require('child_process');
-  try {
-    const output = execSync(`git tag -l "${TAG_PREFIX}*"`, { cwd, encoding: 'utf8', timeout: 10000 }).trim();
-    return output ? output.split('\n') : [];
-  } catch {
+  const result = git.listTags(`${TAG_PREFIX}*`, cwd);
+  if (!result.ok) {
     return [];
   }
+  return result.output ? result.output.split('\n').filter(Boolean) : [];
 }
 
 /** Clean up checkpoint tags for a specific task */
