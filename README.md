@@ -3,7 +3,7 @@
 > Claude Code Plugin for fully autonomous project development.
 > Orchestrates gstack + GSD + Superpowers + Agent Teams through a 6-phase pipeline with a Node.js Core Engine.
 
-**v2.0.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md)
+**v2.0.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [中文文档](README.zh-CN.md)
 
 ---
 
