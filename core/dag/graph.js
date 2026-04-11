@@ -5,10 +5,12 @@
 function topoSort(tasks) {
   const graph = new Map(); // id → { task, edges: Set }
   const inDegree = new Map();
+  const taskIds = new Set(tasks.map(t => t.id));
 
   for (const t of tasks) {
-    graph.set(t.id, { task: t, edges: new Set(t.blockedBy || []) });
-    inDegree.set(t.id, (t.blockedBy || []).length);
+    const edges = new Set((t.blockedBy || []).filter(depId => taskIds.has(depId)));
+    graph.set(t.id, { task: t, edges });
+    inDegree.set(t.id, edges.size);
   }
 
   const queue = [];
