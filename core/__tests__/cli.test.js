@@ -1,36 +1,29 @@
-// core/__tests__/cli.test.js
-const { execSync } = require('child_process');
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { dispatch, usage } = require('../index');
 
-const cwd = path.resolve(__dirname, '../..');
+const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ham-cli-test-'));
 
-function run(args) {
-  return execSync(`node core/index.js ${args}`, { cwd, encoding: 'utf8', timeout: 10000 }).trim();
-}
-
-// Test config show
-const config = JSON.parse(run('config show'));
+const config = dispatch(['config', 'show'], projectDir);
 assert.strictEqual(config.schemaVersion, 2);
 assert.ok(config.context);
 assert.ok(config.validation);
 
-// Test dag status
-const dagStatus = JSON.parse(run('dag status'));
+const dagStatus = dispatch(['dag', 'status'], projectDir);
 assert.strictEqual(typeof dagStatus.total, 'number');
 
-// Test context budget
-const budget = JSON.parse(run('context budget'));
+const budget = dispatch(['context', 'budget'], projectDir);
 assert.strictEqual(budget.level, 'ok');
 assert.strictEqual(typeof budget.consumed, 'number');
 
-// Test validate detect
-const gates = JSON.parse(run('validate detect'));
+const gates = dispatch(['validate', 'detect'], projectDir);
 assert.ok(Array.isArray(gates));
 
-// Test help
-const help = run('help');
+const help = usage();
 assert.ok(help.includes('ham-autocode'));
 assert.ok(help.includes('config show'));
 
+fs.rmSync(projectDir, { recursive: true, force: true });
 console.log('CLI tests passed');
