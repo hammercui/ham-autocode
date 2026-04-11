@@ -5,12 +5,28 @@ const path = require('path');
 const { atomicWriteJSON, readJSON } = require('./atomic');
 const { withLock } = require('./lock');
 
+const TASK_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
 function tasksDir(projectDir) {
   return path.join(projectDir, '.ham-autocode', 'tasks');
 }
 
 function taskPath(projectDir, taskId) {
-  return path.join(tasksDir(projectDir), taskId + '.json');
+  const validTaskId = validateTaskId(taskId);
+  const dir = tasksDir(projectDir);
+  const filePath = path.resolve(dir, validTaskId + '.json');
+  const root = path.resolve(dir);
+  if (filePath !== path.join(root, validTaskId + '.json')) {
+    throw new Error(`Invalid taskId: ${taskId}`);
+  }
+  return filePath;
+}
+
+function validateTaskId(taskId) {
+  if (typeof taskId !== 'string' || !TASK_ID_PATTERN.test(taskId)) {
+    throw new Error(`Invalid taskId: ${taskId}`);
+  }
+  return taskId;
 }
 
 function readTask(projectDir, taskId) {
@@ -18,6 +34,7 @@ function readTask(projectDir, taskId) {
 }
 
 function writeTask(projectDir, task) {
+  validateTaskId(task.id);
   const dir = tasksDir(projectDir);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const sd = path.join(projectDir, '.ham-autocode');
