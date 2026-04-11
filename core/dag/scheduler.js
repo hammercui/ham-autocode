@@ -5,12 +5,20 @@ const DONE_STATUSES = new Set(['done', 'skipped']);
 
 /** Get next wave of executable tasks (all blockedBy resolved) */
 function nextWave(tasks) {
+  const warned = new Set();
   return tasks.filter(t => {
     if (t.status !== 'pending') return false;
     if (!t.blockedBy || t.blockedBy.length === 0) return true;
     return t.blockedBy.every(depId => {
       const dep = tasks.find(d => d.id === depId);
-      return dep && DONE_STATUSES.has(dep.status);
+      if (!dep) {
+        if (!warned.has(depId)) {
+          warned.add(depId);
+          console.warn(`Warning: missing dependency ${depId} treated as resolved`);
+        }
+        return true;
+      }
+      return DONE_STATUSES.has(dep.status);
     });
   });
 }
