@@ -1,0 +1,19 @@
+{
+  "name": "ham-autocode",
+  "description": "Autonomous development orchestrator — combines gstack, GSD, and Superpowers into a 6-phase pipeline with state tracking, progress display, pause/resume. Skills: detect, auto, parallel, ship, status, pause, resume.",
+  "version": "1.1.0",
+  "author": {
+    "name": "hammercui"
+  },
+  "homepage": "https://github.com/hammercui/ham-autocode",
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "autonomous",
+    "gstack",
+    "gsd",
+    "superpowers",
+    "agent-teams",
+    "parallel-development"
+  ]
+}

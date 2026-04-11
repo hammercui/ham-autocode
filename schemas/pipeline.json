@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ham-autocode Pipeline State",
+  "description": "Shared state file for all ham-autocode skills. Located at .ham-autocode/pipeline.json in the target project.",
+  "type": "object",
+  "required": ["project", "status", "started_at", "updated_at", "current_phase", "current_step", "phases", "log"],
+  "properties": {
+    "project": {
+      "type": "string",
+      "description": "Project name (from directory name)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["running", "paused", "interrupted", "completed"],
+      "description": "running=active, paused=user paused, interrupted=session crashed, completed=all done"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "paused_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "interrupted_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "resumed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "current_phase": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "current_step": {
+      "type": "string",
+      "description": "Human-readable description of current step"
+    },
+    "last_completed": {
+      "type": ["string", "null"],
+      "description": "Last completed action (for resume)"
+    },
+    "next_action": {
+      "type": ["string", "null"],
+      "description": "What to do next (for resume)"
+    },
+    "resume_instructions": {
+      "type": ["string", "null"],
+      "description": "Human-readable instructions for resume"
+    },
+    "active_agent_teams": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of active agent team members (for cleanup on pause)"
+    },
+    "phases": {
+      "type": "object",
+      "description": "Status of each phase (keys: '1' through '6')",
+      "patternProperties": {
+        "^[1-6]$": {
+          "type": "object",
+          "required": ["status", "name"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["pending", "running", "done", "skipped"]
+            },
+            "name": { "type": "string" },
+            "completed_at": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["time", "action"],
+        "properties": {
+          "time": { "type": "string" },
+          "action": { "type": "string" }
+        }
+      }
+    }
+  }
+}

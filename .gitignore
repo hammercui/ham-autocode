@@ -1,0 +1,10 @@
+# Runtime state (generated in target projects, not part of plugin)
+.ham-autocode/
+.setting/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
