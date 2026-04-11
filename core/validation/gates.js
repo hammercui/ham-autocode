@@ -37,7 +37,6 @@ function runGate(gate, cwd) {
  */
 function runValidation(projectDir, gateNames) {
   const config = loadConfig(projectDir).validation;
-  const maxAttempts = config.maxAttempts || 2;
   const detected = detectGates(projectDir);
 
   // Filter to requested gates if specified
@@ -46,21 +45,19 @@ function runValidation(projectDir, gateNames) {
     : detected;
 
   if (gates.length === 0) {
-    return { passed: true, results: [], summary: 'No validation gates detected' };
+    const requested = Array.isArray(gateNames) && gateNames.length > 0;
+    return {
+      passed: !requested,
+      results: [],
+      summary: requested ? `Requested gates not found: ${gateNames.join(', ')}` : 'No validation gates detected',
+    };
   }
 
   const results = [];
   let allPassed = true;
 
   for (const gate of gates) {
-    let result = runGate(gate, projectDir);
-
-    // Two-strike: retry on first failure
-    if (!result.passed && maxAttempts > 1) {
-      result = runGate(gate, projectDir);
-      result.attempts = 2;
-    }
-
+    const result = runGate(gate, projectDir);
     results.push(result);
     if (!result.passed) allPassed = false;
   }
@@ -79,14 +76,16 @@ function validateTask(task, projectDir) {
   const config = loadConfig(projectDir).validation;
   const gateNames = config.gates || ['lint', 'typecheck', 'test'];
   const result = runValidation(projectDir, gateNames);
+  const attempts = (task.validation?.attempts || 0) + 1;
+  const finalFailure = !result.passed && attempts >= config.maxAttempts;
 
   return {
     gates: result.results.map(r => ({ name: r.name, passed: r.passed, attempts: r.attempts })),
-    attempts: (task.validation?.attempts || 0) + 1,
+    attempts,
     maxAttempts: config.maxAttempts,
     results: result.results,
     passed: result.passed,
-    action: result.passed ? 'proceed' : (config.onFinalFail || 'block'),
+    action: result.passed ? 'proceed' : (finalFailure ? (config.onFinalFail || 'block') : 'retry'),
   };
 }
 
