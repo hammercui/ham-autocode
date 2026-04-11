@@ -92,71 +92,19 @@ Harness = 工厂系统 ↓
 
 ---
 
-## v2.1 路线图（Gap 修复版）
+## 演进路线
 
-预计覆盖率：83% -> 92%
-
-```
-v2.1 修复优先级（按影响排序）：
-
-P0 — Executor Adapter CLI (A1)
-  新增: node core/index.js execute prepare <task-id>
-  让 skill 能标准化获取执行指令
-
-P0 — topoSort 接入 scheduler (A2)
-  scheduler.nextWave 启动时先跑 topoSort 做环检测
-
-P1 — 验证失败自动 rollback (B4)
-  validateTask 返回 block 时自动调用 recover rollback
-
-P1 — pipeline.current_task 更新 (A5)
-  dag complete/fail 时自动更新 pipeline.current_task
-
-P1 — blocked 状态自动推断 (A6)
-  dag status 时扫描 pending 任务，有未解决 blockedBy 的标记为 blocked
-
-P2 — Execution Trace (B1)
-  每个 CLI 调用追加到 .ham-autocode/logs/trace.jsonl
-
-P2 — file-index 持久化 (B2)
-  context prepare 后写入 .ham-autocode/context/file-index.json
-
-P2 — DAG 依赖推断 (A3)
-  parser 解析后基于文件重叠推断 blockedBy
-
-P3 — Recovery 自动选择 (A7)
-  根据 complexityScore 自动选择 checkpoint 或 worktree
-
-P3 — PostToolUse token 消耗估算 (A4)
-  基于 tool output 大小粗估 token 消耗
-```
-
-## v3.0 路线图（生产级 Harness）
+详细 TODO 和 Roadmap 见：
+- **[v2.1-TODO.md](v2.1-TODO.md)** — TypeScript 迁移 + Gap 修复（83% → 92%）
+- **[v2.2-ROADMAP.md](v2.2-ROADMAP.md)** — Observability + Auto-commit + Agent Teams + Guardrails（92% → 97%）
 
 ```
-v3.0 目标：对标 Stripe/Shopify 生产级
-
-1. TypeScript 守护引擎
-   - 声明式规则系统（R01-R13）
-   - 编译时类型安全
-
-2. Observability
-   - agent-trace.jsonl 结构化追踪
-   - DAG 可视化 Web Dashboard
-   - 执行回放
-
-3. Auto-commit + Agent Teams
-   - 验证通过后自动 commit
-   - Agent Teams 作为第四路由目标
-   - Progressive batching
-
-4. Evaluation System
-   - 自动评分 + 回归测试
-   - 代码质量趋势追踪
-
-5. 完整 Schema 校验
-   - 运行时 JSON Schema 验证所有状态文件
-   - YAML 配置可选支持
+v1.0  → 纯 Skill 编排（零代码 Harness）
+v1.1  → Plugin 结构 + pipeline.json + hooks
+v2.0  → Core Engine (JS): DAG + Context + Routing + Validation + Recovery (83%)
+v2.1  → TypeScript 迁移 + Gap 修复 (92%)
+v2.2  → Observability + Auto-commit + Agent Teams + Guardrails (97%)
+v3.0  → Web Dashboard + Eval System + YAML + Advanced Recovery
 ```
 
 ---
@@ -167,4 +115,4 @@ ham-autocode v2.0 实现了 Harness 五层架构的 **83%**。核心骨架完整
 
 一句话概括当前状态：
 
-> **v2.0 = 完整的 Harness 骨架 + 部分松散的接线。v2.1 负责拧紧螺丝，v3.0 负责镀金。**
+> **v2.0 = 完整的 Harness 骨架 + 部分松散的接线。v2.1 拧紧螺丝 + 迁移 TypeScript，v2.2 加装生产能力。**
