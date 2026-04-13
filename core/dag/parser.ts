@@ -13,12 +13,17 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
   const tasks: TaskState[] = [];
 
   // Match multiple task formats:
-  //   ## Task 1: Name / ### Task 1: Name / #### Task 1. Name
-  //   - [ ] **T1: Name** / - [ ] **G1: Name**
+  //   Format 1: ## Task 1: Name / ### Task 1: Name / #### Task 1. Name
+  //   Format 2: - [ ] **T1: Name** / - [ ] **G1: Name**
+  //   Format 3: | 1.1 | Task name | ... | 待执行/待修复/待开发 |  (table rows with pending status)
   const patterns: RegExp[] = [
     /^#{2,4}\s+(?:Task\s+)?(\d+)[:.]\s*(.+)/gm,
     /^-\s+\[[ x]\]\s+\*\*[A-Z]+(\d+)[:.]?\s*(.+?)\*\*/gm,
   ];
+
+  // Format 3: Markdown table rows with numbered tasks and pending-like status
+  // Matches: | 1.1 | Task description | ... | 待执行 | or | 待修复 | or | 待开发 |
+  const tableRowRegex = /^\|\s*(\d+(?:\.\d+)?)\s*\|\s*(.+?)\s*\|.*?\|\s*(待执行|待修复|待开发|待验证|TODO|OPEN|pending)\s*\|/gmi;
 
   interface RawMatch { index: number; num: string; name: string; }
   const rawMatches: RawMatch[] = [];
@@ -27,6 +32,17 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(planContent)) !== null) {
       rawMatches.push({ index: match.index, num: match[1], name: match[2].trim() });
+    }
+  }
+
+  // Table rows — only include pending/todo items (skip completed)
+  {
+    let match: RegExpExecArray | null;
+    while ((match = tableRowRegex.exec(planContent)) !== null) {
+      const name = match[2].replace(/\*\*/g, '').replace(/`/g, '').trim();
+      // Skip header rows and separator rows
+      if (name === '---' || name === '编号' || name === '问题' || name === '功能' || name === '任务') continue;
+      rawMatches.push({ index: match.index, num: match[1], name });
     }
   }
 
