@@ -3,7 +3,7 @@
 > Claude Code Plugin for fully autonomous project development.
 > Orchestrates gstack + GSD + Superpowers + Agent Teams through a 6-phase pipeline with a Node.js Core Engine.
 
-**v2.3.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [中文文档](README.zh-CN.md)
+**v3.0.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [中文文档](README.zh-CN.md)
 
 ---
 
@@ -157,7 +157,7 @@ Runs: validation gates --> code review --> QA testing --> auto-fix --> create PR
 
 ---
 
-## All 7 Skills
+## All 8 Skills
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
@@ -168,12 +168,13 @@ Runs: validation gates --> code review --> QA testing --> auto-fix --> create PR
 | **status** | `/ham-autocode:status` | Show pipeline progress |
 | **pause** | `/ham-autocode:pause` | Save state and stop gracefully |
 | **resume** | `/ham-autocode:resume` | Continue from saved state |
+| **setup** | `/ham-autocode:setup` | Auto-detect and install missing dependency skill packs |
 
 ---
 
 ## Core Engine CLI
 
-The Core Engine is a pure Node.js CLI (zero npm dependencies) that skills call for state management, task scheduling, and routing decisions.
+The Core Engine is a TypeScript CLI (zero runtime dependencies) that skills call for state management, task scheduling, and routing decisions.
 
 ```bash
 node dist/index.js <command> [subcommand] [options]
@@ -242,6 +243,18 @@ node dist/index.js spec enrich <task-id>    # Enrich task with specs (OpenSpec o
 node dist/index.js spec enrich-all          # Batch enrich all pending tasks
 node dist/index.js spec score <task-id>     # Show spec completeness score
 node dist/index.js spec sync <task-id>      # Merge delta specs after completion
+```
+
+### Knowledge Compounding (v3.0)
+
+```bash
+node dist/index.js learn analyze              # Analyze trace + tasks → generate insights
+node dist/index.js learn suggest              # Preview threshold adaptations
+node dist/index.js learn apply                # Write adaptations to harness.json
+node dist/index.js learn patterns             # Scan project structure + task type patterns
+node dist/index.js learn hints <task-name>    # Get pattern-based hints for a task
+node dist/index.js learn history              # View learning trend over time
+node dist/index.js learn reset                # Clear all learning data
 ```
 
 ### Config & Utilities
@@ -380,16 +393,21 @@ ham-autocode/
     on-session-end.sh        # Mark interrupted on crash
     on-post-tool-use.sh      # Track context budget
   core/                      # Node.js Core Engine (zero dependencies)
-    index.js                 # CLI dispatcher (30+ commands)
-    dag/                     # DAG graph, scheduler, plan parser
+    index.ts                 # CLI dispatcher (52+ commands)
+    dag/                     # DAG graph, scheduler, plan parser, visualizer
     context/                 # Token budget, context manager
     spec/                    # OpenSpec reader, enricher, sync
-    routing/                 # Scorer, router
-    executor/                # Adapters for claude-code, codex, claude-app
+    routing/                 # Scorer, router (learning-aware)
+    executor/                # Adapters: claude-code, codex, claude-app, agent-teams
     validation/              # Gate detector, gate runner
-    recovery/                # Checkpoint, worktree manager
-    state/                   # Lock, atomic write, config, pipeline, task-graph
+    recovery/                # Checkpoint, worktree manager (learning-aware)
+    learning/                # CE: analyzer, adapter, patterns (v3.0)
+    commit/                  # Auto-commit engine
+    trace/                   # Execution trace + session report
+    rules/                   # Guardrail engine + 8 core rules
+    state/                   # Lock, atomic write, config, pipeline, task-graph, validator
     utils/                   # Token estimation, git wrapper
+    types.ts                 # 30+ shared type definitions
     __tests__/               # 8 test suites
   schemas/                   # JSON Schemas for all state files
   defaults/                  # Default config (harness.json)
@@ -401,15 +419,16 @@ ham-autocode/
 
 ## External Dependencies
 
-ham-autocode orchestrates these framework skill packs (install at least one):
+ham-autocode orchestrates these framework skill packs. Use `/ham-autocode:setup` to auto-detect and install missing ones.
 
-| Dependency | Importance | Used For |
-|------------|-----------|----------|
-| **GSD** ([get-shit-done](https://github.com/gsd-build/get-shit-done)) | Highly recommended | Phase 2-4: project init, milestones, autonomous execution |
-| **gstack** (Garry Tan) | Highly recommended | Phase 1/5/6: idea review, QA, shipping |
-| **Superpowers** (Jesse Vincent) | Recommended | Phase 4: TDD execution methodology |
+| Dependency | Stars | Role | Used For | Install |
+|------------|-------|------|----------|---------|
+| **[GSD](https://github.com/gsd-build/get-shit-done)** | 39K+ | Stability layer | Phase 2-4: project init, milestones, autonomous execution | `git clone --depth 1 https://github.com/gsd-build/get-shit-done.git ~/.claude/plugins/gsd` |
+| **[gstack](https://github.com/garrytan/gstack)** | 66K+ | Decision layer | Phase 1/5/6: idea review, QA, shipping | `git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack` |
+| **[Superpowers](https://github.com/obra/superpowers)** | 120K+ | Execution layer | Phase 4: TDD methodology | `git clone --depth 1 https://github.com/obra/superpowers.git ~/.claude/plugins/superpowers` |
+| **[OpenSpec](https://github.com/Fission-AI/OpenSpec)** | 39K+ | Spec layer | Spec-driven routing (optional, enhances task scoring) | `git clone --depth 1 https://github.com/Fission-AI/OpenSpec.git ~/.claude/plugins/openspec` |
 
-If a dependency is not installed, the corresponding skill calls will fail gracefully -- the pipeline reports the error and moves on.
+After installing, run `/reload-plugins` in Claude Code. If a dependency is not installed, the pipeline reports the error and moves on gracefully.
 
 ---
 
