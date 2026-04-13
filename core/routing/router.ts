@@ -11,7 +11,8 @@
 import { scoreTask } from './scorer.js';
 import { loadConfig } from '../state/config.js';
 import { writeTask } from '../state/task-graph.js';
-import type { TaskState, TaskScores, RoutingDecision, RoutingTarget, HarnessConfig } from '../types.js';
+import { readInsights } from '../learning/analyzer.js';
+import type { TaskState, TaskScores, RoutingDecision, RoutingTarget, HarnessConfig, RoutingConfig } from '../types.js';
 
 type TaskType = 'doc' | 'config' | 'hotfix' | 'default';
 
@@ -36,7 +37,18 @@ function inferTaskType(task: TaskState & { type?: string }): TaskType {
 }
 
 export function routeTask(task: TaskState & { type?: string }, allTasks: TaskState[], projectDir?: string): RouteResult {
-  const config = loadConfig(projectDir || '.').routing;
+  const baseConfig = loadConfig(projectDir || '.').routing;
+
+  // v3.0 CE: check learning insights for adapted thresholds
+  const insights = readInsights(projectDir || '.');
+  const config: RoutingConfig = insights?.thresholdSuggestions
+    ? {
+        ...baseConfig,
+        codexMinSpecScore: insights.thresholdSuggestions.codexMinSpecScore ?? baseConfig.codexMinSpecScore,
+        codexMinIsolationScore: insights.thresholdSuggestions.codexMinIsolationScore ?? baseConfig.codexMinIsolationScore,
+        confirmThreshold: insights.thresholdSuggestions.confirmThreshold ?? baseConfig.confirmThreshold,
+      }
+    : baseConfig;
   const scores: TaskScores = scoreTask(task, allTasks);
   const taskType = inferTaskType(task);
 

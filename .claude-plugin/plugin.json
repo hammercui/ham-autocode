@@ -1,7 +1,7 @@
 {
   "name": "ham-autocode",
   "description": "Autonomous development orchestrator v2.0 — DAG scheduler, context engine, agent routing, validation gates, recovery engine. Combines gstack, GSD, and Superpowers into a 6-phase pipeline with core engine CLI. Skills: detect, auto, parallel, ship, status, pause, resume.",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "author": {
     "name": "hammercui"
   },

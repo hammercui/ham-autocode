@@ -27,10 +27,13 @@ import './rules/core-rules.js';
 import { detectOpenSpec } from './spec/reader.js';
 import { enrichAndSaveTask, enrichAllTasks, calculateSpecScore } from './spec/enricher.js';
 import { syncSpec } from './spec/sync.js';
+import { analyzeHistory } from './learning/analyzer.js';
+import { suggestAdaptations, applyAdaptations, readLearningHistory, appendToHistory, resetLearning } from './learning/adapter.js';
+import { learnPatterns, getPatternHints } from './learning/patterns.js';
 import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType, RoutingTarget } from './types.js';
 
 function usage(): string {
-  return `ham-autocode core engine v2.1
+  return `ham-autocode core engine v3.0
 
 Usage: node core/index.js <command> [subcommand] [options]
 
@@ -79,6 +82,12 @@ Commands:
   spec enrich-all
   spec score <task-id>
   spec sync <task-id>
+  learn analyze
+  learn suggest
+  learn apply
+  learn patterns
+  learn history
+  learn reset
   token estimate <file>
   token index [dir]
   help`;
@@ -458,6 +467,35 @@ function dispatch(args: string[], projectDir: string): any {
         return syncSpec(projectDir, taskId, task);
       }
       throw new Error(`Unknown spec subcommand: ${sub}. Use: detect, enrich, enrich-all, score, sync`);
+    }
+
+    case 'learn': {
+      if (sub === 'analyze') {
+        const insights = analyzeHistory(projectDir);
+        appendToHistory(projectDir, insights);
+        return insights;
+      }
+      if (sub === 'suggest') {
+        return suggestAdaptations(projectDir);
+      }
+      if (sub === 'apply') {
+        return applyAdaptations(projectDir);
+      }
+      if (sub === 'patterns') {
+        return learnPatterns(projectDir);
+      }
+      if (sub === 'history') {
+        return readLearningHistory(projectDir);
+      }
+      if (sub === 'reset') {
+        return resetLearning(projectDir);
+      }
+      if (sub === 'hints') {
+        const taskName = args.slice(2).join(' ');
+        if (!taskName) throw new Error('Usage: learn hints <task-name>');
+        return getPatternHints(projectDir, taskName);
+      }
+      throw new Error(`Unknown learn subcommand: ${sub}. Use: analyze, suggest, apply, patterns, history, reset, hints`);
     }
 
     case 'token': {

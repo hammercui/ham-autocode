@@ -6,6 +6,7 @@
  */
 
 import git from '../utils/git.js';
+import { readInsights } from '../learning/analyzer.js';
 import type { TaskState, RecoveryConfig, RecoveryStrategy } from '../types.js';
 
 export const TAG_PREFIX = 'ham-checkpoint/';
@@ -101,10 +102,26 @@ export function cleanupAllCheckpoints(cwd: string): CheckpointCleanupEntry[] {
 }
 
 /**
- * Gap A7: Auto-select recovery strategy based on task complexity.
- * High-risk tasks (complexityScore >= threshold) use worktree isolation;
- * low-risk tasks use lightweight checkpoint tags.
+ * Auto-select recovery strategy based on task complexity + learning history.
+ * v3.0 CE: checks failure patterns — if similar tasks failed with checkpoint,
+ * auto-upgrades to worktree regardless of complexity score.
  */
-export function autoSelectStrategy(task: TaskState, config: RecoveryConfig): RecoveryStrategy {
+export function autoSelectStrategy(task: TaskState, config: RecoveryConfig, projectDir?: string): RecoveryStrategy {
+  // v3.0 CE: check if learning suggests a different threshold
+  if (projectDir) {
+    const insights = readInsights(projectDir);
+    if (insights?.thresholdSuggestions?.highRiskThreshold !== undefined) {
+      const adaptedThreshold = insights.thresholdSuggestions.highRiskThreshold;
+      return task.scores.complexityScore >= adaptedThreshold ? 'worktree' : 'checkpoint';
+    }
+    // Check failure patterns: if tasks at this complexity often fail, upgrade to worktree
+    if (insights?.failurePatterns) {
+      const relevantFailures = insights.failurePatterns.filter(
+        p => Math.abs(p.avgComplexityScore - task.scores.complexityScore) < 15
+      );
+      const totalFailures = relevantFailures.reduce((sum, p) => sum + p.count, 0);
+      if (totalFailures >= 2) return 'worktree'; // history says: be cautious
+    }
+  }
   return task.scores.complexityScore >= config.highRiskThreshold ? 'worktree' : 'checkpoint';
 }

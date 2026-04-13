@@ -2,6 +2,22 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.0.0] - 2026-04-13
+
+### Added — CE Knowledge Compounding (the last 1%)
+- **Learning Analyzer**: `core/learning/analyzer.ts` — analyze trace + task history, generate insights (routing accuracy, failure patterns, token costs, threshold suggestions)
+- **Learning Adapter**: `core/learning/adapter.ts` — suggest and apply threshold adaptations to harness.json, with history tracking
+- **Pattern Memory**: `core/learning/patterns.ts` — cross-session project patterns (file structure, task types, gate reliability, risky files)
+- **CLI**: `learn analyze`, `learn suggest`, `learn apply`, `learn patterns`, `learn history`, `learn reset`, `learn hints`
+- Insights persisted to `.ham-autocode/learning/insights.json`
+- Patterns persisted to `.ham-autocode/learning/patterns.json`
+- History tracked in `.ham-autocode/learning/history.jsonl`
+
+### Changed — Intelligence Integration
+- **Router**: reads learning insights before routing — adapted thresholds override config defaults
+- **Recovery**: `autoSelectStrategy` checks failure patterns — auto-upgrades to worktree if similar tasks failed before
+- Harness coverage: 99% → 100%
+
 ## [2.3.0] - 2026-04-13
 
 ### Added — Spec Engine (OpenSpec Integration)
