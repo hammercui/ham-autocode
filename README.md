@@ -25,21 +25,24 @@ Inspired by engineering practices at Stripe ("Minions"), Shopify (Sidekick), and
 | **Recovery Engine** | One failure kills the whole run | Git checkpoint + worktree isolation, two-tier strategy |
 | **Agent Routing** | Manual task assignment doesn't scale | 3-dimension scoring, auto-routing to Claude Code/Codex/App |
 | **Spec Engine** | Vague task descriptions reduce routing accuracy | OpenSpec integration, heuristic enrichment, 4-dimension spec scoring |
+| **Knowledge Compounding** | Every session starts from scratch | CE-inspired learning: trace analysis → threshold adaptation → pattern memory |
 
-ham-autocode packages these as a **Claude Code Plugin** (easy install) with a **Node.js Core Engine** (reliable execution), automating the full development lifecycle:
+ham-autocode packages these as a **Claude Code Plugin** (easy install) with a **TypeScript Core Engine** (reliable execution), automating the full development lifecycle:
 
 ```
 Idea --> Initiation --> Requirements --> Planning --> Execution --> Review --> Ship
          (gstack)        (GSD)          (GSD)      (Agent Teams)  (gstack)  (gstack)
 ```
 
-It combines three community frameworks into the pipeline:
+It combines four community frameworks into the pipeline:
 
 | Framework | Role | What it does |
 |-----------|------|-------------|
 | **gstack** | Decision layer | CEO review, QA testing, shipping |
 | **GSD** | Stability layer | Project init, milestones, autonomous execution |
 | **Superpowers** | Execution layer | TDD methodology, code review, debugging |
+| **OpenSpec** | Spec layer | Spec-driven development, requirement clarity |
+| **CE** (built-in) | Knowledge layer | Learning from history, adaptive thresholds |
 
 For the full gap analysis between the Harness ideal and current implementation, see [GAP-ANALYSIS.md](docs/GAP-ANALYSIS.md).
 

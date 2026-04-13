@@ -15,7 +15,7 @@ ham-autocode 是 **Harness 架构** 在 Claude Code 上的一种实现 -- 让 AI
 > **Skill** = 工作方法（GSD / gstack / Superpowers）
 > **Harness** = 工厂系统（管理工人 + 流程 + 质量 + 状态 + 恢复）
 
-灵感来自 Stripe（"Minions"系统）、Shopify（Sidekick）和 Airbnb（TypeScript 迁移）的工程实践。Harness 模式为纯 Agent + Skill 的组合补充了五个关键层：
+灵感来自 Stripe（"Minions"系统）、Shopify（Sidekick）、Airbnb（TypeScript 迁移）和 Every Inc.（CE 知识复利）的工程实践。Harness 模式为纯 Agent + Skill 的组合补充了七个关键层：
 
 | Harness 层 | 解决什么问题 | ham-autocode 实现 |
 |------------|------------|------------------|
@@ -25,21 +25,24 @@ ham-autocode 是 **Harness 架构** 在 Claude Code 上的一种实现 -- 让 AI
 | **恢复引擎** | 一个失败拖垮整个流程 | Git 检查点 + Worktree 隔离、两级恢复策略 |
 | **Agent 路由** | 手动分配任务不扩展 | 三维评分、自动路由到 Claude Code/Codex/App |
 | **Spec 引擎** | 任务描述模糊导致路由不准 | OpenSpec 集成、启发式丰富、四维规范评分 |
+| **知识复利** | 每次会话从零开始 | CE 启发的学习：trace 分析 → 阈值自适应 → 模式记忆 |
 
-ham-autocode 将这些能力打包为 **Claude Code Plugin**（便捷安装）+ **Node.js Core Engine**（可靠执行），自动化完整开发生命周期：
+ham-autocode 将这些能力打包为 **Claude Code Plugin**（便捷安装）+ **TypeScript Core Engine**（可靠执行），自动化完整开发生命周期：
 
 ```
 想法 --> 立项审查 --> 需求拆解 --> 阶段规划 --> 并行开发 --> 审查验收 --> 发布上线
          (gstack)      (GSD)       (GSD)     (Agent Teams)  (gstack)    (gstack)
 ```
 
-它将三个社区框架统一编排为一条流水线：
+它将四个社区框架 + 内建知识层统一编排为一条流水线：
 
 | 框架 | 角色 | 做什么 |
 |------|------|-------|
 | **gstack** (Garry Tan) | 决策层 — 想什么 | CEO 审查、QA 测试、发布上线 |
 | **GSD** (Get Shit Done) | 稳定层 — 不跑偏 | 项目初始化、里程碑管理、自主执行 |
 | **Superpowers** (Jesse Vincent) | 执行层 — 怎么做 | TDD 方法论、代码审查、调试 |
+| **OpenSpec** (Fission-AI) | 规范层 — 怎么定义 | 规范驱动开发、需求清晰化 |
+| **CE**（内建） | 知识层 — 越用越好 | 从历史中学习、自适应阈值 |
 
 完整的 Harness 理想架构与当前实现的差距分析，见 [GAP-ANALYSIS.md](docs/GAP-ANALYSIS.md)。
 
