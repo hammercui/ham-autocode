@@ -3,7 +3,7 @@
 > 一个 Claude Code Plugin，编排 gstack + GSD + Superpowers + Agent Teams，
 > 实现项目全生命周期自动化开发。
 >
-> 版本: v2.0 | 日期: 2026-04-11
+> 版本: v2.3 | 日期: 2026-04-13
 >
 > **项目性质：Claude Code Plugin + Node.js Core Engine**
 > - 安装：`/plugin install ham-autocode` 或 `claude --plugin-dir ./ham-autocode`
@@ -22,6 +22,7 @@ User → Skills (7) → Core Engine (Node.js) → Executor Adapters → Claude C
                     Hooks (callbacks INTO core, not FROM core)
 
 Core Engine:
+  ├── Spec Engine         (OpenSpec 读取, 启发式丰富, 4维评分)
   ├── DAG Scheduler      (拓扑排序, 波次并行)
   ├── Context Engine      (Token 预算, 选择性加载, 三级保护)
   ├── Agent Router        (规格/复杂度/隔离度评分)
@@ -276,6 +277,13 @@ node dist/index.js recover worktree-create <id>  # 创建 worktree
 node dist/index.js recover worktree-merge <id>   # 合并成功的 worktree
 node dist/index.js recover worktree-remove <id>  # 移除失败的 worktree
 
+# ===== Spec =====
+node dist/index.js spec detect              # 检测项目是否使用 OpenSpec
+node dist/index.js spec enrich <id>         # 丰富任务规范（OpenSpec 或启发式）
+node dist/index.js spec enrich-all          # 批量丰富所有待执行任务
+node dist/index.js spec score <id>          # 显示规范完整度评分（4维）
+node dist/index.js spec sync <id>           # 完成后合并增量规范
+
 # ===== Token =====
 node dist/index.js token estimate <file>  # 估算单文件 token 数
 node dist/index.js token index [dir]      # 构建目录文件索引
@@ -423,6 +431,10 @@ ham-autocode/                                # Plugin 根目录
 │   ├── context/
 │   │   ├── budget.js                        # Token 预算追踪
 │   │   └── manager.js                       # 选择性加载 + 建议
+│   ├── spec/
+│   │   ├── reader.ts                        # OpenSpec 目录检测与读取
+│   │   ├── enricher.ts                      # 任务规范丰富（OpenSpec / 启发式）
+│   │   └── sync.ts                          # 增量规范合并
 │   ├── routing/
 │   │   ├── scorer.js                        # 多维度评分
 │   │   └── router.js                        # 评分 → 目标决策
@@ -618,16 +630,22 @@ claude plugins publish
 
 ---
 
-## 十一、v2.0 不做的事（延迟到 v3）
+## 十一、版本演进与延迟到 v3 的事项
 
-- Agent Teams 编排（v3）
-- Branch-based 恢复（v3）
-- 自动 commit（v3 — v2 只建议）
-- TypeScript guardrail rules（v3）
-- DAG 可视化 / Web Dashboard（v3）
-- 评估系统 / 自动评分（v3）
-- YAML 配置（v3 — v2 仅 JSON）
-- 完整 JSON Schema 运行时校验（v3 — v2 做基础字段检查）
+**已完成（v2.1-v2.3）：**
+- ~~TypeScript 迁移~~ → v2.1 完成
+- ~~Agent Teams 编排~~ → v2.2 完成
+- ~~自动 commit~~ → v2.2 完成
+- ~~TypeScript guardrail rules~~ → v2.2 完成
+- ~~DAG 可视化~~ → v2.2 完成（ASCII）
+- ~~完整 JSON Schema 运行时校验~~ → v2.2 完成
+- ~~OpenSpec 集成~~ → v2.3 完成
+
+**延迟到 v3：**
+- Branch-based 恢复
+- Web Dashboard
+- 评估系统 / 自动评分
+- YAML 配置（当前仅 JSON）
 
 ---
 

@@ -3,7 +3,7 @@
 > Claude Code 全自动开发插件。
 > 编排 gstack + GSD + Superpowers + Agent Teams，通过 Node.js Core Engine 驱动六阶段开发流水线。
 
-**v2.0.0** | [更新日志](CHANGELOG.md) | [架构文档](ARCHITECTURE.md) | [English](README.md)
+**v2.3.0** | [更新日志](CHANGELOG.md) | [架构文档](ARCHITECTURE.md) | [English](README.md)
 
 ---
 
@@ -24,6 +24,7 @@ ham-autocode 是 **Harness 架构** 在 Claude Code 上的一种实现 -- 让 AI
 | **验证门控** | 手动 QA 不稳定 | 自动检测 lint/test、两击出局策略、逐任务门控 |
 | **恢复引擎** | 一个失败拖垮整个流程 | Git 检查点 + Worktree 隔离、两级恢复策略 |
 | **Agent 路由** | 手动分配任务不扩展 | 三维评分、自动路由到 Claude Code/Codex/App |
+| **Spec 引擎** | 任务描述模糊导致路由不准 | OpenSpec 集成、启发式丰富、四维规范评分 |
 
 ham-autocode 将这些能力打包为 **Claude Code Plugin**（便捷安装）+ **Node.js Core Engine**（可靠执行），自动化完整开发生命周期：
 
@@ -89,7 +90,7 @@ cp -r ham-autocode /path/to/your/project/.claude/plugins/ham-autocode
 也可以直接验证 Core Engine：
 
 ```bash
-node ham-autocode/core/index.js help
+node ham-autocode/dist/index.js help
 ```
 
 ---
@@ -233,6 +234,16 @@ node dist/index.js recover worktree-merge <task-id>   # 合并 worktree
 node dist/index.js recover worktree-remove <task-id>  # 移除 worktree
 ```
 
+### 规范引擎
+
+```bash
+node dist/index.js spec detect              # 检测项目是否使用 OpenSpec
+node dist/index.js spec enrich <task-id>    # 丰富任务规范（OpenSpec 或启发式）
+node dist/index.js spec enrich-all          # 批量丰富所有待执行任务
+node dist/index.js spec score <task-id>     # 显示规范完整度评分
+node dist/index.js spec sync <task-id>      # 完成后合并增量规范
+```
+
 ### 配置与工具
 
 ```bash
@@ -372,6 +383,7 @@ ham-autocode/
     index.js                 # CLI 调度器（30+ 命令）
     dag/                     # DAG 图、调度器、计划解析器
     context/                 # Token 预算、上下文管理器
+    spec/                    # OpenSpec 读取器、丰富器、同步器
     routing/                 # 评分器、路由器
     executor/                # 适配器（claude-code/codex/claude-app）
     validation/              # 门控检测器、门控运行器

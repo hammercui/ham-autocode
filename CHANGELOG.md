@@ -2,6 +2,23 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [2.3.0] - 2026-04-13
+
+### Added — Spec Engine (OpenSpec Integration)
+- **Spec Reader**: `core/spec/reader.ts` — detect and read OpenSpec directory structure (specs + changes)
+- **Spec Enricher**: `core/spec/enricher.ts` — enrich tasks with OpenSpec artifacts or heuristic fallback
+- **Spec Sync**: `core/spec/sync.ts` — merge delta specs to source of truth after task completion
+- **CLI**: `spec detect`, `spec enrich <id>`, `spec enrich-all`, `spec score <id>`, `spec sync <id>`
+
+### Changed
+- **specScore calculation**: now based on 4 dimensions (description, interface, acceptance, completeness) instead of single completeness field
+- **Parser**: supports markdown table format with dependency columns (5-column WBS tables)
+- **Parser**: extracts table dependencies ("2.2.3, 1.3" → blockedBy resolution)
+
+### Fixed
+- Parser table format support for real-world WBS files (ham-video: 33 tasks parsed, was 0)
+- Parser dependency column extraction enables proper DAG blocking
+
 ## [2.2.0] - 2026-04-13
 
 ### Added — Observability

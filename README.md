@@ -3,7 +3,7 @@
 > Claude Code Plugin for fully autonomous project development.
 > Orchestrates gstack + GSD + Superpowers + Agent Teams through a 6-phase pipeline with a Node.js Core Engine.
 
-**v2.0.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [中文文档](README.zh-CN.md)
+**v2.3.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [中文文档](README.zh-CN.md)
 
 ---
 
@@ -24,6 +24,7 @@ Inspired by engineering practices at Stripe ("Minions"), Shopify (Sidekick), and
 | **Validation Gates** | Manual QA is inconsistent | Auto-detect lint/test, two-strike policy, per-task gates |
 | **Recovery Engine** | One failure kills the whole run | Git checkpoint + worktree isolation, two-tier strategy |
 | **Agent Routing** | Manual task assignment doesn't scale | 3-dimension scoring, auto-routing to Claude Code/Codex/App |
+| **Spec Engine** | Vague task descriptions reduce routing accuracy | OpenSpec integration, heuristic enrichment, 4-dimension spec scoring |
 
 ham-autocode packages these as a **Claude Code Plugin** (easy install) with a **Node.js Core Engine** (reliable execution), automating the full development lifecycle:
 
@@ -89,7 +90,7 @@ If it responds (even with "no pipeline found"), the plugin is loaded.
 You can also verify the Core Engine directly:
 
 ```bash
-node ham-autocode/core/index.js help
+node ham-autocode/dist/index.js help
 ```
 
 ---
@@ -233,6 +234,16 @@ node dist/index.js recover worktree-merge <task-id>   # Merge worktree back
 node dist/index.js recover worktree-remove <task-id>  # Remove worktree
 ```
 
+### Spec Engine
+
+```bash
+node dist/index.js spec detect              # Check if project uses OpenSpec
+node dist/index.js spec enrich <task-id>    # Enrich task with specs (OpenSpec or heuristic)
+node dist/index.js spec enrich-all          # Batch enrich all pending tasks
+node dist/index.js spec score <task-id>     # Show spec completeness score
+node dist/index.js spec sync <task-id>      # Merge delta specs after completion
+```
+
 ### Config & Utilities
 
 ```bash
@@ -372,6 +383,7 @@ ham-autocode/
     index.js                 # CLI dispatcher (30+ commands)
     dag/                     # DAG graph, scheduler, plan parser
     context/                 # Token budget, context manager
+    spec/                    # OpenSpec reader, enricher, sync
     routing/                 # Scorer, router
     executor/                # Adapters for claude-code, codex, claude-app
     validation/              # Gate detector, gate runner
