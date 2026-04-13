@@ -104,8 +104,24 @@ All notable changes to ham-autocode will be documented in this file.
 ## [1.1.0] - 2026-04-11
 
 ### Added
-- Initial plugin structure with 7 skills, 5 agents, hooks
-- Pure skill orchestration (gstack + GSD + Superpowers)
-- Six-phase pipeline: initiation, requirements, planning, execution, review, ship
-- Project state detection for existing projects
-- Pause/resume with pipeline.json state persistence
+- Plugin structure: `.claude-plugin/plugin.json` manifest
+- 7 skills: detect, auto, parallel, ship, status, pause, resume
+- 5 subagent definitions: planner (Opus), coder (Sonnet), reviewer (Opus), qa-tester (Sonnet), infra (Sonnet)
+- 3 hooks: SessionStart, SessionEnd, PostToolUse
+- `pipeline.json` state persistence in target projects
+- `loop.md` default maintenance behavior
+- `settings.json` with Agent Teams experimental flag
+- JSON Schema for pipeline state
+
+### Changed
+- Upgraded from v1.0 pure skill concept to installable plugin format
+
+## [1.0.0] - 2026-04-10
+
+### Added
+- Initial concept: pure Skill orchestration (zero custom code)
+- Three-layer framework: gstack thinks → GSD stabilizes → Superpowers executes
+- Three-tool workflow: Claude App (PM) + Claude Code (engineer) + Codex (capable engineer)
+- Six-phase pipeline design: initiation → requirements → planning → execution → review → ship
+- Task routing concept: complexity-based assignment to Claude Code vs Codex
+- ARCHITECTURE.md v1.0 with framework analysis and collaboration model
