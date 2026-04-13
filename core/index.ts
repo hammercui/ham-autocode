@@ -30,6 +30,7 @@ import { syncSpec } from './spec/sync.js';
 import { analyzeHistory } from './learning/analyzer.js';
 import { suggestAdaptations, applyAdaptations, readLearningHistory, appendToHistory, resetLearning } from './learning/adapter.js';
 import { learnPatterns, getPatternHints } from './learning/patterns.js';
+import { onTaskComplete, autoLearnStatus } from './learning/auto-learn.js';
 import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType, RoutingTarget } from './types.js';
 
 function usage(): string {
@@ -184,8 +185,9 @@ function dispatch(args: string[], projectDir: string): any {
       if (sub === 'complete') {
         const result = updateTaskStatus(projectDir, args[2], 'done' as TaskStatus, { execution: { completedAt: new Date().toISOString() } });
         appendLog(projectDir, `task ${args[2]} completed`);
-        // Gap A5: clear current_task when task completes
-        try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore if no pipeline */ }
+        try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore */ }
+        // v3.0 CE: auto-learn from every completion
+        onTaskComplete(projectDir, args[2], true);
         return result;
       }
       if (sub === 'fail') {
@@ -200,8 +202,9 @@ function dispatch(args: string[], projectDir: string): any {
           },
         });
         appendLog(projectDir, `task ${taskId} failed: ${errorType}`);
-        // Gap A5: clear current_task when task fails
-        try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore if no pipeline */ }
+        try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore */ }
+        // v3.0 CE: auto-learn from every failure
+        onTaskComplete(projectDir, taskId, false);
         return result;
       }
       if (sub === 'retry') {
@@ -489,6 +492,9 @@ function dispatch(args: string[], projectDir: string): any {
       }
       if (sub === 'reset') {
         return resetLearning(projectDir);
+      }
+      if (sub === 'status') {
+        return autoLearnStatus(projectDir);
       }
       if (sub === 'hints') {
         const taskName = args.slice(2).join(' ');
