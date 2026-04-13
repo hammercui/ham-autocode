@@ -3,11 +3,16 @@ const { scoreSpec, scoreComplexity, scoreIsolation, scoreTask } = require('../..
 const { routeTask } = require('../../../dist/routing/router');
 const assert = require('assert');
 
-// scoreSpec tests
+// scoreSpec tests — v2.3 field fill-rate logic
 assert.strictEqual(scoreSpec({}), 0);
-assert.strictEqual(scoreSpec({ spec: { description: 'foo' } }), 30);
-assert.strictEqual(scoreSpec({ spec: { description: 'foo', interface: 'bar', acceptance: 'baz' } }), 100);
-assert.strictEqual(scoreSpec({ spec: { completeness: 85 } }), 85);
+// description too short (<= 20 chars) → 0; no other fields → 0
+assert.strictEqual(scoreSpec({ spec: { description: 'foo' } }), 0);
+// description long enough (>20) + interface + acceptance → 75; completeness missing → 75
+assert.strictEqual(scoreSpec({ spec: { description: 'a]long description over twenty chars', interface: 'bar', acceptance: 'baz' } }), 75);
+// completeness >= 80 → 25; other fields empty → 25
+assert.strictEqual(scoreSpec({ spec: { completeness: 85 } }), 25);
+// All four conditions met → 100
+assert.strictEqual(scoreSpec({ spec: { description: 'a long description over twenty chars', interface: 'IFoo', acceptance: 'must pass', completeness: 90 } }), 100);
 
 // scoreComplexity tests
 assert.strictEqual(scoreComplexity({ files: ['a.js'], blockedBy: [] }), 20);
@@ -23,12 +28,12 @@ const tasks = [
 assert.ok(scoreIsolation(tasks[0], tasks) < 100); // shares shared.js with b
 assert.strictEqual(scoreIsolation(tasks[2], tasks), 100); // c.js is unique
 
-// routeTask tests
+// routeTask tests — v2.3: all four spec fields must be filled for high specScore
 const codexTask = {
   id: 't1',
   files: ['single.js'],
   blockedBy: [],
-  spec: { completeness: 90 },
+  spec: { description: 'a long description over twenty chars', interface: 'IFoo', acceptance: 'must pass', completeness: 90 },
 };
 const routing = routeTask(codexTask, [codexTask], '.');
 assert.strictEqual(routing.target, 'codex');

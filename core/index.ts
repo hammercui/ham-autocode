@@ -24,6 +24,9 @@ import { generateSessionReport } from './trace/report.js';
 import { autoCommitTask, rollbackAutoCommit, generateCommitMessage } from './commit/auto-commit.js';
 import { listRules, checkRules, checkRulesSummary } from './rules/engine.js';
 import './rules/core-rules.js';
+import { detectOpenSpec } from './spec/reader.js';
+import { enrichAndSaveTask, enrichAllTasks, calculateSpecScore } from './spec/enricher.js';
+import { syncSpec } from './spec/sync.js';
 import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType, RoutingTarget } from './types.js';
 
 function usage(): string {
@@ -71,6 +74,11 @@ Commands:
   teams should-use
   rules list
   rules check [task-id]
+  spec detect
+  spec enrich <task-id>
+  spec enrich-all
+  spec score <task-id>
+  spec sync <task-id>
   token estimate <file>
   token index [dir]
   help`;
@@ -421,6 +429,35 @@ function dispatch(args: string[], projectDir: string): any {
         return { results, summary };
       }
       throw new Error(`Unknown rules subcommand: ${sub}. Use: list, check [task-id]`);
+    }
+
+    case 'spec': {
+      if (sub === 'detect') {
+        return detectOpenSpec(projectDir);
+      }
+      if (sub === 'enrich') {
+        const taskId = args[2];
+        if (!taskId) throw new Error('Usage: spec enrich <task-id>');
+        return enrichAndSaveTask(projectDir, taskId);
+      }
+      if (sub === 'enrich-all') {
+        return enrichAllTasks(projectDir);
+      }
+      if (sub === 'score') {
+        const taskId = args[2];
+        if (!taskId) throw new Error('Usage: spec score <task-id>');
+        const task = readTask(projectDir, taskId);
+        if (!task) throw new Error(`Task ${taskId} not found`);
+        return { taskId, specScore: calculateSpecScore(task.spec), spec: task.spec };
+      }
+      if (sub === 'sync') {
+        const taskId = args[2];
+        if (!taskId) throw new Error('Usage: spec sync <task-id>');
+        const task = readTask(projectDir, taskId);
+        if (!task) throw new Error(`Task ${taskId} not found`);
+        return syncSpec(projectDir, taskId, task);
+      }
+      throw new Error(`Unknown spec subcommand: ${sub}. Use: detect, enrich, enrich-all, score, sync`);
     }
 
     case 'token': {

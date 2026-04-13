@@ -7,17 +7,20 @@
 
 import type { TaskState, TaskScores } from '../types.js';
 
+/** Calculate spec completeness based on field fill-rate */
+function calculateSpecCompleteness(spec: { description?: string; interface?: string; acceptance?: string; completeness?: number }): number {
+  let score = 0;
+  if (spec.description && spec.description.length > 20) score += 25;
+  if (spec.interface && spec.interface.length > 0) score += 25;
+  if (spec.acceptance && spec.acceptance.length > 0) score += 25;
+  if ((spec.completeness || 0) >= 80) score += 25;
+  return Math.min(score, 100);
+}
+
 /** Score spec completeness (0-100) */
 export function scoreSpec(task: TaskState): number {
   if (!task.spec) return 0;
-  let score = task.spec.completeness || 0;
-  if (score > 0) return Math.min(100, score);
-
-  // Heuristic: check spec fields
-  if (task.spec.description) score += 30;
-  if (task.spec.interface) score += 30;
-  if (task.spec.acceptance) score += 40;
-  return Math.min(100, score);
+  return calculateSpecCompleteness(task.spec);
 }
 
 /** Score complexity (0-100, higher = more complex) */
