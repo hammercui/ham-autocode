@@ -280,6 +280,8 @@ export interface TraceEntry {
   result: 'ok' | 'error';
   duration_ms: number;
   error?: string;
+  taskId?: string;
+  phase?: string;
 }
 
 // ─── Atomic State ──────────────────────────────────────────────

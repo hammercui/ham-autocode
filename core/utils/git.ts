@@ -93,6 +93,17 @@ const git = {
   diff(cwd: string): GitResult {
     return run(['diff', '--stat'], cwd);
   },
+  add(file: string, cwd: string): GitResult {
+    validateGitPath(file, cwd);
+    return run(['add', file], cwd);
+  },
+  commit(message: string, cwd: string): GitResult {
+    if (!message || message.length === 0) return { ok: false, output: 'Empty commit message' };
+    return run(['commit', '-m', message], cwd);
+  },
+  resetLast(cwd: string): GitResult {
+    return run(['reset', 'HEAD~1', '--mixed'], cwd);
+  },
   listTags(pattern: string, cwd: string): GitResult {
     return run(['tag', '-l', validateGitArg(pattern, 'tag pattern')], cwd);
   },

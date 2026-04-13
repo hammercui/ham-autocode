@@ -17,7 +17,12 @@ import { estimateFileTokens, buildFileIndex } from './utils/token.js';
 import { ClaudeCodeAdapter } from './executor/claude-code.js';
 import { CodexAdapter } from './executor/codex.js';
 import { ClaudeAppAdapter } from './executor/claude-app.js';
-import { appendTrace } from './trace/logger.js';
+import { appendTrace, queryTrace } from './trace/logger.js';
+import { visualizeDAG } from './dag/visualize.js';
+import { generateSessionReport } from './trace/report.js';
+import { autoCommitTask, rollbackAutoCommit, generateCommitMessage } from './commit/auto-commit.js';
+import { listRules, checkRules, checkRulesSummary } from './rules/engine.js';
+import './rules/core-rules.js';
 import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType, RoutingTarget } from './types.js';
 
 function usage(): string {
@@ -55,6 +60,14 @@ Commands:
   recover worktree-merge <task-id>
   recover worktree-remove <task-id>
   execute prepare <task-id>
+  trace query [--task <id>] [--result ok|error] [--limit N]
+  dag visualize
+  session report
+  commit auto <task-id>
+  commit rollback
+  commit message <task-id>
+  rules list
+  rules check [task-id]
   token estimate <file>
   token index [dir]
   help`;
@@ -196,6 +209,9 @@ function dispatch(args: string[], projectDir: string): any {
       if (sub === 'status') {
         return dagStats(readAllTasks(projectDir));
       }
+      if (sub === 'visualize') {
+        return visualizeDAG(readAllTasks(projectDir));
+      }
       throw new Error(`Unknown dag subcommand: ${sub}`);
     }
 
@@ -328,6 +344,64 @@ function dispatch(args: string[], projectDir: string): any {
         return { taskId, target, instruction };
       }
       throw new Error(`Unknown execute subcommand: ${sub}`);
+    }
+
+    case 'trace': {
+      if (sub === 'query') {
+        const filterArgs: { taskId?: string; result?: string; limit?: number } = {};
+        for (let i = 2; i < args.length; i++) {
+          if (args[i] === '--task' && args[i + 1]) { filterArgs.taskId = args[++i]; }
+          else if (args[i] === '--result' && args[i + 1]) { filterArgs.result = args[++i]; }
+          else if (args[i] === '--limit' && args[i + 1]) { filterArgs.limit = parseInt(args[++i], 10); }
+        }
+        return queryTrace(projectDir, filterArgs);
+      }
+      throw new Error(`Unknown trace subcommand: ${sub}`);
+    }
+
+    case 'session': {
+      if (sub === 'report') {
+        return generateSessionReport(projectDir);
+      }
+      throw new Error(`Unknown session subcommand: ${sub}`);
+    }
+
+    case 'commit': {
+      if (sub === 'auto') {
+        const taskId = args[2];
+        if (!taskId) throw new Error('Usage: commit auto <task-id>');
+        const task = readTask(projectDir, taskId);
+        if (!task) throw new Error(`Task ${taskId} not found`);
+        return autoCommitTask(task, projectDir);
+      }
+      if (sub === 'rollback') {
+        return rollbackAutoCommit(projectDir);
+      }
+      if (sub === 'message') {
+        const taskId = args[2];
+        if (!taskId) throw new Error('Usage: commit message <task-id>');
+        const task = readTask(projectDir, taskId);
+        if (!task) throw new Error(`Task ${taskId} not found`);
+        return { message: generateCommitMessage(task) };
+      }
+      throw new Error(`Unknown commit subcommand: ${sub}`);
+    }
+
+    case 'rules': {
+      if (sub === 'list') {
+        return listRules();
+      }
+      if (sub === 'check') {
+        const taskId = args[2];
+        const task = taskId ? readTask(projectDir, taskId) : undefined;
+        const tasks = readAllTasks(projectDir);
+        const config = loadConfig(projectDir);
+        const ctx = { projectDir, task: task || undefined, tasks, config, files: task?.files || [] };
+        const results = checkRules(ctx);
+        const summary = checkRulesSummary(results);
+        return { results, summary };
+      }
+      throw new Error(`Unknown rules subcommand: ${sub}. Use: list, check [task-id]`);
     }
 
     case 'token': {
