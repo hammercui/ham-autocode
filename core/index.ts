@@ -2,7 +2,7 @@
 
 import path from 'path';
 import { loadConfig } from './state/config.js';
-import { readPipeline, initPipeline, appendLog, setPipelineStatus } from './state/pipeline.js';
+import { readPipeline, initPipeline, appendLog, setPipelineStatus, updatePipelineFields } from './state/pipeline.js';
 import { readTask, writeTask, readAllTasks, updateTaskStatus } from './state/task-graph.js';
 import { nextWave, dagStats } from './dag/scheduler.js';
 import { initTasksFromPlan } from './dag/parser.js';
@@ -14,7 +14,11 @@ import { validateTask } from './validation/gates.js';
 import { createCheckpoint, rollbackToCheckpoint as doRollback } from './recovery/checkpoint.js';
 import { createWorktree, mergeWorktree, removeWorktree } from './recovery/worktree.js';
 import { estimateFileTokens, buildFileIndex } from './utils/token.js';
-import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType } from './types.js';
+import { ClaudeCodeAdapter } from './executor/claude-code.js';
+import { CodexAdapter } from './executor/codex.js';
+import { ClaudeAppAdapter } from './executor/claude-app.js';
+import { appendTrace } from './trace/logger.js';
+import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType, RoutingTarget } from './types.js';
 
 function usage(): string {
   return `ham-autocode core engine v2.1
@@ -39,7 +43,7 @@ Commands:
   dag unblock <task-id>
   dag status
   context prepare <task-id>
-  context budget
+  context budget [consume <amount>]
   route <task-id>
   route batch
   route confirm <task-id>
@@ -50,6 +54,7 @@ Commands:
   recover worktree-create <task-id>
   recover worktree-merge <task-id>
   recover worktree-remove <task-id>
+  execute prepare <task-id>
   token estimate <file>
   token index [dir]
   help`;
@@ -146,6 +151,8 @@ function dispatch(args: string[], projectDir: string): any {
       if (sub === 'complete') {
         const result = updateTaskStatus(projectDir, args[2], 'done' as TaskStatus, { execution: { completedAt: new Date().toISOString() } });
         appendLog(projectDir, `task ${args[2]} completed`);
+        // Gap A5: clear current_task when task completes
+        try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore if no pipeline */ }
         return result;
       }
       if (sub === 'fail') {
@@ -160,6 +167,8 @@ function dispatch(args: string[], projectDir: string): any {
           },
         });
         appendLog(projectDir, `task ${taskId} failed: ${errorType}`);
+        // Gap A5: clear current_task when task fails
+        try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore if no pipeline */ }
         return result;
       }
       if (sub === 'retry') {
@@ -192,6 +201,14 @@ function dispatch(args: string[], projectDir: string): any {
 
     case 'context': {
       if (sub === 'budget') {
+        const subSub = args[2];
+        if (subSub === 'consume') {
+          const amount = parseInt(args[3], 10);
+          if (isNaN(amount) || amount < 0) throw new Error('Usage: context budget consume <amount>');
+          const budget = new ContextBudget(projectDir);
+          budget.consume(amount);
+          return budget.status();
+        }
         return new ContextBudget(projectDir).status();
       }
       if (sub === 'prepare') {
@@ -293,6 +310,26 @@ function dispatch(args: string[], projectDir: string): any {
       throw new Error(`Unknown recover subcommand: ${sub}`);
     }
 
+    case 'execute': {
+      if (sub === 'prepare') {
+        const taskId = args[2];
+        if (!taskId) throw new Error('Usage: execute prepare <task-id>');
+        const task = readTask(projectDir, taskId);
+        if (!task) throw new Error(`Task ${taskId} not found`);
+        const target: RoutingTarget = task.routing?.target || 'claude-code';
+        const adapters: Record<RoutingTarget, { generateInstruction(t: typeof task): string }> = {
+          'claude-code': new ClaudeCodeAdapter(),
+          'codex': new CodexAdapter(),
+          'claude-app': new ClaudeAppAdapter(),
+        };
+        const adapter = adapters[target];
+        if (!adapter) throw new Error(`Unknown routing target: ${target}`);
+        const instruction = adapter.generateInstruction(task);
+        return { taskId, target, instruction };
+      }
+      throw new Error(`Unknown execute subcommand: ${sub}`);
+    }
+
     case 'token': {
       if (sub === 'estimate') {
         const file = args[2];
@@ -319,15 +356,19 @@ function formatOutput(result: unknown): string {
 
 export function main(argv: string[] = process.argv.slice(2), env: Record<string, string | undefined> = process.env): number {
   const projectDir = env.HAM_PROJECT_DIR || process.cwd();
+  const startTime = Date.now();
+  const command = argv.join(' ');
   try {
     const result = dispatch(argv, projectDir);
     if (typeof result !== 'undefined') {
       console.log(formatOutput(result));
     }
+    appendTrace(projectDir, { time: new Date().toISOString(), command, result: 'ok', duration_ms: Date.now() - startTime });
     return 0;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`Error: ${msg}`);
+    appendTrace(projectDir, { time: new Date().toISOString(), command, result: 'error', duration_ms: Date.now() - startTime, error: msg });
     return 1;
   }
 }

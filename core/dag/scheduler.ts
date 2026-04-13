@@ -30,13 +30,24 @@ export function nextWave(tasks: TaskState[]): TaskState[] {
   });
 }
 
-/** Compute DAG statistics. Gap A2: includes cycles field. */
+/** Compute DAG statistics. Gap A2: includes cycles field. Gap A6: infers blocked status. */
 export function dagStats(tasks: TaskState[]): DAGStats & { cycles: string[] } {
   const total = tasks.length;
   const byStatus: Record<string, number> = {};
+
   for (const t of tasks) {
-    byStatus[t.status] = (byStatus[t.status] || 0) + 1;
+    let effectiveStatus = t.status;
+    // Gap A6: auto-infer blocked status for pending tasks with unresolved deps
+    if (t.status === 'pending' && t.blockedBy && t.blockedBy.length > 0) {
+      const allResolved = t.blockedBy.every(depId => {
+        const dep = tasks.find(d => d.id === depId);
+        return !dep || DONE_STATUSES.has(dep.status);
+      });
+      if (!allResolved) effectiveStatus = 'blocked';
+    }
+    byStatus[effectiveStatus] = (byStatus[effectiveStatus] || 0) + 1;
   }
+
   const done = (byStatus.done || 0) + (byStatus.skipped || 0);
 
   // Gap A2: include cycle detection in stats

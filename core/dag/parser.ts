@@ -71,8 +71,19 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
     taskNum++;
   }
 
-  // Infer dependencies: if task B's files overlap with task A's, B may depend on A
-  // (Best-effort — AI should refine via dag init)
+  // Gap A3: Infer dependencies from file overlap
+  // If task B references files that task A creates/modifies, B may depend on A
+  for (let i = 0; i < tasks.length; i++) {
+    for (let j = i + 1; j < tasks.length; j++) {
+      const taskA = tasks[i];
+      const taskB = tasks[j];
+      // Check if B's files overlap with A's files
+      const overlap = taskB.files.some(f => taskA.files.includes(f));
+      if (overlap && !taskB.blockedBy.includes(taskA.id)) {
+        taskB.blockedBy.push(taskA.id);
+      }
+    }
+  }
 
   return tasks;
 }

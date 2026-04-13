@@ -64,3 +64,15 @@ export function setPipelineStatus(
     return pipeline;
   });
 }
+
+/** Gap A5: update arbitrary pipeline fields without changing status. */
+export function updatePipelineFields(projectDir: string, fields: Partial<PipelineState>): PipelineState | null {
+  return withLock(stateDir(projectDir), () => {
+    const pipeline = readPipeline(projectDir);
+    if (!pipeline) return null;
+    Object.assign(pipeline, fields);
+    pipeline.updated_at = new Date().toISOString();
+    atomicWriteJSON(pipelinePath(projectDir), pipeline);
+    return pipeline;
+  });
+}
