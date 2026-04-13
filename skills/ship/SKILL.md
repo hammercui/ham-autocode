@@ -6,7 +6,7 @@ description: |
   Uses core engine for validation, recovery, and state management.
   Use when: "review and ship", "QA and deploy", "code is ready",
   "check and release", or after development execution completes.
-version: 2.0.0
+version: 3.0.0
 allowed-tools:
   - Read
   - Write

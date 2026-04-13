@@ -7,7 +7,7 @@ description: |
   to .ham-autocode/pipeline.json, and supports pause/resume.
   Use when: "auto develop", "full pipeline", "build this project",
   "run the full workflow", or "autonomous mode".
-version: 2.0.0
+version: 3.0.0
 benefits-from:
   - detect
 allowed-tools:

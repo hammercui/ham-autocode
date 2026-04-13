@@ -6,7 +6,7 @@ description: |
   where to continue. Prevents re-executing completed work.
   Use when: "detect state", "project status", "where are we", "continue project",
   "resume existing project", or when starting work on any project that may have progress.
-version: 2.0.0
+version: 3.0.0
 allowed-tools:
   - Read
   - Bash

@@ -376,7 +376,7 @@ If a session crashes, the SessionEnd hook automatically marks the pipeline as "i
 ham-autocode/
   .claude-plugin/
     plugin.json              # Plugin manifest (name, version, description)
-  skills/                    # 7 skills (slash commands)
+  skills/                    # 8 skills (slash commands)
     detect/SKILL.md          # /ham-autocode:detect
     auto/SKILL.md            # /ham-autocode:auto
     parallel/SKILL.md        # /ham-autocode:parallel

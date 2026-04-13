@@ -90,6 +90,10 @@ Commands:
   learn patterns
   learn history
   learn reset
+  learn status
+  learn brain
+  learn scan
+  learn hints <task-name>
   token estimate <file>
   token index [dir]
   help`;
@@ -514,7 +518,7 @@ function dispatch(args: string[], projectDir: string): any {
         if (!taskName) throw new Error('Usage: learn hints <task-name>');
         return getPatternHints(projectDir, taskName);
       }
-      throw new Error(`Unknown learn subcommand: ${sub}. Use: analyze, suggest, apply, patterns, history, reset, hints`);
+      throw new Error(`Unknown learn subcommand: ${sub}. Use: analyze, suggest, apply, patterns, history, reset, status, brain, scan, hints`);
     }
 
     case 'token': {

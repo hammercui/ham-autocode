@@ -2,10 +2,10 @@
 name: setup
 description: |
   Auto-detect and install missing dependency skill packs for ham-autocode.
-  Checks for gstack, GSD, and Superpowers, installs any that are missing.
+  Checks for gstack, GSD, Superpowers, and OpenSpec (optional), installs any that are missing.
   Use when: "setup", "install dependencies", "install skills",
   "missing skills", or when /ham-autocode:auto fails due to missing skills.
-version: 2.3.0
+version: 3.0.0
 allowed-tools:
   - Bash
   - Read
@@ -32,6 +32,9 @@ ls ~/.claude/skills/gstack/skills/*/SKILL.md 2>/dev/null || echo "gstack: NOT FO
 
 # Check Superpowers
 ls ~/.claude/plugins/superpowers*/skills/*/SKILL.md 2>/dev/null || ls ~/.claude/skills/superpowers*/SKILL.md 2>/dev/null || echo "Superpowers: NOT FOUND"
+
+# Check OpenSpec (optional)
+ls ~/.claude/plugins/openspec*/SKILL.md 2>/dev/null || ls ~/.claude/skills/openspec*/SKILL.md 2>/dev/null || echo "OpenSpec: NOT FOUND (optional)"
 ```
 
 ## Step 2: Report Status
@@ -46,6 +49,7 @@ Show the user which skill packs are installed and which are missing:
 | gstack       | ✅ / ❌  | Phase 1/5/6: review, QA, ship | Highly recommended |
 | GSD          | ✅ / ❌  | Phase 2-4: project, milestones, autonomous | Highly recommended |
 | Superpowers  | ✅ / ❌  | Phase 4: TDD execution      | Recommended      |
+| OpenSpec     | ✅ / ❌  | Spec-driven routing, task scoring | Optional         |
 ```
 
 ## Step 3: Install Missing (with user confirmation)
@@ -76,6 +80,11 @@ git clone --single-branch --depth 1 https://github.com/gsd-build/get-shit-done.g
 
 # Via git clone (fallback)
 git clone --single-branch --depth 1 https://github.com/obra/superpowers.git ~/.claude/plugins/superpowers
+```
+
+### OpenSpec (Fission-AI) — Optional
+```bash
+git clone --single-branch --depth 1 https://github.com/Fission-AI/OpenSpec.git ~/.claude/plugins/openspec
 ```
 
 ## Step 4: Verify

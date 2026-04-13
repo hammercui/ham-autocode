@@ -1,5 +1,5 @@
 #!/bin/bash
-# ham-autocode v2.0 SessionEnd Hook
+# ham-autocode v3.0 SessionEnd Hook
 # Uses core engine CLI to mark pipeline as interrupted.
 
 CORE_CLI="${CLAUDE_PLUGIN_ROOT:-.}/dist/index.js"

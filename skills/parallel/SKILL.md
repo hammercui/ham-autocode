@@ -7,7 +7,7 @@ description: |
   Use when: "parallel dev", "agent teams", "team development",
   "multiple agents", or when project has many independent tasks.
   Prerequisite: Phase 1-3 should be complete (use /ham-autocode:detect first).
-version: 2.0.0
+version: 3.0.0
 benefits-from:
   - detect
 allowed-tools:

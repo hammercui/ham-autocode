@@ -6,7 +6,7 @@ description: |
   execution from the saved position.
   Use when: "resume", "continue", "pick up", "where was I",
   "restart pipeline", or after a break.
-version: 2.0.0
+version: 3.0.0
 benefits-from:
   - status
 allowed-tools:

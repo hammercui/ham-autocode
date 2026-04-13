@@ -1,5 +1,5 @@
 #!/bin/bash
-# ham-autocode v2.0 PostToolUse Hook
+# ham-autocode v3.0 PostToolUse Hook
 # Uses core engine CLI to track context budget after each tool use.
 
 CORE_CLI="${CLAUDE_PLUGIN_ROOT:-.}/dist/index.js"

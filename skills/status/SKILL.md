@@ -6,7 +6,7 @@ description: |
   Reads from .ham-autocode/pipeline.json state file.
   Use when: "progress", "status", "where are we", "show progress",
   "what phase", or when checking pipeline state.
-version: 2.0.0
+version: 3.0.0
 allowed-tools:
   - Read
   - Bash

@@ -5,7 +5,7 @@ description: |
   with exact position (phase, step, context). Can be resumed later with
   /ham-autocode:resume. Use when: "pause", "stop", "break", "interrupt",
   "save and stop", or when user needs to step away.
-version: 2.0.0
+version: 3.0.0
 allowed-tools:
   - Read
   - Write
