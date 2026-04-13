@@ -11,7 +11,7 @@
 import { scoreTask } from './scorer.js';
 import { loadConfig } from '../state/config.js';
 import { writeTask } from '../state/task-graph.js';
-import type { TaskState, TaskScores, RoutingDecision, RoutingTarget } from '../types.js';
+import type { TaskState, TaskScores, RoutingDecision, RoutingTarget, HarnessConfig } from '../types.js';
 
 type TaskType = 'doc' | 'config' | 'hotfix' | 'default';
 
@@ -71,6 +71,12 @@ export function routeTask(task: TaskState & { type?: string }, allTasks: TaskSta
     confirmed: false,
     scores,
   };
+}
+
+/** Determine whether a wave of tasks should use Agent Teams mode (AT1) */
+export function shouldUseAgentTeams(wave: TaskState[], config: HarnessConfig): boolean {
+  if (wave.length < 3) return false;
+  return wave.every(t => (t.scores?.isolationScore || 0) >= (config.routing?.codexMinIsolationScore || 70));
 }
 
 /** Route all tasks in a list */

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { atomicWriteJSON, readJSON } from './atomic.js';
 import { withLock } from './lock.js';
+import { validateTask as validateTaskSchema } from './validator.js';
 import type { TaskState, TaskStatus } from '../types.js';
 
 const TASK_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
@@ -32,6 +33,11 @@ function validateTaskId(taskId: string): string {
 export function readTask(projectDir: string, taskId: string): TaskState | null {
   const { data, error } = readJSON<TaskState>(taskPath(projectDir, taskId));
   if (error && error.code !== 'ENOENT') throw error;
+  if (!data) return null;
+  const validationErrors = validateTaskSchema(data);
+  if (validationErrors.length > 0) {
+    throw new Error(`Corrupt task ${taskId}: ${validationErrors.map(e => `${e.field} ${e.message}`).join('; ')}`);
+  }
   return data;
 }
 

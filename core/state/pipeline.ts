@@ -3,6 +3,7 @@ import path from 'path';
 import { atomicWriteJSON, readJSON } from './atomic.js';
 import { withLock } from './lock.js';
 import { migrate } from './migrate.js';
+import { validatePipeline } from './validator.js';
 import type { PipelineState, PipelineStatus } from '../types.js';
 
 function pipelinePath(projectDir: string): string {
@@ -16,7 +17,12 @@ function stateDir(projectDir: string): string {
 export function readPipeline(projectDir: string): PipelineState | null {
   const { data, error } = readJSON<PipelineState>(pipelinePath(projectDir));
   if (error && error.code !== 'ENOENT') throw error;
-  return data ? migrate(data) : null;
+  if (!data) return null;
+  const validationErrors = validatePipeline(data);
+  if (validationErrors.length > 0) {
+    throw new Error(`Corrupt pipeline.json: ${validationErrors.map(e => `${e.field} ${e.message}`).join('; ')}`);
+  }
+  return migrate(data);
 }
 
 export function writePipeline(projectDir: string, data: PipelineState): void {

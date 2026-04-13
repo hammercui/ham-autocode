@@ -8,7 +8,7 @@ import { nextWave, dagStats } from './dag/scheduler.js';
 import { initTasksFromPlan } from './dag/parser.js';
 import { ContextBudget } from './context/budget.js';
 import { ContextManager } from './context/manager.js';
-import { routeTask, routeAllTasks } from './routing/router.js';
+import { routeTask, routeAllTasks, shouldUseAgentTeams } from './routing/router.js';
 import { detectGates } from './validation/detector.js';
 import { validateTask } from './validation/gates.js';
 import { createCheckpoint, rollbackToCheckpoint as doRollback } from './recovery/checkpoint.js';
@@ -17,6 +17,7 @@ import { estimateFileTokens, buildFileIndex } from './utils/token.js';
 import { ClaudeCodeAdapter } from './executor/claude-code.js';
 import { CodexAdapter } from './executor/codex.js';
 import { ClaudeAppAdapter } from './executor/claude-app.js';
+import { AgentTeamsAdapter } from './executor/agent-teams.js';
 import { appendTrace, queryTrace } from './trace/logger.js';
 import { visualizeDAG } from './dag/visualize.js';
 import { generateSessionReport } from './trace/report.js';
@@ -66,6 +67,8 @@ Commands:
   commit auto <task-id>
   commit rollback
   commit message <task-id>
+  teams assign
+  teams should-use
   rules list
   rules check [task-id]
   token estimate <file>
@@ -337,6 +340,7 @@ function dispatch(args: string[], projectDir: string): any {
           'claude-code': new ClaudeCodeAdapter(),
           'codex': new CodexAdapter(),
           'claude-app': new ClaudeAppAdapter(),
+          'agent-teams': new AgentTeamsAdapter(),
         };
         const adapter = adapters[target];
         if (!adapter) throw new Error(`Unknown routing target: ${target}`);
@@ -385,6 +389,21 @@ function dispatch(args: string[], projectDir: string): any {
         return { message: generateCommitMessage(task) };
       }
       throw new Error(`Unknown commit subcommand: ${sub}`);
+    }
+
+    case 'teams': {
+      if (sub === 'assign') {
+        const tasks = readAllTasks(projectDir);
+        const wave = nextWave(tasks);
+        return AgentTeamsAdapter.assignTeammates(wave);
+      }
+      if (sub === 'should-use') {
+        const tasks = readAllTasks(projectDir);
+        const wave = nextWave(tasks);
+        const config = loadConfig(projectDir);
+        return { shouldUse: shouldUseAgentTeams(wave, config), waveSize: wave.length };
+      }
+      throw new Error('Unknown teams subcommand. Use: assign, should-use');
     }
 
     case 'rules': {

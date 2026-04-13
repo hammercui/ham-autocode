@@ -80,7 +80,7 @@ export interface TaskScores {
   isolationScore: number;
 }
 
-export type RoutingTarget = 'claude-code' | 'codex' | 'claude-app';
+export type RoutingTarget = 'claude-code' | 'codex' | 'claude-app' | 'agent-teams';
 
 export interface TaskRouting {
   target: RoutingTarget;
