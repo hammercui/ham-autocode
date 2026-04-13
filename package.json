@@ -8,8 +8,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node dist/__tests__/run-all.js",
-    "test:quick": "tsc && node dist/__tests__/run-all.js",
+    "test": "node core/__tests__/run-all.js",
+    "test:quick": "tsc && node core/__tests__/run-all.js",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build"
   },

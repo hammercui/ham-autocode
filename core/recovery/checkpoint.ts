@@ -44,8 +44,25 @@ export function rollbackToCheckpoint(ref: string, cwd: string, files?: string[])
 
   // If specific files provided, restore only those; otherwise restore all
   if (files && files.length > 0) {
-    const result = git.checkoutFiles(ref, files, cwd);
-    if (!result.ok) return { ok: false, error: `Rollback failed: ${result.output}` };
+    // Filter to files that actually exist in the checkpoint ref
+    // (files may have been renamed/deleted since the checkpoint)
+    const validFiles: string[] = [];
+    const skippedFiles: string[] = [];
+    for (const file of files) {
+      const check = git.checkoutFiles(ref, [file], cwd);
+      if (check.ok) {
+        validFiles.push(file);
+      } else {
+        skippedFiles.push(file);
+      }
+    }
+    if (validFiles.length === 0 && skippedFiles.length > 0) {
+      // None of the files exist in the checkpoint — try full checkout as fallback
+      const result = git.checkoutAll(ref, cwd);
+      if (!result.ok) return { ok: false, error: `Rollback failed: no matching files in checkpoint. Skipped: ${skippedFiles.join(', ')}` };
+    }
+    // Partial success is still success
+    return { ok: true, error: skippedFiles.length > 0 ? `Skipped missing files: ${skippedFiles.join(', ')}` : null };
   } else {
     const result = git.checkoutAll(ref, cwd);
     if (!result.ok) return { ok: false, error: `Rollback failed: ${result.output}` };
