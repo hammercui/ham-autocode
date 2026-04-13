@@ -9,6 +9,8 @@
 import { analyzeHistory, readInsights } from './analyzer.js';
 import { appendToHistory } from './adapter.js';
 import { learnPatterns } from './patterns.js';
+import { evolveFromTask } from './project-brain.js';
+import { readTask } from '../state/task-graph.js';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
 import path from 'path';
 import fs from 'fs';
@@ -46,7 +48,7 @@ function saveState(projectDir: string, state: AutoLearnState): void {
  * Called automatically after dag complete / dag fail.
  * Lightweight: increments counters, triggers full analysis periodically.
  */
-export function onTaskComplete(projectDir: string, _taskId: string, success: boolean): void {
+export function onTaskComplete(projectDir: string, taskId: string, success: boolean): void {
   try {
     const state = loadState(projectDir);
 
@@ -56,6 +58,12 @@ export function onTaskComplete(projectDir: string, _taskId: string, success: boo
       state.totalFailures++;
     }
     state.completionsSinceLastAnalysis++;
+
+    // Evolve project brain from every task (lightweight, ~10ms)
+    const task = readTask(projectDir, taskId);
+    if (task) {
+      evolveFromTask(projectDir, task);
+    }
 
     // Trigger full analysis every N completions
     if (state.completionsSinceLastAnalysis >= ANALYSIS_INTERVAL) {

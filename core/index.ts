@@ -31,6 +31,7 @@ import { analyzeHistory } from './learning/analyzer.js';
 import { suggestAdaptations, applyAdaptations, readLearningHistory, appendToHistory, resetLearning } from './learning/adapter.js';
 import { learnPatterns, getPatternHints } from './learning/patterns.js';
 import { onTaskComplete, autoLearnStatus } from './learning/auto-learn.js';
+import { getBrainContext, readBrain, evolveFromScan } from './learning/project-brain.js';
 import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType, RoutingTarget } from './types.js';
 
 function usage(): string {
@@ -365,7 +366,12 @@ function dispatch(args: string[], projectDir: string): any {
         const adapter = adapters[target];
         if (!adapter) throw new Error(`Unknown routing target: ${target}`);
         const instruction = adapter.generateInstruction(task);
-        return { taskId, target, instruction };
+        // v3.0: inject project brain context into execution instruction
+        const brainContext = getBrainContext(projectDir, task.name);
+        const enrichedInstruction = brainContext
+          ? instruction + '\n\n' + brainContext
+          : instruction;
+        return { taskId, target, instruction: enrichedInstruction };
       }
       throw new Error(`Unknown execute subcommand: ${sub}`);
     }
@@ -495,6 +501,13 @@ function dispatch(args: string[], projectDir: string): any {
       }
       if (sub === 'status') {
         return autoLearnStatus(projectDir);
+      }
+      if (sub === 'brain') {
+        return readBrain(projectDir);
+      }
+      if (sub === 'scan') {
+        evolveFromScan(projectDir);
+        return readBrain(projectDir);
       }
       if (sub === 'hints') {
         const taskName = args.slice(2).join(' ');
