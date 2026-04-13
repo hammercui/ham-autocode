@@ -22,10 +22,12 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
   ];
 
   // Format 3: Markdown table rows with numbered tasks and pending-like status
-  // Matches: | 1.1 | Task description | ... | 待执行 | or | 待修复 | or | 待开发 |
-  const tableRowRegex = /^\|\s*(\d+(?:\.\d+)?)\s*\|\s*(.+?)\s*\|.*?\|\s*(待执行|待修复|待开发|待验证|TODO|OPEN|pending)\s*\|/gmi;
+  // Full format: | 1.1 | Task name | Owner | Deps | 待执行 |
+  // Captures: num, name, and optionally deps from the row
+  const pendingStatusPattern = /待执行|待修复|待开发|待验证|需完善|TODO|OPEN|pending/i;
+  const tableRowRegex = /^\|\s*(\d+(?:\.\d+)*)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/gm;
 
-  interface RawMatch { index: number; num: string; name: string; }
+  interface RawMatch { index: number; num: string; name: string; deps?: string; }
   const rawMatches: RawMatch[] = [];
 
   for (const pattern of patterns) {
@@ -36,13 +38,19 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
   }
 
   // Table rows — only include pending/todo items (skip completed)
+  // Also extract dependency column for later blockedBy resolution
+  const tableNumToTaskId = new Map<string, string>(); // "2.4.1" -> "task-XXX"
   {
     let match: RegExpExecArray | null;
     while ((match = tableRowRegex.exec(planContent)) !== null) {
       const name = match[2].replace(/\*\*/g, '').replace(/`/g, '').trim();
+      const status = match[5].trim();
       // Skip header rows and separator rows
-      if (name === '---' || name === '编号' || name === '问题' || name === '功能' || name === '任务') continue;
-      rawMatches.push({ index: match.index, num: match[1], name });
+      if (name === '---' || name.startsWith('--') || /^(编号|问题|功能|任务|#)$/.test(name)) continue;
+      // Only include rows with pending-like status
+      if (!pendingStatusPattern.test(status)) continue;
+      const deps = match[4].trim();
+      rawMatches.push({ index: match.index, num: match[1], name, deps: deps !== '—' && deps !== '无' ? deps : undefined });
     }
   }
 
@@ -67,6 +75,9 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
       if (!files.includes(fileMatch[1])) files.push(fileMatch[1]);
     }
 
+    // Track table number → task ID mapping for dependency resolution
+    if (raw.num) tableNumToTaskId.set(raw.num, id);
+
     tasks.push({
       schemaVersion: 2,
       id,
@@ -85,6 +96,21 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
       execution: { sessionId: null, startedAt: null, completedAt: null, error: null, errorType: null },
     });
     taskNum++;
+  }
+
+  // Resolve table-format dependencies (e.g., "2.2.3, 1.3" → blockedBy task IDs)
+  for (const task of tasks) {
+    const matchingRaw = rawMatches.find(r => tableNumToTaskId.get(r.num) === task.id);
+    if (matchingRaw?.deps) {
+      const depNums = matchingRaw.deps.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
+      for (const depNum of depNums) {
+        // Look up by exact match first, then by prefix (e.g., "Phase 1" -> any 1.x)
+        const depTaskId = tableNumToTaskId.get(depNum);
+        if (depTaskId && !task.blockedBy.includes(depTaskId)) {
+          task.blockedBy.push(depTaskId);
+        }
+      }
+    }
   }
 
   // Gap A3: Infer dependencies from file overlap
