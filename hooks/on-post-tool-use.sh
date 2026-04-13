@@ -2,7 +2,8 @@
 # ham-autocode v2.0 PostToolUse Hook
 # Uses core engine CLI to track context budget after each tool use.
 
-CORE_CLI="${CLAUDE_PROJECT_DIR:-.}/dist/index.js"
+CORE_CLI="${CLAUDE_PLUGIN_ROOT:-.}/dist/index.js"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 
 # Check if core engine exists
 if [ ! -f "$CORE_CLI" ]; then
@@ -10,7 +11,7 @@ if [ ! -f "$CORE_CLI" ]; then
 fi
 
 # Track context budget - estimate tokens consumed by tool output
-BUDGET_STATUS=$(node "$CORE_CLI" context budget 2>/dev/null)
+BUDGET_STATUS=$(HAM_PROJECT_DIR="$PROJECT_DIR" node "$CORE_CLI" context budget 2>/dev/null)
 if [ $? -ne 0 ] || [ -z "$BUDGET_STATUS" ]; then
     exit 0
 fi

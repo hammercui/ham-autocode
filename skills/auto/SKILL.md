@@ -24,6 +24,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 # Full Autonomous Development Pipeline
 
 You are running the complete development lifecycle for a project.
@@ -36,38 +37,38 @@ Every step MUST use the v2 core engine CLI for state management. This is non-neg
 ### Initialize State
 
 ```bash
-node dist/index.js pipeline init "[project-name]"
+ham-cli pipeline init "[project-name]"
 ```
 
 ### Update State (BEFORE and AFTER every action)
 
 Before starting a step:
 ```bash
-node dist/index.js pipeline log "started [description]"
+ham-cli pipeline log "started [description]"
 ```
 
 After completing a step:
 ```bash
-node dist/index.js pipeline log "completed [description]"
+ham-cli pipeline log "completed [description]"
 ```
 
 ### Check DAG Progress
 ```bash
-node dist/index.js dag status      # overall stats
-node dist/index.js dag next-wave   # next executable wave
-node dist/index.js context budget  # context budget status
+ham-cli dag status      # overall stats
+ham-cli dag next-wave   # next executable wave
+ham-cli context budget  # context budget status
 ```
 
 ### Route Tasks
 ```bash
-node dist/index.js route batch       # route all pending tasks
-node dist/index.js route <task-id>   # route single task
+ham-cli route batch       # route all pending tasks
+ham-cli route <task-id>   # route single task
 ```
 
 ### Validate Changes
 ```bash
-node dist/index.js validate detect       # detect available gates
-node dist/index.js validate <task-id>    # run gates for a task
+ham-cli validate detect       # detect available gates
+ham-cli validate <task-id>    # run gates for a task
 ```
 
 This ensures:
@@ -78,6 +79,7 @@ This ensures:
 
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Step 0: Detect or Resume
 
 Check if `.ham-autocode/pipeline.json` exists:
@@ -93,6 +95,7 @@ Check if `.ham-autocode/pipeline.json` exists:
 
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Phase 1: Project Initiation (gstack)
 
 > Skip if: product definition, competitive analysis, and design decisions exist.
@@ -107,6 +110,7 @@ Check if `.ham-autocode/pipeline.json` exists:
 
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Phase 2: Requirements & Milestones (GSD)
 
 > Skip if: PROJECT.md, milestone plans, and WBS exist (or equivalents).
@@ -122,6 +126,7 @@ Check if `.ham-autocode/pipeline.json` exists:
 
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Phase 3: Phase Planning (GSD + gstack)
 
 > Skip if: detailed PLAN.md or equivalent technical plans exist per phase.
@@ -139,6 +144,7 @@ For each phase in the roadmap:
 
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Phase 4: Execution
 
 > Update pipeline.json: phase 4 status → "running"
@@ -164,6 +170,7 @@ Route tasks:
 
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Phase 5: Review & QA (gstack + GSD)
 
 > Update pipeline.json: phase 5 status → "running"
@@ -179,6 +186,7 @@ Route tasks:
 
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Phase 6: Ship (gstack)
 
 > Only proceed after user confirms Phase 5 results.
@@ -193,6 +201,7 @@ Route tasks:
 
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Rules
 
 - **ALWAYS update pipeline.json** before and after every step — this is the #1 rule

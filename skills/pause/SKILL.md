@@ -13,6 +13,7 @@ allowed-tools:
   - Glob
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 # Pause Pipeline
 
 Save the current pipeline state and stop execution gracefully.
@@ -22,8 +23,8 @@ Save the current pipeline state and stop execution gracefully.
 ### Step 1: Read Current State via Core Engine
 
 ```bash
-node dist/index.js pipeline status
-node dist/index.js dag status
+ham-cli pipeline status
+ham-cli dag status
 ```
 
 ### Step 2: Update State
@@ -50,7 +51,7 @@ active_agent_teams → list of teammate names (or empty)
 
 Also log via core engine:
 ```bash
-node dist/index.js pipeline log "paused at Phase [X], step: [description]"
+ham-cli pipeline log "paused at Phase [X], step: [description]"
 ```
 
 See `schemas/pipeline.schema.json` for the complete schema.

@@ -19,6 +19,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 # Review, QA & Ship Pipeline (v2.0)
 
 You are running the complete review-to-release pipeline with core engine support.
@@ -27,13 +28,13 @@ You are running the complete review-to-release pipeline with core engine support
 
 ```bash
 # Detect available validation gates
-node dist/index.js validate detect
+ham-cli validate detect
 
 # Run validation per task (repeat for each task)
-node dist/index.js validate <task-id>
+ham-cli validate <task-id>
 
 # Check DAG completion
-node dist/index.js dag status
+ham-cli dag status
 ```
 
 All gates must pass before proceeding. Two-strike policy: retry once on failure.
@@ -63,7 +64,7 @@ Run `/review` (gstack) for PR-level review:
 Run `/qa` (gstack) for systematic testing:
 - Functional, integration, and regression tests
 - Auto-fix discovered bugs (atomic commits per fix)
-- Re-run validation after fixes: `node dist/index.js validate <task-id>`
+- Re-run validation after fixes: `ham-cli validate <task-id>`
 
 ## Phase 6: Triage Issues
 
@@ -76,9 +77,9 @@ Run `/qa` (gstack) for systematic testing:
 
 For fixes, use recovery:
 ```bash
-node dist/index.js recover checkpoint <task-id>
+ham-cli recover checkpoint <task-id>
 # ... make fix ...
-node dist/index.js validate <task-id>
+ham-cli validate <task-id>
 ```
 
 ## Phase 7: Ship
@@ -88,7 +89,7 @@ node dist/index.js validate <task-id>
 1. Ask user for confirmation
 2. Run `/ship` (gstack) — VERSION bump, CHANGELOG, PR
 3. Run `/document-release` — sync docs
-4. Update pipeline: `node dist/index.js pipeline log "shipped"`
+4. Update pipeline: `ham-cli pipeline log "shipped"`
 
 ## Rules
 

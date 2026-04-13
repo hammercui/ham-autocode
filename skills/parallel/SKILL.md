@@ -22,6 +22,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 # Parallel Development with Agent Teams + Core Engine (v2.0)
 
 You are setting up parallel development using the DAG scheduler and agent routing engine.
@@ -35,16 +36,16 @@ You are setting up parallel development using the DAG scheduler and agent routin
 
 ```bash
 # Parse plan into task objects
-node dist/index.js dag init .planning/phases/*/PLAN.md
+ham-cli dag init .planning/phases/*/PLAN.md
 
 # Score and route all tasks
-node dist/index.js route batch
+ham-cli route batch
 
 # Check what's ready to execute
-node dist/index.js dag next-wave
+ham-cli dag next-wave
 
 # Verify context budget
-node dist/index.js context budget
+ham-cli context budget
 ```
 
 ## Step 2: Task Routing via Core Engine
@@ -61,7 +62,7 @@ Routing rules:
 
 ```bash
 # See routing decisions
-node dist/index.js route batch
+ham-cli route batch
 ```
 
 ## Step 3: Create Agent Team for Claude Code Tasks
@@ -79,7 +80,7 @@ Create team with:
 For each task routed to Codex, use the executor adapter:
 ```bash
 # The core engine generates structured specs
-node dist/index.js route [task-id]
+ham-cli route [task-id]
 ```
 
 Present specs to user for Codex execution.
@@ -88,13 +89,13 @@ Present specs to user for Codex execution.
 
 ```bash
 # Get current wave
-node dist/index.js dag next-wave
+ham-cli dag next-wave
 
 # After completing tasks, update status
-node dist/index.js dag complete <task-id>
+ham-cli dag complete <task-id>
 
 # Check progress
-node dist/index.js dag status
+ham-cli dag status
 ```
 
 ## Step 6: Validation and Recovery
@@ -102,25 +103,25 @@ node dist/index.js dag status
 After each task completion:
 ```bash
 # Run validation gates
-node dist/index.js validate <task-id>
+ham-cli validate <task-id>
 
 # If validation fails, use recovery
-node dist/index.js recover checkpoint <task-id>
-node dist/index.js recover rollback <task-id>
+ham-cli recover checkpoint <task-id>
+ham-cli recover rollback <task-id>
 ```
 
 ## Step 7: Monitor and Merge
 
 1. Monitor Agent Teams progress
 2. Integrate Codex outputs
-3. Run `node dist/index.js validate <task-id>` after integration
+3. Run `ham-cli validate <task-id>` after integration
 4. Continue with next DAG wave
 
 ## Rules
 
-- Use `node dist/index.js dag next-wave` to determine task execution order
-- Use `node dist/index.js route batch` for routing decisions
-- Check `node dist/index.js context budget` before heavy operations
+- Use `ham-cli dag next-wave` to determine task execution order
+- Use `ham-cli route batch` for routing decisions
+- Check `ham-cli context budget` before heavy operations
 - Create checkpoints before risky tasks
 - 5-6 tasks per teammate, no file overlap
 - Save team assignments to pipeline state for recovery

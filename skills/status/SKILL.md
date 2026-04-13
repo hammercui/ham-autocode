@@ -14,6 +14,7 @@ allowed-tools:
   - Grep
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 # Pipeline Status Display
 
 Read and display the current ham-autocode pipeline state.
@@ -24,16 +25,16 @@ Read and display the current ham-autocode pipeline state.
 
 ```bash
 # Get pipeline status
-node dist/index.js pipeline status
+ham-cli pipeline status
 
 # Get DAG statistics
-node dist/index.js dag status
+ham-cli dag status
 
 # Get context budget
-node dist/index.js context budget
+ham-cli context budget
 
 # Get next wave of executable tasks
-node dist/index.js dag next-wave
+ham-cli dag next-wave
 ```
 
 If pipeline not found, report:

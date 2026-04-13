@@ -2,7 +2,7 @@
 # ham-autocode v2.0 SessionStart Hook
 # Uses core engine CLI to inject pipeline state as context.
 
-CORE_CLI="${CLAUDE_PROJECT_DIR:-.}/dist/index.js"
+CORE_CLI="${CLAUDE_PLUGIN_ROOT:-.}/dist/index.js"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 
 # Check if core engine exists
@@ -11,14 +11,14 @@ if [ ! -f "$CORE_CLI" ]; then
 fi
 
 # Check if pipeline exists
-PIPELINE_STATUS=$(node "$CORE_CLI" pipeline status 2>/dev/null)
+PIPELINE_STATUS=$(HAM_PROJECT_DIR="$PROJECT_DIR" node "$CORE_CLI" pipeline status 2>/dev/null)
 if [ $? -ne 0 ] || [ -z "$PIPELINE_STATUS" ]; then
     exit 0
 fi
 
 # Build context from pipeline status + DAG stats + budget
-DAG_STATUS=$(node "$CORE_CLI" dag status 2>/dev/null || echo '{}')
-BUDGET_STATUS=$(node "$CORE_CLI" context budget 2>/dev/null || echo '{}')
+DAG_STATUS=$(HAM_PROJECT_DIR="$PROJECT_DIR" node "$CORE_CLI" dag status 2>/dev/null || echo '{}')
+BUDGET_STATUS=$(HAM_PROJECT_DIR="$PROJECT_DIR" node "$CORE_CLI" context budget 2>/dev/null || echo '{}')
 
 CONTEXT=$(node -e "
 const pipeline = $PIPELINE_STATUS;

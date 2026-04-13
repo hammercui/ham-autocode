@@ -14,6 +14,7 @@ allowed-tools:
   - Grep
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 # Project State Detection
 
 You are analyzing an existing project to determine its current development phase.
@@ -105,16 +106,16 @@ Use the v2 core engine CLI to route tasks:
 
 ```bash
 # Parse plan into DAG tasks
-node dist/index.js dag init <plan-file> [milestone] [phase]
+ham-cli dag init <plan-file> [milestone] [phase]
 
 # Route all tasks to appropriate executors
-node dist/index.js route batch
+ham-cli route batch
 
 # Check current DAG status
-node dist/index.js dag status
+ham-cli dag status
 
 # Route individual tasks
-node dist/index.js route <task-id>
+ham-cli route <task-id>
 ```
 
 Based on diagnosis:

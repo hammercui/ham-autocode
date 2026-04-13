@@ -23,6 +23,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
+> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 # Resume Pipeline (v2.0)
 
 Resume the ham-autocode pipeline from its last saved state using core engine.
@@ -32,10 +33,10 @@ Resume the ham-autocode pipeline from its last saved state using core engine.
 ### Step 1: Read State via Core Engine
 
 ```bash
-node dist/index.js pipeline status
-node dist/index.js dag status
-node dist/index.js dag next-wave
-node dist/index.js context budget
+ham-cli pipeline status
+ham-cli dag status
+ham-cli dag next-wave
+ham-cli context budget
 ```
 
 If no pipeline found:
@@ -72,7 +73,7 @@ Resuming now...
 ### Step 3: Update State
 
 ```bash
-node dist/index.js pipeline log "resumed from paused state"
+ham-cli pipeline log "resumed from paused state"
 ```
 
 Update pipeline.json: set `status` → `"running"`, `resumed_at` → now.
@@ -85,7 +86,7 @@ If GSD was active, run `/gsd:resume-work` to restore GSD context.
 
 Use DAG scheduler to determine next tasks:
 ```bash
-node dist/index.js dag next-wave
+ham-cli dag next-wave
 ```
 
 Route and execute the next wave, following the normal auto pipeline flow.
