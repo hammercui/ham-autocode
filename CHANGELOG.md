@@ -2,6 +2,65 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [2.2.0] - 2026-04-13
+
+### Added — Observability
+- **Structured trace**: upgraded trace.jsonl with taskId/phase fields
+- **Trace query**: `trace query [--task <id>] [--result ok|error] [--limit N]`
+- **DAG visualization**: `dag visualize` — ASCII DAG with status icons (✓✗○⊘■) and dependency tree
+- **Session report**: `session report` — project summary with task stats, command count, token consumption
+
+### Added — Auto-commit
+- **Validate-then-commit**: `commit auto <task-id>` — git add + commit task files (opt-in via `autoCommit: true`)
+- **Commit rollback**: `commit rollback` — git reset HEAD~1 to undo last auto-commit
+- **Commit preview**: `commit message <task-id>` — preview `feat(task-id): name` format
+
+### Added — Agent Teams
+- **4th routing target**: `agent-teams` added to RoutingTarget enum
+- **Teammate assignment**: `teams assign` — groups tasks by file ownership, merges conflicts
+- **Wave-level routing**: `teams should-use` — checks if wave qualifies for parallel execution
+- **Progressive batching**: initial 2 teammates, expand to 4-5 on success
+
+### Added — Guardrail Rules
+- **Rule engine**: `core/rules/engine.ts` — declarative registerRule/checkRules/checkRulesSummary
+- **8 core rules** (R01-R08): file-line-limit, commit-file-limit, test-coverage-guard, no-todo-in-done, import-path-exists, sensitive-file-guard, context-budget-guard, failure-rate-guard
+- **CLI**: `rules list`, `rules check [task-id]`
+
+### Added — Schema Validation
+- **Runtime validator**: `core/state/validator.ts` — zero-dep pipeline.json and task-*.json validation
+- **Integrated into reads**: readPipeline() and readTask() now throw on corrupt files
+
+### Changed
+- RoutingTarget expanded from 3 to 4 targets (added agent-teams)
+- git.ts: added add(), commit(), resetLast() methods
+- TraceEntry: added optional taskId and phase fields
+
+## [2.1.0] - 2026-04-13
+
+### Added — TypeScript Migration
+- Migrated entire core engine (25 modules) from JavaScript to TypeScript
+- `core/types.ts`: 30+ shared type definitions (TaskState, PipelineState, HarnessConfig, etc.)
+- tsconfig.json: strict mode, ES2022, Node16 module resolution
+- Build output to dist/ (CLI path: dist/index.js)
+
+### Added — Gap Fixes (83% → 92% Harness coverage)
+- A1: `execute prepare <task-id>` — executor adapter CLI
+- A2: topoSort integrated into scheduler for cycle detection
+- A3: DAG dependency inference from file overlap
+- A4: `context budget consume <amount>` — token budget CLI
+- A5: pipeline.current_task auto-cleared on dag complete/fail
+- A6: blocked status auto-inferred in dag status
+- A7: autoSelectStrategy() by complexityScore
+- B1: Execution trace logging (trace.jsonl with 1MB rotation)
+- B2: file-index.json persistence
+- B4: Auto-rollback on two-strike validation block
+
+### Fixed
+- Parser regex: support ##/###/#### headers + checkbox format
+- Pipeline log: auto-append on dag init/complete/fail/skip
+- npm test: created run-all.js test runner
+- Graceful rollback: skip missing files instead of failing
+
 ## [2.0.0] - 2026-04-11
 
 ### Added — Core Engine (Node.js, zero dependencies)
