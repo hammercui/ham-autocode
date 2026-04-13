@@ -11,19 +11,38 @@ import { writeTask } from '../state/task-graph.js';
  */
 export function parsePlanToTasks(planContent: string, milestone?: string, phase?: string): TaskState[] {
   const tasks: TaskState[] = [];
-  // Match markdown headers that look like tasks: ### Task N: Name
-  const taskRegex = /###\s+(?:Task\s+)?(\d+)[:.]\s*(.+)/g;
-  let match: RegExpExecArray | null;
+
+  // Match multiple task formats:
+  //   ## Task 1: Name / ### Task 1: Name / #### Task 1. Name
+  //   - [ ] **T1: Name** / - [ ] **G1: Name**
+  const patterns: RegExp[] = [
+    /^#{2,4}\s+(?:Task\s+)?(\d+)[:.]\s*(.+)/gm,
+    /^-\s+\[[ x]\]\s+\*\*[A-Z]+(\d+)[:.]?\s*(.+?)\*\*/gm,
+  ];
+
+  interface RawMatch { index: number; num: string; name: string; }
+  const rawMatches: RawMatch[] = [];
+
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(planContent)) !== null) {
+      rawMatches.push({ index: match.index, num: match[1], name: match[2].trim() });
+    }
+  }
+
+  // Sort by position in file
+  rawMatches.sort((a, b) => a.index - b.index);
+
   let taskNum = 1;
-
-  while ((match = taskRegex.exec(planContent)) !== null) {
+  for (let i = 0; i < rawMatches.length; i++) {
+    const raw = rawMatches[i];
     const id = `task-${String(taskNum).padStart(3, '0')}`;
-    const name = match[2].trim();
+    const name = raw.name;
 
-    // Extract files from the section after the header
-    const sectionStart = match.index + match[0].length;
-    const nextHeader = planContent.indexOf('\n### ', sectionStart + 1);
-    const section = planContent.slice(sectionStart, nextHeader > -1 ? nextHeader : undefined);
+    // Extract section between this match and the next
+    const sectionStart = raw.index;
+    const sectionEnd = i + 1 < rawMatches.length ? rawMatches[i + 1].index : planContent.length;
+    const section = planContent.slice(sectionStart, sectionEnd);
 
     const files: string[] = [];
     const fileRegex = /[`"]([^\s`"]+\.[a-zA-Z]+)[`"]/g;

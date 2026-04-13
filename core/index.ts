@@ -136,6 +136,7 @@ function dispatch(args: string[], projectDir: string): any {
     case 'dag': {
       if (sub === 'init') {
         const result = initTasksFromPlan(projectDir, args[2], args[3], args[4]);
+        appendLog(projectDir, `dag init: ${result.count} tasks from ${result.planFile}`);
         return { planFile: result.planFile, count: result.count, tasks: result.tasks.map(t => t.id) };
       }
       if (sub === 'next-wave') {
@@ -143,19 +144,23 @@ function dispatch(args: string[], projectDir: string): any {
         return nextWave(tasks).map(t => ({ id: t.id, name: t.name }));
       }
       if (sub === 'complete') {
-        return updateTaskStatus(projectDir, args[2], 'done' as TaskStatus, { execution: { completedAt: new Date().toISOString() } });
+        const result = updateTaskStatus(projectDir, args[2], 'done' as TaskStatus, { execution: { completedAt: new Date().toISOString() } });
+        appendLog(projectDir, `task ${args[2]} completed`);
+        return result;
       }
       if (sub === 'fail') {
         const taskId = args[2];
         const errorType = args[3];
         if (!taskId || !errorType) throw new Error('Usage: dag fail <task-id> <error-type>');
-        return updateTaskStatus(projectDir, taskId, 'failed' as TaskStatus, {
+        const result = updateTaskStatus(projectDir, taskId, 'failed' as TaskStatus, {
           execution: {
             completedAt: new Date().toISOString(),
             errorType: errorType as ErrorType,
             error: errorType,
           },
         });
+        appendLog(projectDir, `task ${taskId} failed: ${errorType}`);
+        return result;
       }
       if (sub === 'retry') {
         const task = readTask(projectDir, args[2]);
@@ -167,7 +172,9 @@ function dispatch(args: string[], projectDir: string): any {
         return task;
       }
       if (sub === 'skip') {
-        return updateTaskStatus(projectDir, args[2], 'skipped' as TaskStatus);
+        const result = updateTaskStatus(projectDir, args[2], 'skipped' as TaskStatus);
+        appendLog(projectDir, `task ${args[2]} skipped`);
+        return result;
       }
       if (sub === 'unblock') {
         const task = readTask(projectDir, args[2]);
