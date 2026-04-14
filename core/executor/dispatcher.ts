@@ -14,9 +14,6 @@ export interface DispatchCommand {
   model?: string;
 }
 
-/** 默认 opencode 模型（智谱 AI Coding Plan 免费） */
-const DEFAULT_OPENCODE_MODEL = 'alibaba-coding-plan-cn/glm-5';
-
 /**
  * 根据 routing target 和 instruction 生成 shell 命令。
  * 调用方可直接用 child_process.exec 或 Bash 工具执行。
@@ -37,11 +34,13 @@ export function buildDispatchCommand(
       };
 
     case 'opencode': {
-      const model = options?.model || DEFAULT_OPENCODE_MODEL;
+      // 使用 opencode 自身配置的默认模型（用户在 opencode 中配置，如 zhipu glm-5.1）
+      // 仅当调用方显式指定 model 时才覆盖
+      const modelFlag = options?.model ? ` --model "${options.model}"` : '';
       return {
-        command: `opencode run --dangerously-skip-permissions --model "${model}" '${escaped}'`,
+        command: `opencode run --dangerously-skip-permissions${modelFlag} '${escaped}'`,
         agent: 'opencode',
-        model,
+        model: options?.model,
       };
     }
 
