@@ -14,3 +14,6 @@ dist/
 
 # Logs
 *.log
+
+# Generated reports
+docs/deep-research-report.md
