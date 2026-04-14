@@ -87,28 +87,37 @@ function getRelatedEntities(projectDir: string, task: TaskState, max: number): s
   if (!keywords) return '';
   const entities = searchEntities(projectDir, keywords);
   if (entities.length === 0) return '';
-  return entities.slice(0, max).map(e => `${e.type} ${e.name} @ ${e.file}:${e.line}\n  ${e.signature}`).join('\n');
+  return entities.slice(0, max).map(e => `- ${e.type} ${e.name} @ ${e.file}:${e.line}`).join('\n');
 }
 
-/** 获取任务所需文件的摘要（接口签名提取） */
-function getFileSummaries(projectDir: string, task: TaskState, maxTokens: number): string {
-  const files = task.context?.requiredFiles || task.files || [];
-  if (files.length === 0) return '';
-  const summaries: string[] = [];
-  let totalTokens = 0;
-  for (const f of files) {
+/** 获取任务相关文件的阅读清单（路径 + 简短说明，不含文件内容） */
+function getReadingList(projectDir: string, task: TaskState): string {
+  const taskFiles = new Set(task.files || []);
+  const brain = readBrain(projectDir);
+  const modules = brain?.architecture?.keyModules || [];
+  const entries: string[] = [];
+
+  // 1. 任务文件本身（agent 必须读）
+  for (const f of taskFiles) {
+    const mod = modules.find(m => f.startsWith(m.path));
     const summary = summarizeFile(projectDir, f);
-    if (summary.summary && summary.summaryTokens > 0 && totalTokens + summary.summaryTokens <= maxTokens) {
-      summaries.push(summary.summary);
-      totalTokens += summary.summaryTokens;
-    } else if (summary.summary && totalTokens < maxTokens) {
-      // 截断到预算
-      const remaining = maxTokens - totalTokens;
-      summaries.push(summary.summary.substring(0, remaining * 4));
-      break;
+    const desc = mod ? mod.role : (summary.tokens > 0 ? `${summary.tokens} tokens` : 'new file');
+    entries.push(`- ${f} — ${desc}`);
+  }
+
+  // 2. 依赖任务的文件（agent 应该读，理解上游接口）
+  const deps = task.blockedBy || [];
+  for (const depId of deps) {
+    const depTask = readTask(projectDir, depId);
+    if (!depTask || depTask.status !== 'done') continue;
+    for (const f of depTask.files || []) {
+      if (taskFiles.has(f)) continue; // 已在任务文件中
+      const mod = modules.find(m => f.startsWith(m.path));
+      entries.push(`- ${f} — upstream from ${depId}${mod ? ', ' + mod.role : ''}`);
     }
   }
-  return summaries.join('\n\n');
+
+  return entries.join('\n');
 }
 
 /** 获取 DAG 依赖任务的产出摘要 */
@@ -150,9 +159,9 @@ function buildOpenCodeContext(projectDir: string, task: TaskState): MinimalConte
   ];
 
   // 文件摘要（~500 tokens 预算）
-  const summaries = getFileSummaries(projectDir, task, 500);
+  const summaries = getReadingList(projectDir, task);
   if (summaries) {
-    lines.push('', '## File Signatures', summaries);
+    lines.push('', '## Read these files', summaries);
   }
 
   // 依赖产出
@@ -185,9 +194,9 @@ function buildCodexContext(projectDir: string, task: TaskState): MinimalContext 
   }
 
   // 文件摘要（~800 tokens 预算）
-  const summaries = getFileSummaries(projectDir, task, 800);
+  const summaries = getReadingList(projectDir, task);
   if (summaries) {
-    lines.push('', '## File Signatures', summaries);
+    lines.push('', '## Read these files', summaries);
   }
 
   // 相关代码实体（接口签名，max 8）
@@ -285,9 +294,9 @@ function buildTeamContext(projectDir: string, task: TaskState): MinimalContext {
   ];
 
   // 文件摘要（~600 tokens 预算）
-  const summaries = getFileSummaries(projectDir, task, 600);
+  const summaries = getReadingList(projectDir, task);
   if (summaries) {
-    lines.push('', '## File Signatures', summaries);
+    lines.push('', '## Read these files', summaries);
   }
 
   // 依赖产出
