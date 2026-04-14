@@ -18,6 +18,7 @@ import { ClaudeCodeAdapter } from './executor/claude-code.js';
 import { CodexAdapter } from './executor/codex.js';
 import { ClaudeAppAdapter } from './executor/claude-app.js';
 import { AgentTeamsAdapter } from './executor/agent-teams.js';
+import { OpenCodeAdapter } from './executor/opencode.js';
 import { appendTrace, queryTrace } from './trace/logger.js';
 import { visualizeDAG } from './dag/visualize.js';
 import { generateSessionReport } from './trace/report.js';
@@ -366,6 +367,7 @@ function dispatch(args: string[], projectDir: string): any {
           'codex': new CodexAdapter(),
           'claude-app': new ClaudeAppAdapter(),
           'agent-teams': new AgentTeamsAdapter(),
+          'opencode': new OpenCodeAdapter(),
         };
         const adapter = adapters[target];
         if (!adapter) throw new Error(`Unknown routing target: ${target}`);

@@ -56,8 +56,14 @@ export function routeTask(task: TaskState & { type?: string }, allTasks: TaskSta
   let reason = 'default';
   let needsConfirmation = false;
 
+  // Rule 0: Very simple tasks → opencode (free model)
+  if (scores.complexityScore <= 20 && (task.files || []).length <= 3 &&
+      !(scores.specScore >= config.codexMinSpecScore && scores.isolationScore >= config.codexMinIsolationScore)) {
+    target = 'opencode';
+    reason = `simple task (complexity:${scores.complexityScore}, files:${(task.files || []).length}) → free model`;
+  }
   // Rule 1: High spec + high isolation -> codex
-  if (scores.specScore >= config.codexMinSpecScore &&
+  else if (scores.specScore >= config.codexMinSpecScore &&
       scores.isolationScore >= config.codexMinIsolationScore) {
     target = 'codex';
     reason = `specScore(${scores.specScore}) >= ${config.codexMinSpecScore} AND isolationScore(${scores.isolationScore}) >= ${config.codexMinIsolationScore}`;
