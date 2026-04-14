@@ -2,6 +2,28 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.6.0] - 2026-04-14
+
+### Fixed — Context Bundle Pipeline (上下文管道接通)
+
+核心 bug 修复：`execute prepare` 对 codex/opencode/agent-teams 只输出 30-77 tokens 的干瘪指令，
+导致编排 agent (Claude Code) 被迫手动读文件补上下文 (~25K tokens)。
+
+- **接通 5 个 target 的数据管道**: brain + entities + DAG deps + conventions 全部流向所有 target
+- **阅读清单模式**: bundle 只给文件路径+说明，不嵌入文件内容；agent 用自己 token 池读文件
+- **依赖任务产出传递**: 自动从 DAG `blockedBy` 解析上游任务文件和接口，告诉 agent "先读这些"
+- **新增共享工具**: `getRelatedModules`, `getRelatedEntities`, `getReadingList`, `getDependencyOutputs`, `getConventions`, `getHints`
+
+**实测 ham-video 数据:**
+
+| Target | Before | After | 新增内容 |
+|--------|--------|-------|----------|
+| codex | 77 tokens | 206 tokens | +modules, +reading list, +deps, +hints |
+| opencode | 30 tokens | 188 tokens | +conventions, +reading list, +deps |
+| agent-teams | 40 tokens | 257 tokens | +reading list, +deps |
+
+**E2E 验证:** ham-video task-004 通过 bundle 交给 Codex 执行，Codex 自行读取 mcp/server.ts 等上游文件，成功产出完整 create-project.ts 实现。
+
 ## [3.5.0] - 2026-04-14
 
 ### Added — Memory Progressive Disclosure (claude-mem inspired)
