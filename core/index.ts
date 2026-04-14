@@ -23,7 +23,7 @@ Commands:
   dag init|status|complete|fail|next-wave|visualize|gantt|evm
   context prepare|budget|summary|search    route <id>|batch|confirm
   validate detect|<id>          recover checkpoint|rollback|worktree-*
-  execute prepare|run            learn analyze|suggest|brain|entities|field-test
+  execute prepare|run|log|stats   learn analyze|suggest|brain|entities|field-test
   health check|quick|drift|uncommitted|esm-cjs   quota status|mark-*
   session report|context        research init|report|status
   commit auto|rollback|message  teams assign|should-use
