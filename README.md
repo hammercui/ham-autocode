@@ -5,7 +5,7 @@
 > Claude Code Plugin for fully autonomous project development.
 > Harness Architecture: DAG scheduler, context engine, agent routing, validation gates, recovery, knowledge compounding.
 
-**v3.5.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Guide](GUIDE.md) | [Examples](examples/)
+**v3.5.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Guide](GUIDE.md) | [Examples](examples/) | [中文文档](README.zh-CN.md)
 
 ## What is it?
 
@@ -122,7 +122,3 @@ Zero-config by default. Override in `.ham-autocode/harness.json`:
 ## License
 
 MIT
-
----
-
-[中文文档](README.zh-CN.md)
