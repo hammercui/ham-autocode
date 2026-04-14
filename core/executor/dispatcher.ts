@@ -38,7 +38,8 @@ export function buildDispatchCommand(
       // 仅当调用方显式指定 model 时才覆盖
       const modelFlag = options?.model ? ` --model "${options.model}"` : '';
       return {
-        command: `opencode run --dangerously-skip-permissions${modelFlag} '${escaped}'`,
+        // --format json: 输出 JSONL 事件流，可用 parseOpenCodeOutput 提取 token 统计
+        command: `opencode run --dangerously-skip-permissions --format json${modelFlag} '${escaped}'`,
         agent: 'opencode',
         model: options?.model,
       };
@@ -91,4 +92,62 @@ export function checkAgentAvailable(target: RoutingTarget): { available: boolean
   }
 
   return { available: false, error: `Unknown target: ${target}` };
+}
+
+/** OpenCode step_finish 事件中的 token 结构 */
+interface OpenCodeTokens {
+  total: number;
+  input: number;
+  output: number;
+  reasoning: number;
+  cache?: { write: number; read: number };
+}
+
+/** 从 OpenCode --format json 的 JSONL 输出中提取累计 token 和耗时 */
+export function parseOpenCodeOutput(jsonlOutput: string): {
+  tokensIn: number;
+  tokensOut: number;
+  totalTokens: number;
+  durationMs: number;
+  cost: number;
+  steps: number;
+} {
+  const lines = jsonlOutput.split('\n').filter(Boolean);
+  let tokensIn = 0;
+  let tokensOut = 0;
+  let cost = 0;
+  let steps = 0;
+  let firstTimestamp = 0;
+  let lastTimestamp = 0;
+
+  for (const line of lines) {
+    try {
+      const event = JSON.parse(line);
+      // 记录时间范围
+      if (event.timestamp) {
+        if (!firstTimestamp) firstTimestamp = event.timestamp;
+        lastTimestamp = event.timestamp;
+      }
+      // 累加 step_finish 中的 token
+      if (event.type === 'step_finish' && event.part?.tokens) {
+        const t = event.part.tokens as OpenCodeTokens;
+        tokensIn += t.input || 0;
+        tokensOut += t.output || 0;
+        steps++;
+      }
+      // 累加 cost
+      if (event.part?.cost != null) {
+        cost += event.part.cost;
+      }
+    } catch { /* skip malformed */ }
+  }
+
+  return {
+    tokensIn,
+    tokensOut,
+    totalTokens: tokensIn + tokensOut,
+    durationMs: lastTimestamp - firstTimestamp,
+    cost,
+    steps,
+  };
 }
