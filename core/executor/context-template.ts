@@ -10,7 +10,7 @@
  * - agent-teams: ~2K tokens per teammate
  */
 
-import { readBrain } from '../learning/project-brain.js';
+import { readBrain, getBrainContext as getBrainContextFn } from '../learning/project-brain.js';
 import { searchEntities, readEntityIndex } from '../learning/code-entities.js';
 import { getPatternHints } from '../learning/patterns.js';
 import type { TaskState, RoutingTarget } from '../types.js';
@@ -83,9 +83,8 @@ function buildClaudeAppContext(task: TaskState): MinimalContext {
   return { instruction: lines.join('\n'), estimatedTokens: Math.ceil(lines.join('').length / 4) };
 }
 
-/** Claude Code: task + brain summary + related entities (~3-5K tokens) */
+/** Claude Code: task + compact brain index + related entities (~2-3K tokens) */
 function buildClaudeCodeContext(projectDir: string, task: TaskState): MinimalContext {
-  const brain = readBrain(projectDir);
   const lines = [
     `# ${task.name}`,
     task.spec?.description || '',
@@ -94,14 +93,11 @@ function buildClaudeCodeContext(projectDir: string, task: TaskState): MinimalCon
     task.files?.length ? `Files: ${task.files.join(', ')}` : '',
   ];
 
-  // Add brain summary (compact)
-  if (brain) {
-    lines.push('', '## Project Context');
-    if (brain.architecture.summary) lines.push(brain.architecture.summary);
-    lines.push(`Conventions: ${brain.conventions.language}, ${brain.conventions.fileNaming}`);
-    if (brain.painPoints.length > 0) {
-      lines.push('Watch out: ' + brain.painPoints.slice(0, 3).map(p => p.issue).join('; '));
-    }
+  // v3.5: Progressive disclosure — compact brain index (~150 tokens)
+  // Agent can run `ham-cli learn detail <topic>` for full details
+  const brainIndex = getBrainContextFn(projectDir, task.name);
+  if (brainIndex) {
+    lines.push('', brainIndex);
   }
 
   // Add related entities (compact, max 10)

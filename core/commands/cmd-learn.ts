@@ -7,7 +7,7 @@ import { analyzeHistory } from '../learning/analyzer.js';
 import { suggestAdaptations, applyAdaptations, readLearningHistory, appendToHistory, resetLearning } from '../learning/adapter.js';
 import { learnPatterns, getPatternHints } from '../learning/patterns.js';
 import { autoLearnStatus } from '../learning/auto-learn.js';
-import { readBrain, evolveFromScan } from '../learning/project-brain.js';
+import { readBrain, evolveFromScan, getBrainDetail } from '../learning/project-brain.js';
 import { indexProjectEntities } from '../learning/code-entities.js';
 import { buildDependencyGraph, fileDependencies, impactAnalysis } from '../learning/dependency-graph.js';
 import { checkGuard } from '../learning/memory-guard.js';
@@ -30,6 +30,10 @@ export function handleLearn(args: string[], projectDir: string): any {
   if (sub === 'reset') return resetLearning(projectDir);
   if (sub === 'status') return autoLearnStatus(projectDir);
   if (sub === 'brain') return readBrain(projectDir);
+  if (sub === 'detail') {
+    const topic = args[2] || 'all';
+    return getBrainDetail(projectDir, topic);
+  }
   if (sub === 'scan') { evolveFromScan(projectDir); return readBrain(projectDir); }
   if (sub === 'hints') {
     const taskName = args.slice(2).join(' ');

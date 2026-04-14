@@ -2,6 +2,22 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.5.0] - 2026-04-14
+
+### Added — Memory Progressive Disclosure (claude-mem inspired)
+
+- **Progressive disclosure**: `getBrainContext()` now returns compact index (~150 tokens vs ~400), agents use `learn detail <topic>` for full details
+- **`getBrainDetail()`**: Layer 2 retrieval — `pain`, `pattern`, `domain`, `history`, `all` topics
+- **CLI**: `learn detail <topic>` command for on-demand memory access
+- **PostToolUse observation capture**: hook records Write/Edit file paths to `observations.jsonl` (shell-only, zero Node overhead)
+- **File co-occurrence analysis**: `auto-learn` consumes observations, identifies files frequently edited together → `brain.architecture.connections`
+- **Enhanced task summaries**: `generateInsight()` produces `[date] type: name (files, outcome)` format — directly agent-readable
+
+### Changed
+
+- **context-template**: `buildClaudeCodeContext()` uses compact brain index (~150 tokens) instead of full painPoints/patterns embed (~400 tokens). ~60% brain section token reduction
+- **evolutionLog**: capped at 30 entries (was 50), each entry now more informative with date/type/scope
+
 ## [3.4.0] - 2026-04-14
 
 ### Fixed — Memory System ROI (token收支比 3/10 → 7/10)

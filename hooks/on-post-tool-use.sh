@@ -1,11 +1,27 @@
 #!/bin/bash
-# ham-autocode v3.3 PostToolUse Hook — fast exit path
-# Only starts Node process when budget file exists AND consumed > threshold.
+# ham-autocode v3.5 PostToolUse Hook — fast exit + observation capture
+# 1. Records file observations for Write/Edit tools (shell-only, no Node)
+# 2. Checks context budget when significant consumption detected
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 BUDGET_FILE="$PROJECT_DIR/.ham-autocode/context/budget.json"
 
-# Fast exit: no pipeline = nothing to track
+# ── Observation capture (v3.5: claude-mem inspired) ──
+# Record file paths touched by Write/Edit tools into observations.jsonl
+# Zero overhead: pure shell append, no Node process
+TOOL_NAME="${CLAUDE_TOOL_NAME:-}"
+TOOL_INPUT="${CLAUDE_TOOL_INPUT:-}"
+if [ "$TOOL_NAME" = "Write" ] || [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "NotebookEdit" ]; then
+    OBS_DIR="$PROJECT_DIR/.ham-autocode/learning"
+    mkdir -p "$OBS_DIR" 2>/dev/null
+    # Extract file_path from tool input JSON (simple grep, no jq dependency)
+    FILE_PATH=$(echo "$TOOL_INPUT" | grep -o '"file_path":"[^"]*"' | head -1 | sed 's/"file_path":"//;s/"$//')
+    if [ -n "$FILE_PATH" ]; then
+        echo "{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"tool\":\"$TOOL_NAME\",\"file\":\"$FILE_PATH\"}" >> "$OBS_DIR/observations.jsonl"
+    fi
+fi
+
+# Fast exit: no pipeline = nothing to track (budget check only)
 if [ ! -f "$PROJECT_DIR/.ham-autocode/pipeline.json" ]; then
     exit 0
 fi

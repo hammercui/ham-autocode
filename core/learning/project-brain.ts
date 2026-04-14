@@ -216,9 +216,9 @@ export function evolveFromTask(projectDir: string, task: TaskState): void {
   for (const pp of brain.provenPatterns) { (pp as any).age = ((pp as any).age || 0) + 1; }
   brain.provenPatterns = brain.provenPatterns.filter(pp => ((pp as any).age || 0) < MAX_AGE);
 
-  // Keep evolution log bounded (last 50, was 100)
-  if (brain.evolutionLog.length > 50) {
-    brain.evolutionLog = brain.evolutionLog.slice(-50);
+  // v3.5: Keep evolution log bounded (30, more info per entry)
+  if (brain.evolutionLog.length > 30) {
+    brain.evolutionLog = brain.evolutionLog.slice(-30);
   }
 
   // Keep domain terms bounded
@@ -284,8 +284,9 @@ export function evolveFromScan(projectDir: string): void {
 }
 
 /**
- * Get a context prompt for a task, informed by the project brain.
- * Used by execute prepare and spec enrich.
+ * Get a COMPACT context index for a task (~150 tokens).
+ * Progressive disclosure Layer 1: summary stats only.
+ * Agent can call `learn detail <topic>` for full details.
  */
 export function getBrainContext(projectDir: string, taskName: string): string {
   const brain = readBrain(projectDir);
@@ -294,44 +295,90 @@ export function getBrainContext(projectDir: string, taskName: string): string {
   const lines: string[] = ['## Project Understanding (auto-evolved)'];
 
   if (brain.architecture.summary) {
-    lines.push(`\nArchitecture: ${brain.architecture.summary}`);
+    lines.push(`Architecture: ${brain.architecture.summary}`);
   }
 
   if (brain.conventions.language) {
-    lines.push(`\nConventions: ${brain.conventions.language}, ${brain.conventions.fileNaming || 'default naming'}, ${brain.conventions.importStyle || ''}, tests: ${brain.conventions.testPattern || 'unknown'}`);
+    lines.push(`Conventions: ${brain.conventions.language}, ${brain.conventions.fileNaming || 'default'}, tests: ${brain.conventions.testPattern || '?'}`);
   }
 
-  // Find relevant pain points
+  // Compact stats instead of full lists
+  const painCount = brain.painPoints.length;
+  const patternCount = brain.provenPatterns.length;
+  const termCount = brain.domain.terms.length;
+
+  if (painCount > 0 || patternCount > 0) {
+    lines.push(`Memory: ${painCount} pain points, ${patternCount} proven patterns, ${termCount} domain terms`);
+  }
+
+  // Only show the single most relevant pain point (if any)
   const nameLower = taskName.toLowerCase();
-  const relevantPains = brain.painPoints.filter(p =>
+  const topPain = brain.painPoints.find(p =>
     nameLower.includes(path.basename(p.file, path.extname(p.file)).toLowerCase())
   );
-  if (relevantPains.length > 0) {
-    lines.push('\nKnown issues in related files:');
-    for (const p of relevantPains.slice(0, 3)) {
-      lines.push(`  ⚠️ ${p.file}: ${p.issue}`);
-    }
+  if (topPain) {
+    lines.push(`⚠️ ${topPain.file}: ${topPain.issue}`);
   }
 
-  // Find relevant proven patterns
-  const relevantPatterns = brain.provenPatterns.filter(p =>
-    nameLower.includes(p.context.toLowerCase().slice(0, 15))
-  );
-  if (relevantPatterns.length > 0) {
-    lines.push('\nProven patterns:');
-    for (const p of relevantPatterns.slice(0, 3)) {
-      lines.push(`  ✓ ${p.pattern}`);
-    }
-  }
-
-  // Domain terms
-  if (brain.domain.terms.length > 0) {
-    lines.push(`\nDomain: ${brain.domain.terms.slice(0, 10).map(t => t.term).join(', ')}`);
-  }
-
-  lines.push(`\n(Evolved from ${brain.evolvedFrom} tasks)`);
+  lines.push(`(${brain.evolvedFrom} tasks | detail: ham-cli learn detail <pain|pattern|domain|history>)`);
 
   return lines.join('\n');
+}
+
+/**
+ * Progressive disclosure Layer 2: full details for a topic.
+ * Called via `learn detail <topic>` CLI command.
+ */
+export function getBrainDetail(projectDir: string, topic: string): string {
+  const brain = readBrain(projectDir);
+
+  if (topic === 'pain' || topic === 'all') {
+    if (brain.painPoints.length === 0) return 'No pain points recorded.';
+    const lines = ['## Pain Points (files that caused failures)'];
+    for (const p of brain.painPoints) {
+      lines.push(`- ${p.file}: ${p.issue} (learned: ${p.learnedAt.slice(0, 10)})`);
+    }
+    if (topic === 'pain') return lines.join('\n');
+  }
+
+  if (topic === 'pattern' || topic === 'all') {
+    if (brain.provenPatterns.length === 0 && topic === 'pattern') return 'No proven patterns recorded.';
+    const lines = topic === 'all' ? ['', '## Proven Patterns'] : ['## Proven Patterns'];
+    for (const p of brain.provenPatterns) {
+      lines.push(`- ${p.pattern} (context: ${p.context})`);
+    }
+    if (topic === 'pattern') return lines.join('\n');
+  }
+
+  if (topic === 'domain' || topic === 'all') {
+    if (brain.domain.terms.length === 0 && topic === 'domain') return 'No domain terms recorded.';
+    const lines = topic === 'all' ? ['', '## Domain Terms'] : ['## Domain Terms'];
+    for (const t of brain.domain.terms) {
+      lines.push(`- **${t.term}**: ${t.meaning}`);
+    }
+    if (topic === 'domain') return lines.join('\n');
+  }
+
+  if (topic === 'history' || topic === 'all') {
+    if (brain.evolutionLog.length === 0 && topic === 'history') return 'No evolution history.';
+    const lines = topic === 'all' ? ['', '## Evolution History (recent)'] : ['## Evolution History (recent)'];
+    for (const e of brain.evolutionLog.slice(-15)) {
+      lines.push(`- [${e.learnedAt.slice(0, 10)}] ${e.taskName}: ${e.insight}`);
+    }
+    if (topic === 'history') return lines.join('\n');
+  }
+
+  if (topic === 'all') {
+    // Combine all sections built above
+    const sections: string[] = [];
+    for (const t of ['pain', 'pattern', 'domain', 'history'] as const) {
+      const detail = getBrainDetail(projectDir, t);
+      if (!detail.startsWith('No ')) sections.push(detail);
+    }
+    return sections.join('\n\n');
+  }
+
+  return `Unknown topic: ${topic}. Supported: pain, pattern, domain, history, all`;
 }
 
 // ─── Helper functions ───────────────────────────
@@ -399,16 +446,36 @@ function extractDomainTerms(taskName: string): { term: string; meaning: string }
   return terms;
 }
 
+/**
+ * v3.5: Generate a structured natural language summary for the evolution log.
+ * Format: "[date] type: description (files, N files, outcome)"
+ * Designed to be directly understandable by agents without format parsing.
+ */
 function generateInsight(task: TaskState, _brain: ProjectBrain): string {
   const files = task.files || [];
-  const status = task.status;
-  if (status === 'done' && files.length > 0) {
-    return `Completed "${task.name}" touching ${files.length} files in ${[...new Set(files.map(f => path.dirname(f)))].join(', ')}`;
+  const date = new Date().toISOString().slice(0, 10);
+  const dirs = [...new Set(files.map(f => path.dirname(f)))];
+  const type = inferTaskType(task.name);
+
+  if (task.status === 'done' && files.length > 0) {
+    const scope = dirs.length === 1 ? dirs[0] : `${dirs.length} dirs`;
+    return `[${date}] ${type}: ${task.name} (${files.length} files in ${scope}, success)`;
   }
-  if (status === 'failed') {
-    return `Failed "${task.name}": ${task.execution?.errorType || 'unknown'} — files: ${files.join(', ')}`;
+  if (task.status === 'failed') {
+    const err = task.execution?.errorType || task.execution?.error || 'unknown';
+    return `[${date}] ${type}: ${task.name} FAILED — ${err}`;
   }
-  return `Task "${task.name}" → ${status}`;
+  return `[${date}] ${type}: ${task.name} → ${task.status}`;
+}
+
+function inferTaskType(taskName: string): string {
+  const lower = taskName.toLowerCase();
+  if (lower.includes('fix') || lower.includes('bug')) return 'fix';
+  if (lower.includes('test')) return 'test';
+  if (lower.includes('doc') || lower.includes('readme')) return 'doc';
+  if (lower.includes('refactor') || lower.includes('clean')) return 'refactor';
+  if (lower.includes('config') || lower.includes('setup')) return 'config';
+  return 'feat';
 }
 
 function findFiles(dir: string, ext: string, maxDepth: number, depth = 0): string[] {

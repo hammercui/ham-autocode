@@ -68,6 +68,9 @@ export function onTaskComplete(projectDir: string, taskId: string, success: bool
       evolveFromTask(projectDir, task);
     }
 
+    // v3.5: Consume PostToolUse observations → file co-occurrence
+    consumeObservations(projectDir);
+
     // Memory Guard: check for problems after every task
     if (task) {
       const guardResult = checkGuard(projectDir, task.files || []);
@@ -128,4 +131,55 @@ export function autoLearnStatus(projectDir: string): AutoLearnState & { nextAnal
     nextAnalysisIn: ANALYSIS_INTERVAL - state.completionsSinceLastAnalysis,
     hasInsights: insights !== null,
   };
+}
+
+/**
+ * v3.5: Consume PostToolUse observations and extract file co-occurrence patterns.
+ * Reads observations.jsonl written by the hook, identifies files frequently edited together,
+ * and records connections in the project brain.
+ */
+function consumeObservations(projectDir: string): void {
+  const obsPath = path.join(projectDir, '.ham-autocode', 'learning', 'observations.jsonl');
+  if (!fs.existsSync(obsPath)) return;
+
+  try {
+    const raw = fs.readFileSync(obsPath, 'utf-8').trim();
+    if (!raw) return;
+
+    // Parse observations
+    const files: string[] = [];
+    for (const line of raw.split('\n')) {
+      try {
+        const obs = JSON.parse(line);
+        if (obs.file) files.push(obs.file);
+      } catch { /* skip malformed lines */ }
+    }
+
+    // Extract co-occurrence: files edited in the same session
+    if (files.length >= 2) {
+      const { readBrain, saveBrain } = require('./project-brain.js');
+      const brain = readBrain(projectDir);
+      const unique = [...new Set(files)];
+
+      // Record pairs as connections (deduplicate with existing)
+      for (let i = 0; i < unique.length && i < 5; i++) {
+        for (let j = i + 1; j < unique.length && j < 5; j++) {
+          const conn = `${path.basename(unique[i])} ↔ ${path.basename(unique[j])}`;
+          if (!brain.architecture.connections.includes(conn)) {
+            brain.architecture.connections.push(conn);
+          }
+        }
+      }
+
+      // Keep connections bounded
+      if (brain.architecture.connections.length > 20) {
+        brain.architecture.connections = brain.architecture.connections.slice(-20);
+      }
+
+      saveBrain(projectDir, brain);
+    }
+
+    // Clear observations after consuming
+    fs.writeFileSync(obsPath, '', 'utf-8');
+  } catch { /* best-effort, never fail main operation */ }
 }
