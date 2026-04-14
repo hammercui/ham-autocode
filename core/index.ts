@@ -43,6 +43,7 @@ import { estimatePERT } from './dag/estimation.js';
 import { calculateEVM } from './dag/earned-value.js';
 import { renderGantt } from './dag/gantt.js';
 import { readAnalysis, initAnalysis, generateReport } from './research/competitor.js';
+import { recordFailure, recordSuccess, markUnavailable, markAvailable, quotaStatus } from './routing/quota.js';
 import { runHealthCheck, quickHealthCheck } from './health/checker.js';
 import { detectDrift } from './health/drift-detector.js';
 import { analyzeUncommitted } from './health/uncommitted-analyzer.js';
@@ -132,6 +133,9 @@ Commands:
   health drift
   health uncommitted
   health esm-cjs
+  quota status
+  quota mark-unavailable <target> <reason>
+  quota mark-available <target>
   token estimate <file>
   token index [dir]
   help`;
@@ -229,6 +233,11 @@ function dispatch(args: string[], projectDir: string): any {
         const result = updateTaskStatus(projectDir, args[2], 'done' as TaskStatus, { execution: { completedAt: new Date().toISOString() } });
         appendLog(projectDir, `task ${args[2]} completed`);
         try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore */ }
+        // v3.2: record success for quota tracking
+        const completedTask = readTask(projectDir, args[2]);
+        if (completedTask?.routing?.target) {
+          recordSuccess(projectDir, completedTask.routing.target);
+        }
         // v3.0 CE: auto-learn from every completion
         onTaskComplete(projectDir, args[2], true);
         return result;
@@ -246,6 +255,13 @@ function dispatch(args: string[], projectDir: string): any {
         });
         appendLog(projectDir, `task ${taskId} failed: ${errorType}`);
         try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore */ }
+        // v3.2: record failure for quota tracking (agent_error triggers fallback)
+        if (errorType === 'agent_error') {
+          const failedTask = readTask(projectDir, taskId);
+          if (failedTask?.routing?.target) {
+            recordFailure(projectDir, failedTask.routing.target, errorType);
+          }
+        }
         // v3.0 CE: auto-learn from every failure
         onTaskComplete(projectDir, taskId, false);
         return result;
@@ -664,6 +680,24 @@ function dispatch(args: string[], projectDir: string): any {
         return detectESMCJS(projectDir);
       }
       throw new Error('Unknown health subcommand. Use: check, quick, drift, uncommitted, esm-cjs');
+    }
+
+    case 'quota': {
+      if (sub === 'status') {
+        return quotaStatus(projectDir);
+      }
+      if (sub === 'mark-unavailable') {
+        const target = args[2] as RoutingTarget;
+        const reason = args.slice(3).join(' ');
+        if (!target || !reason) throw new Error('Usage: quota mark-unavailable <target> <reason>');
+        return markUnavailable(projectDir, target, reason);
+      }
+      if (sub === 'mark-available') {
+        const target = args[2] as RoutingTarget;
+        if (!target) throw new Error('Usage: quota mark-available <target>');
+        return markAvailable(projectDir, target);
+      }
+      throw new Error('Unknown quota subcommand. Use: status, mark-unavailable, mark-available');
     }
 
     case 'token': {

@@ -12,6 +12,7 @@ import { scoreTask } from './scorer.js';
 import { loadConfig } from '../state/config.js';
 import { writeTask } from '../state/task-graph.js';
 import { readInsights } from '../learning/analyzer.js';
+import { resolveTarget } from './quota.js';
 import type { TaskState, TaskScores, RoutingDecision, RoutingTarget, HarnessConfig, RoutingConfig } from '../types.js';
 
 type TaskType = 'doc' | 'config' | 'hotfix' | 'default';
@@ -75,6 +76,15 @@ export function routeTask(task: TaskState & { type?: string }, allTasks: TaskSta
   // Rule 3: Default -> claude-code
   else {
     reason = `default routing (spec:${scores.specScore} complexity:${scores.complexityScore} isolation:${scores.isolationScore})`;
+  }
+
+  // v3.2: Quota-aware fallback — check if target is available
+  if (projectDir) {
+    const resolved = resolveTarget(projectDir, target);
+    if (resolved.fallbackApplied) {
+      reason += ` [FALLBACK: ${resolved.reason}]`;
+      target = resolved.target;
+    }
   }
 
   // Confirmation gate
