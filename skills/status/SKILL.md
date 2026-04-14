@@ -1,84 +1,46 @@
 ---
 name: status
 description: |
-  Display the current pipeline progress for ham-autocode.
-  Shows which phase is active, what's completed, what's next, and any blockers.
-  Reads from .ham-autocode/pipeline.json state file.
-  Use when: "progress", "status", "where are we", "show progress",
-  "what phase", or when checking pipeline state.
-version: 3.0.0
+  Display pipeline progress or pause the pipeline.
+  Shows phase, DAG stats, budget, blockers, recent activity.
+  Use when: "status", "progress", "where are we", "pause", "stop", "break".
+version: 3.4.0
 allowed-tools:
   - Read
+  - Write
   - Bash
   - Glob
   - Grep
 ---
 
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
-# Pipeline Status Display
+> `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 
-Read and display the current ham-autocode pipeline state.
+# Pipeline Status / Pause
 
-## Protocol
-
-### Step 1: Read State via Core Engine CLI
+## Show Status
 
 ```bash
-# Get pipeline status
 ham-cli pipeline status
-
-# Get DAG statistics
 ham-cli dag status
-
-# Get context budget
-ham-cli context budget
-
-# Get next wave of executable tasks
 ham-cli dag next-wave
+ham-cli context budget
 ```
 
-If pipeline not found, report:
-```
-Pipeline state not found. Run /ham-autocode:auto to start, or /ham-autocode:detect to analyze existing project.
-```
+No pipeline? → `/ham-autocode:auto` or `/ham-autocode:detect`.
 
-### Step 2: Display Progress
+Display: project, phase progress (done/in-progress/pending), current step, blockers, last 5 log entries.
 
-Format output as:
+## Pause Pipeline
 
-```
-== ham-autocode Pipeline Status ==
+If user says "pause"/"stop"/"break":
 
-Project: [name]
-Started: [timestamp]
-Last Updated: [timestamp]
-Current Phase: [phase number] - [phase name]
-
-Phase Progress:
-  [x] Phase 1: Initiation ............ DONE (completed at [time])
-  [x] Phase 2: Requirements .......... DONE (completed at [time])
-  [>] Phase 3: Planning .............. IN PROGRESS (step 2/3: plan-phase)
-  [ ] Phase 4: Execution ............. PENDING
-  [ ] Phase 5: Review ................ PENDING
-  [ ] Phase 6: Ship .................. PENDING
-
-Current Step: Running /gsd:plan-phase for phase 20-core
-Blockers: [none or list]
-Next: /plan-eng-review to validate architecture
-
-Can interrupt: /ham-autocode:pause
-Can resume:    /ham-autocode:resume
+```bash
+ham-cli pipeline log "paused at Phase [X], step: [description]"
+ham-cli pipeline pause
 ```
 
-### Step 3: Show Recent Activity
+Save to pipeline.json: current_step, last_completed, next_action, resume_instructions.
+If Agent Teams active: list them, request shutdown, note incomplete tasks.
+If GSD active: `/gsd:pause-work`.
 
-If pipeline.json has a `log` array, show the last 5 entries:
-
-```
-Recent Activity:
-  [10:23] Phase 1 completed - office-hours + ceo-review done
-  [10:45] Phase 2 completed - PROJECT.md + ROADMAP.md generated
-  [11:02] Phase 3 started - discuss-phase for 10-setup
-  [11:15] Phase 3 step 1 done - PLAN.md created for 10-setup
-  [11:20] Phase 3 step 2 started - discuss-phase for 20-core
-```
+Confirm: "Pipeline paused. Resume: `/ham-autocode:resume`"

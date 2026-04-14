@@ -126,6 +126,11 @@ Every code change must pass:
 
 **Only use Read when you need actual code logic (implementation bodies, not signatures).**
 
+**Do NOT Read these modules** (use their CLI instead):
+- `core/health/` — call `ham-cli health check|drift|uncommitted|esm-cjs`
+- `core/research/` — call `ham-cli research init|report|status`
+- `core/dag/critical-path.ts`, `estimation.ts`, `earned-value.ts`, `gantt.ts` — call `ham-cli dag critical-path|estimate|evm|gantt`
+
 ## Context Management
 
 - Main session stays at 30-40% context usage
