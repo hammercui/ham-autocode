@@ -5,6 +5,7 @@ import type { TaskState, BudgetStatus, FileIndex } from '../types.js';
 import { estimateTokens, estimateFileTokens, buildFileIndex } from '../utils/token.js';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
 import { ContextBudget } from './budget.js';
+import { getSummaryOrFull } from './summary-cache.js';
 
 interface FileContext {
   path: string;
@@ -66,18 +67,26 @@ export class ContextManager {
       recommendation: 'normal',
     };
 
+    // Calculate remaining budget for smart summary/full-text decisions
+    const budgetStatus = this.budget.status();
+    const CONTEXT_WINDOW = 200000;
+    const remainingTokens = CONTEXT_WINDOW - budgetStatus.consumed;
+    const fileCount = requiredFiles.length || 1;
+    const perFileBudget = Math.floor(remainingTokens / fileCount);
+
     for (const relPath of requiredFiles) {
       const absPath = this.resolveProjectFile(relPath);
       if (!absPath) continue;
       if (!fs.existsSync(absPath)) continue;
 
-      const tokens = estimateFileTokens(absPath);
+      // Use summary when budget is tight, full text when affordable
+      const result = getSummaryOrFull(this.projectDir, relPath, perFileBudget);
       context.files.push({
         path: relPath,
-        tokens,
-        content: fs.readFileSync(absPath, 'utf8'),
+        tokens: result.tokens,
+        content: result.content,
       });
-      context.totalTokens += tokens;
+      context.totalTokens += result.tokens;
     }
 
     // Update budget
