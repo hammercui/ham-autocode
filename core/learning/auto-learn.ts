@@ -10,6 +10,9 @@ import { analyzeHistory, readInsights } from './analyzer.js';
 import { appendToHistory } from './adapter.js';
 import { learnPatterns } from './patterns.js';
 import { evolveFromTask } from './project-brain.js';
+import { indexProjectEntities } from './code-entities.js';
+import { buildDependencyGraph } from './dependency-graph.js';
+import { checkGuard } from './memory-guard.js';
 import { readTask } from '../state/task-graph.js';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
 import path from 'path';
@@ -65,11 +68,28 @@ export function onTaskComplete(projectDir: string, taskId: string, success: bool
       evolveFromTask(projectDir, task);
     }
 
+    // Memory Guard: check for problems after every task
+    if (task) {
+      const guardResult = checkGuard(projectDir, task.files || []);
+      if (!guardResult.passed) {
+        // Log guard issues to learning directory for visibility
+        const guardLogPath = path.join(projectDir, '.ham-autocode', 'learning', 'guard-log.json');
+        const dir = path.dirname(guardLogPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        atomicWriteJSON(guardLogPath, guardResult);
+      }
+    }
+
     // Trigger full analysis every N completions
     if (state.completionsSinceLastAnalysis >= ANALYSIS_INTERVAL) {
       const insights = analyzeHistory(projectDir);
       appendToHistory(projectDir, insights);
       learnPatterns(projectDir);
+
+      // Update entity index and dependency graph periodically
+      indexProjectEntities(projectDir);
+      buildDependencyGraph(projectDir);
+
       state.completionsSinceLastAnalysis = 0;
       state.lastAnalyzedAt = new Date().toISOString();
     }
