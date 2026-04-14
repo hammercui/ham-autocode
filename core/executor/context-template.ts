@@ -19,6 +19,14 @@ import { summarizeFile } from '../context/summary-cache.js';
 import { readTask } from '../state/task-graph.js';
 import type { TaskState, RoutingTarget } from '../types.js';
 
+/** Surgical Changes 约束（inspired by Karpathy guidelines） */
+const SURGICAL_CHANGES_RULE = [
+  'Rules: surgical changes only.',
+  '- Only touch what the task requires. Do not "improve" adjacent code or formatting.',
+  '- Match existing style, even if you would do it differently.',
+  '- Clean up only orphans YOUR changes created. Do not remove pre-existing dead code.',
+].join('\n');
+
 export interface MinimalContext {
   instruction: string;
   estimatedTokens: number;
@@ -173,7 +181,7 @@ function buildOpenCodeContext(projectDir: string, task: TaskState): MinimalConte
     lines.push('', '## Dependencies (completed)', deps);
   }
 
-  lines.push('', 'Keep changes minimal. Follow existing conventions.');
+  lines.push('', SURGICAL_CHANGES_RULE);
 
   const text = lines.filter(Boolean).join('\n');
   return { instruction: text, estimatedTokens: Math.ceil(text.length / 4) };
@@ -220,7 +228,7 @@ function buildCodexContext(projectDir: string, task: TaskState): MinimalContext 
     lines.push('', `Hints: ${hints}`);
   }
 
-  lines.push('', 'Implement ONLY what is specified. Do not modify files outside scope.');
+  lines.push('', SURGICAL_CHANGES_RULE);
 
   const text = lines.filter(Boolean).join('\n');
   return { instruction: text, estimatedTokens: Math.ceil(text.length / 4) };
@@ -308,7 +316,7 @@ function buildTeamContext(projectDir: string, task: TaskState): MinimalContext {
     lines.push('', '## Dependencies (completed)', deps);
   }
 
-  lines.push('', 'Rules: only edit your assigned files. Commit atomically.');
+  lines.push('', 'Rules: only edit your assigned files. Commit atomically.', SURGICAL_CHANGES_RULE);
 
   const text = lines.filter(Boolean).join('\n');
   return { instruction: text, estimatedTokens: Math.ceil(text.length / 4) };
