@@ -1,13 +1,10 @@
 ---
 name: auto
 description: |
-  Full autonomous development pipeline with state tracking. Runs project through
-  6 phases: initiation, requirements, planning, execution, review, and ship.
-  Automatically detects project state, skips completed phases, persists progress
-  to .ham-autocode/pipeline.json, and supports pause/resume.
-  Use when: "auto develop", "full pipeline", "build this project",
-  "run the full workflow", or "autonomous mode".
-version: 3.0.0
+  Full autonomous development pipeline. 6 phases: initiation, requirements,
+  planning, execution, review, ship. Auto-detects state, skips completed phases.
+  Use when: "auto develop", "full pipeline", "build this project".
+version: 3.3.0
 benefits-from:
   - detect
 allowed-tools:
@@ -24,190 +21,59 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
-# Full Autonomous Development Pipeline
+> `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 
-You are running the complete development lifecycle for a project.
-Three-layer framework: **gstack thinks, GSD stabilizes, Superpowers executes.**
+# Autonomous Pipeline
 
-## CRITICAL: State Management via Core Engine CLI
+Framework: **gstack thinks, GSD stabilizes, Superpowers executes.**
 
-Every step MUST use the v2 core engine CLI for state management. This is non-negotiable.
-
-### Initialize State
+## State Management (mandatory)
 
 ```bash
-ham-cli pipeline init "[project-name]"
+ham-cli pipeline init "[name]"       # start
+ham-cli pipeline log "[action]"      # before/after every step
+ham-cli dag status                   # progress
+ham-cli dag next-wave                # next tasks
+ham-cli route batch                  # route all
+ham-cli validate <task-id>           # run gates
 ```
 
-### Update State (BEFORE and AFTER every action)
-
-Before starting a step:
-```bash
-ham-cli pipeline log "started [description]"
-```
-
-After completing a step:
-```bash
-ham-cli pipeline log "completed [description]"
-```
-
-### Check DAG Progress
-```bash
-ham-cli dag status      # overall stats
-ham-cli dag next-wave   # next executable wave
-ham-cli context budget  # context budget status
-```
-
-### Route Tasks
-```bash
-ham-cli route batch       # route all pending tasks
-ham-cli route <task-id>   # route single task
-```
-
-### Validate Changes
-```bash
-ham-cli validate detect       # detect available gates
-ham-cli validate <task-id>    # run gates for a task
-```
-
-This ensures:
-1. `/ham-autocode:status` always shows real-time progress
-2. `/ham-autocode:pause` knows exactly where to stop
-3. `/ham-autocode:resume` knows exactly where to continue
-4. If session crashes, state file tells you where it was
-
----
-
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Step 0: Detect or Resume
 
-Check if `.ham-autocode/pipeline.json` exists:
+- **pipeline.json exists + paused**: resume from saved position
+- **pipeline.json exists + interrupted**: run `/ham-autocode:detect`, continue from last verified phase
+- **No pipeline.json**: fresh start, run `/ham-autocode:detect`
 
-- **Exists with status "paused"**: This is a resume. Show what was paused, ask user
-  to confirm resume, then jump to the saved position.
-- **Exists with status "running" or "interrupted"**: Previous session crashed.
-  The SessionEnd hook auto-marked it as "interrupted". Run `/ham-autocode:detect`
-  to verify actual file state, reconcile with pipeline.json, and continue from
-  the last verified completed phase.
-- **Doesn't exist**: Fresh start. Run `/ham-autocode:detect` to check if project
-  already has progress. Initialize pipeline.json marking completed phases as "done".
+## Phase 1: Initiation (gstack)
 
----
+Skip if product definition exists. Run `/office-hours` then `/plan-ceo-review`.
 
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
-## Phase 1: Project Initiation (gstack)
+## Phase 2: Requirements (GSD)
 
-> Skip if: product definition, competitive analysis, and design decisions exist.
-> Update pipeline.json: phase 1 status → "running"
+Skip if PROJECT.md + WBS exist. Run `/gsd:new-project` then `/gsd:new-milestone`.
 
-1. Run `/office-hours` — validate the idea with 6 forcing questions
-2. Run `/plan-ceo-review` — challenge premises, expand/reduce scope
-3. Save outputs for Phase 2
+## Phase 3: Planning (GSD + gstack)
 
-> Update pipeline.json: phase 1 status → "done"
-> Report: "Phase 1 complete. Product direction established."
+Skip if PLAN.md exists per phase. For each phase:
+`/gsd:discuss-phase --auto` then `/gsd:plan-phase` then `/plan-eng-review`.
 
----
-
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
-## Phase 2: Requirements & Milestones (GSD)
-
-> Skip if: PROJECT.md, milestone plans, and WBS exist (or equivalents).
-> Update pipeline.json: phase 2 status → "running"
-
-1. Run `/gsd:new-project` — initialize with deep context gathering
-2. Run `/gsd:new-milestone` — create milestone and roadmap
-3. Confirm PROJECT.md and ROADMAP.md are generated
-4. If project has existing docs but no GSD state, acknowledge them as equivalent
-
-> Update pipeline.json: phase 2 status → "done"
-> Report: "Phase 2 complete. [N] milestones, [M] phases planned."
-
----
-
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
-## Phase 3: Phase Planning (GSD + gstack)
-
-> Skip if: detailed PLAN.md or equivalent technical plans exist per phase.
-> Update pipeline.json: phase 3 status → "running"
-
-For each phase in the roadmap:
-1. Update pipeline.json: `current_step` → "discuss-phase for [phase-name]"
-2. Run `/gsd:discuss-phase --auto` (skip interactive questions)
-3. Update pipeline.json: `current_step` → "plan-phase for [phase-name]"
-4. Run `/gsd:plan-phase` — create detailed PLAN.md
-5. Run `/plan-eng-review` — validate architecture
-
-> Update pipeline.json: phase 3 status → "done"
-> Report: "Phase 3 complete. [N] phase plans created and reviewed."
-
----
-
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Phase 4: Execution
 
-> Update pipeline.json: phase 4 status → "running"
+Solo: `/gsd:autonomous`. Larger: Agent Teams with file ownership.
+Route: complex → Claude Code, clear spec → Codex, simple → OpenCode.
 
-Choose the best mode based on project size:
+## Phase 5: Review & QA
 
-### For solo/small projects:
-```
-/gsd:autonomous
-```
-GSD handles everything: discuss, plan, execute per phase. Fresh context per task.
+`/gsd:verify-work` → `/review` → `/qa`. Fix CRITICAL/HIGH before proceeding.
 
-### For larger projects (ask user):
-Create Agent Teams with 3-5 specialized teammates.
-Route tasks:
-- Complex architecture, multi-file → Claude Code
-- Clear requirements (file + interface + acceptance criteria) → Codex
-- Each teammate owns distinct files/directories
+## Phase 6: Ship
 
-> Periodically update pipeline.json with execution progress
-> Update pipeline.json: phase 4 status → "done"
-> Report: "Phase 4 complete. [N] tasks executed, [M] commits made."
+Only after user confirms Phase 5. `/ship` → `/document-release`.
 
----
-
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
-## Phase 5: Review & QA (gstack + GSD)
-
-> Update pipeline.json: phase 5 status → "running"
-
-1. `/gsd:verify-work` — UAT verification against requirements
-2. `/review` — PR-level code review (security, performance, maintainability)
-3. `/qa` — systematic QA testing + auto-fix
-4. Fix all CRITICAL/HIGH issues before proceeding
-5. Report results to user for final decision
-
-> Update pipeline.json: phase 5 status → "done"
-> Report: "Phase 5 complete. [N] issues found, [M] fixed, [K] remaining."
-
----
-
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
-## Phase 6: Ship (gstack)
-
-> Only proceed after user confirms Phase 5 results.
-> Update pipeline.json: phase 6 status → "running"
-
-1. `/ship` — create PR with changelog and version bump
-2. `/document-release` — sync all documentation
-3. Report final status
-
-> Update pipeline.json: phase 6 status → "done", overall status → "completed"
-> Report: "Pipeline complete. PR created, docs updated."
-
----
-
-> **CLI alias used below:** `ham-cli` = `HAM_PROJECT_DIR="$PWD" node "${CLAUDE_PLUGIN_ROOT:-$PWD}/dist/index.js"`
 ## Rules
 
-- **ALWAYS update pipeline.json** before and after every step — this is the #1 rule
+- ALWAYS update pipeline.json before/after every step
 - NEVER re-execute completed phases
-- At each phase boundary, report progress to user
-- For key decisions (scope changes, architecture choices), ask user
-- Keep main context at 30-40% usage — delegate heavy work to subagents
-- Commit frequently with atomic changes
-- If user says "pause" or "stop", immediately run the pause protocol and update pipeline.json
+- Report progress at phase boundaries
+- Main context 30-40% — delegate to subagents
+- "pause"/"stop" → immediately run pause protocol

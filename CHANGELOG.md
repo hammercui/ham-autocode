@@ -2,6 +2,17 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.3.0] - 2026-04-14
+
+### Changed — Token Optimization (40-60% reduction)
+
+- **T1: Split index.ts**: 756 lines → 85-line dispatcher + 8 command modules in `core/commands/`. Agent only reads the command file it needs (~50-80 lines vs full 756).
+- **T2: Slim skills**: All 10 skills compressed. auto 213→79 (-63%), detect 133→62 (-53%), parallel 127→62 (-51%), setup 113→36 (-68%), ship 100→57 (-43%), resume 100→55 (-45%). Total 980→679 lines.
+- **T3: PostToolUse fast exit**: Shell-level budget check (grep JSON file) — 99% of calls exit without starting Node.
+- **T4: Subagent context templates**: `core/executor/context-template.ts` — per-target minimal context (opencode ~1K, codex ~2K, claude-code ~3-5K tokens instead of 10-20K).
+- **T5: SessionStart single call**: `session context` CLI — 3 Node calls → 1, compact one-line output.
+- **T6: Split types.ts**: 299 lines → 4 domain files (`types/pipeline.ts`, `types/task.ts`, `types/config.ts`, `types/engine.ts`) + barrel re-export for backward compatibility.
+
 ## [3.2.0] - 2026-04-14
 
 ### Added — Field-Tested Improvements (ham-video driven)

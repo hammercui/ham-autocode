@@ -1,50 +1,25 @@
 #!/bin/bash
-# ham-autocode v3.0 SessionStart Hook
-# Uses core engine CLI to inject pipeline state as context.
+# ham-autocode v3.3 SessionStart Hook — single CLI call
+# Reduced from 3 Node calls to 1.
 
 CORE_CLI="${CLAUDE_PLUGIN_ROOT:-.}/dist/index.js"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 
-# Check if core engine exists
+# Fast exit: no core engine
 if [ ! -f "$CORE_CLI" ]; then
     exit 0
 fi
 
-# Check if pipeline exists
-PIPELINE_STATUS=$(HAM_PROJECT_DIR="$PROJECT_DIR" node "$CORE_CLI" pipeline status 2>/dev/null)
-if [ $? -ne 0 ] || [ -z "$PIPELINE_STATUS" ]; then
+# Fast exit: no pipeline
+if [ ! -f "$PROJECT_DIR/.ham-autocode/pipeline.json" ]; then
     exit 0
 fi
 
-# Build context from pipeline status + DAG stats + budget
-DAG_STATUS=$(HAM_PROJECT_DIR="$PROJECT_DIR" node "$CORE_CLI" dag status 2>/dev/null || echo '{}')
-BUDGET_STATUS=$(HAM_PROJECT_DIR="$PROJECT_DIR" node "$CORE_CLI" context budget 2>/dev/null || echo '{}')
-
-CONTEXT=$(node -e "
-const pipeline = $PIPELINE_STATUS;
-const dag = $DAG_STATUS;
-const budget = $BUDGET_STATUS;
-
-const project = pipeline.project || '?';
-const status = pipeline.status || '?';
-const task = pipeline.current_task || 'none';
-const progress = dag.progress !== undefined ? dag.progress + '%' : '?';
-const budgetLevel = budget.level || 'ok';
-
-const summary = [
-  'ham-autocode pipeline: project=' + project + ', status=' + status,
-  'Current task: ' + task,
-  'Progress: ' + progress + ' (' + (dag.done || 0) + '/' + (dag.total || 0) + ' tasks)',
-  'Context budget: ' + budgetLevel,
-].join('\\n');
-
-const ctx = '## ham-autocode Pipeline State (v2.0)\\n\\n' + summary + '\\n\\nUse /ham-autocode:status for details.\\nUse /ham-autocode:resume to continue.';
-const output = { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: ctx } };
-process.stdout.write(JSON.stringify(output));
-" 2>/dev/null)
-
-if [ -n "$CONTEXT" ]; then
-    echo "$CONTEXT"
-else
+# Single call returns compact context string
+CTX=$(HAM_PROJECT_DIR="$PROJECT_DIR" node "$CORE_CLI" session context 2>/dev/null)
+if [ -z "$CTX" ]; then
     exit 0
 fi
+
+OUTPUT="{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$CTX\"}}"
+echo "$OUTPUT"
