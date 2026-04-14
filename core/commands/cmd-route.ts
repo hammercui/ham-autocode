@@ -5,6 +5,7 @@ import { loadConfig } from '../state/config.js';
 import { readTask, writeTask, readAllTasks } from '../state/task-graph.js';
 import { nextWave } from '../dag/scheduler.js';
 import { routeTask, routeAllTasks, shouldUseAgentTeams } from '../routing/router.js';
+import { scoreTask } from '../routing/scorer.js';
 import { AgentTeamsAdapter } from '../executor/agent-teams.js';
 import { markUnavailable, markAvailable, quotaStatus } from '../routing/quota.js';
 import type { RoutingTarget } from '../types.js';
@@ -28,7 +29,13 @@ export function handleRoute(args: string[], projectDir: string): any {
   if (!taskId) throw new Error('Usage: route <task-id>');
   const task = readTask(projectDir, taskId);
   if (!task) throw new Error(`Task ${taskId} not found`);
-  return routeTask(task, readAllTasks(projectDir), projectDir);
+  // v3.5: persist routing result back to task file
+  const allTasks = readAllTasks(projectDir);
+  const routing = routeTask(task, allTasks, projectDir);
+  task.routing = routing;
+  task.scores = scoreTask(task, allTasks);
+  writeTask(projectDir, task);
+  return { ...routing, scores: task.scores };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

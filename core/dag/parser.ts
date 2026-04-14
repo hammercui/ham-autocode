@@ -69,14 +69,51 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
     const section = planContent.slice(sectionStart, sectionEnd);
 
     const files: string[] = [];
-    const fileRegex = /[`"]([^\s`"]+\.[a-zA-Z]+)[`"]/g;
-    let fileMatch: RegExpExecArray | null;
-    while ((fileMatch = fileRegex.exec(section)) !== null) {
-      if (!files.includes(fileMatch[1])) files.push(fileMatch[1]);
+    // Strategy 1: explicit "- Files:" line (comma-separated paths)
+    const filesLineMatch = section.match(/[-*]\s*Files?:\s*(.+)/i);
+    if (filesLineMatch) {
+      const filePaths = filesLineMatch[1].split(/[,，]+/).map(s => s.trim().replace(/^`|`$/g, ''));
+      for (const fp of filePaths) {
+        if (fp && /\.\w+$/.test(fp) && !files.includes(fp)) files.push(fp);
+      }
+    }
+    // Strategy 2: backtick/quote-wrapped paths anywhere in section (fallback)
+    if (files.length === 0) {
+      const fileRegex = /[`"]([^\s`"]+\.[a-zA-Z]+)[`"]/g;
+      let fileMatch: RegExpExecArray | null;
+      while ((fileMatch = fileRegex.exec(section)) !== null) {
+        if (!files.includes(fileMatch[1])) files.push(fileMatch[1]);
+      }
     }
 
     // Track table number → task ID mapping for dependency resolution
     if (raw.num) tableNumToTaskId.set(raw.num, id);
+
+    // v3.5: Extract structured fields from section content (Deps/Description/Interface/Acceptance)
+    const descMatch = section.match(/[-*]\s*Description:\s*(.+)/i);
+    const interfaceMatch = section.match(/[-*]\s*Interface:\s*(.+)/i);
+    const acceptanceMatch = section.match(/[-*]\s*Acceptance:\s*(.+)/i);
+    const depsMatch = section.match(/[-*]\s*Deps?(?:endencies)?:\s*(.+)/i);
+
+    // Parse inline deps like "Task 1", "Task 3, Task 4", "none"
+    const inlineDeps: string[] = [];
+    if (depsMatch) {
+      const depsText = depsMatch[1].trim();
+      if (!/^(none|无|—|-)$/i.test(depsText)) {
+        const depRefs = depsText.match(/Task\s*(\d+)/gi) || [];
+        for (const ref of depRefs) {
+          const depNum = ref.match(/\d+/)?.[0];
+          if (depNum) inlineDeps.push(`task-${String(Number(depNum)).padStart(3, '0')}`);
+        }
+      }
+    }
+
+    // Calculate spec completeness based on how many fields are present
+    const hasDesc = !!descMatch;
+    const hasInterface = !!interfaceMatch;
+    const hasAcceptance = !!acceptanceMatch;
+    const hasFiles = files.length > 0;
+    const completeness = Math.round(([hasDesc, hasInterface, hasAcceptance, hasFiles].filter(Boolean).length / 4) * 100);
 
     tasks.push({
       schemaVersion: 2,
@@ -85,9 +122,14 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
       milestone: milestone || 'M001',
       phase: phase || 'default',
       status: 'pending',
-      blockedBy: [],
+      blockedBy: inlineDeps,
       files,
-      spec: { description: name, interface: '', acceptance: '', completeness: 0 },
+      spec: {
+        description: descMatch?.[1]?.trim() || name,
+        interface: interfaceMatch?.[1]?.trim() || '',
+        acceptance: acceptanceMatch?.[1]?.trim() || '',
+        completeness,
+      },
       scores: { specScore: 0, complexityScore: 0, isolationScore: 0 },
       routing: { target: 'claude-code', reason: 'default', needsConfirmation: false, confirmed: false },
       recovery: { strategy: 'checkpoint', checkpointRef: null },
@@ -132,10 +174,16 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
 
 export function findPlanFile(projectDir: string): string | null {
   const candidates = [
+    // GSD standard location (highest priority)
+    path.join(projectDir, '.planning', 'PLAN.md'),
+    // Project root
     path.join(projectDir, 'PLAN.md'),
     path.join(projectDir, 'WBS.md'),
+    // docs/ directory
     path.join(projectDir, 'docs', 'PLAN.md'),
     path.join(projectDir, 'docs', 'WBS.md'),
+    // GSD WBS
+    path.join(projectDir, '.planning', 'WBS.md'),
   ];
 
   for (const candidate of candidates) {
