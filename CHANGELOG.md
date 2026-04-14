@@ -2,6 +2,47 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.2.0] - 2026-04-14
+
+### Added — Field-Tested Improvements (ham-video driven)
+
+- **Project Health Check**: `core/health/checker.ts` — automated 5-check health assessment (git/compile/test/deps/lint) with composite score 0-100 and letter grade (A-F)
+- **Multi-tsconfig Support**: health check detects and validates all `tsconfig*.json` files independently (F3: Electron ESM+CJS projects)
+- **Document-Code Drift Detection**: `core/health/drift-detector.ts` — scans TODO/backlog docs and cross-references git history to find status mismatches
+- **Uncommitted Code Analyzer**: `core/health/uncommitted-analyzer.ts` — generates change summaries, risk assessments, and commit split suggestions for uncommitted changes
+- **ESM/CJS Compatibility Detector**: `core/health/esm-cjs-detector.ts` — finds `import.meta` in CJS, `__dirname` in ESM, `require()` in ESM, and other dual-module conflicts
+- **Field Test Feedback Loop**: `core/learning/field-test.ts` — records framework-level findings from real project usage, auto-aggregates cross-project patterns into improvement priorities
+- **Health Check Skill**: `skills/health-check/SKILL.md` — orchestrates health assessment in agent workflow
+- **CLI**: `health check`, `health quick`, `health drift`, `health uncommitted`, `health esm-cjs`, `learn field-test`, `learn field-test record`, `learn field-test resolve`
+
+### Changed
+
+- **Auto-learn**: integrates field-test auto-detection — recurring failures and slow tasks automatically recorded as framework findings
+- **Windows compatibility**: health check uses `shell: true` and `.cmd` suffix for npm/npx on Windows
+
+## [3.1.0] - 2026-04-13
+
+### Added — Token Saving + Memory + PM Methods + OpenCode + Research
+
+- **File Summary Cache**: `core/context/summary-cache.ts` — extract function/class/interface signatures, cache by content hash
+- **Incremental Context**: `core/context/incremental.ts` — MD5 snapshot-based change detection, skip unchanged files
+- **TF-IDF Search**: `core/context/tfidf.ts` — zero-dependency semantic file search
+- **Code Entity Extraction**: `core/learning/code-entities.ts` — regex-based function/class/interface/type/enum extraction
+- **Dependency Graph**: `core/learning/dependency-graph.ts` — import-based file dependency graph with impact analysis (BFS)
+- **Memory Guard**: `core/learning/memory-guard.ts` — post-task quality check for duplicates, TODO/FIXME, long files, console.log
+- **Critical Path Analysis (CPM)**: `core/dag/critical-path.ts` — forward/backward pass, slack calculation, bottleneck detection
+- **PERT Estimation**: `core/dag/estimation.ts` — three-point estimation with history-based correction
+- **Earned Value Management (EVM)**: `core/dag/earned-value.ts` — PV/EV/AC/SPI/CPI/EAC/VAC metrics
+- **ASCII Gantt Chart**: `core/dag/gantt.ts` — critical path highlighted with special characters
+- **OpenCode Agent**: `core/executor/opencode.ts` + `agents/opencode.md` — 5th routing target using GLM-5.1 for simple tasks
+- **Competitive Research**: `core/research/competitor.ts` + `skills/research/SKILL.md` — competitor analysis engine
+- **13 new CLI commands**: context summary/search, learn entities/deps/impact/guard, dag critical-path/estimate/evm/gantt, research init/report/status
+
+### Changed
+
+- **Router**: Rule 0 — complexityScore<=20 && files<=3 routes to opencode (with codex exclusion)
+- **RoutingTarget**: expanded to 5 targets (added opencode)
+
 ## [3.0.0] - 2026-04-13
 
 ### Added — CE Knowledge Compounding (the last 1%)

@@ -13,6 +13,7 @@ import { evolveFromTask } from './project-brain.js';
 import { indexProjectEntities } from './code-entities.js';
 import { buildDependencyGraph } from './dependency-graph.js';
 import { checkGuard } from './memory-guard.js';
+import { autoDetectFindings } from './field-test.js';
 import { readTask } from '../state/task-graph.js';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
 import path from 'path';
@@ -78,6 +79,16 @@ export function onTaskComplete(projectDir: string, taskId: string, success: bool
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         atomicWriteJSON(guardLogPath, guardResult);
       }
+    }
+
+    // v3.2: Field test auto-detection (record anomalies)
+    if (task) {
+      autoDetectFindings(projectDir, {
+        taskName: task.name,
+        success,
+        error: task.execution?.error || undefined,
+        files: task.files,
+      });
     }
 
     // Trigger full analysis every N completions

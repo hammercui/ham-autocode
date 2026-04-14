@@ -43,10 +43,16 @@ import { estimatePERT } from './dag/estimation.js';
 import { calculateEVM } from './dag/earned-value.js';
 import { renderGantt } from './dag/gantt.js';
 import { readAnalysis, initAnalysis, generateReport } from './research/competitor.js';
+import { runHealthCheck, quickHealthCheck } from './health/checker.js';
+import { detectDrift } from './health/drift-detector.js';
+import { analyzeUncommitted } from './health/uncommitted-analyzer.js';
+import { detectESMCJS } from './health/esm-cjs-detector.js';
+import { recordFinding, resolveFinding, fieldTestSummary } from './learning/field-test.js';
+import type { FieldTestCategory } from './learning/field-test.js';
 import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType, RoutingTarget } from './types.js';
 
 function usage(): string {
-  return `ham-autocode core engine v3.0
+  return `ham-autocode core engine v3.2
 
 Usage: node core/index.js <command> [subcommand] [options]
 
@@ -115,9 +121,17 @@ Commands:
   learn deps [file]
   learn impact <file1> [file2...]
   learn guard [task-id]
+  learn field-test
+  learn field-test record <category> <severity> <description>
+  learn field-test resolve <id> <resolution>
   research init <project> <domain>
   research report
   research status
+  health check
+  health quick
+  health drift
+  health uncommitted
+  health esm-cjs
   token estimate <file>
   token index [dir]
   help`;
@@ -583,7 +597,38 @@ function dispatch(args: string[], projectDir: string): any {
         const files = taskId ? (readTask(projectDir, taskId)?.files || []) : [];
         return checkGuard(projectDir, files);
       }
-      throw new Error(`Unknown learn subcommand: ${sub}. Use: analyze, suggest, apply, patterns, history, reset, status, brain, scan, hints, entities, deps, impact, guard`);
+      if (sub === 'field-test') {
+        const action = args[2];
+        if (action === 'record') {
+          const category = args[3] as FieldTestCategory;
+          const severity = args[4] as 'P0' | 'P1' | 'P2';
+          const description = args.slice(5).join(' ');
+          if (!category || !severity || !description) {
+            throw new Error('Usage: learn field-test record <category> <severity> <description>');
+          }
+          return recordFinding(projectDir, {
+            project: path.basename(projectDir),
+            phase: 'manual',
+            category,
+            severity,
+            description,
+            context: 'Manually recorded via CLI',
+          });
+        }
+        if (action === 'resolve') {
+          const id = args[3];
+          const resolution = args.slice(4).join(' ');
+          if (!id || !resolution) {
+            throw new Error('Usage: learn field-test resolve <id> <resolution>');
+          }
+          const result = resolveFinding(projectDir, id, resolution);
+          if (!result) throw new Error(`Finding ${id} not found`);
+          return result;
+        }
+        // Default: show summary
+        return fieldTestSummary(projectDir);
+      }
+      throw new Error(`Unknown learn subcommand: ${sub}. Use: analyze, suggest, apply, patterns, history, reset, status, brain, scan, hints, entities, deps, impact, guard, field-test`);
     }
 
     case 'research': {
@@ -600,6 +645,25 @@ function dispatch(args: string[], projectDir: string): any {
         return readAnalysis(projectDir) || { status: 'No competitive analysis found. Run: research init <project> <domain>' };
       }
       throw new Error(`Unknown research subcommand: ${sub}. Use: init, report, status`);
+    }
+
+    case 'health': {
+      if (sub === 'check') {
+        return runHealthCheck(projectDir);
+      }
+      if (sub === 'quick') {
+        return quickHealthCheck(projectDir);
+      }
+      if (sub === 'drift') {
+        return detectDrift(projectDir);
+      }
+      if (sub === 'uncommitted') {
+        return analyzeUncommitted(projectDir);
+      }
+      if (sub === 'esm-cjs') {
+        return detectESMCJS(projectDir);
+      }
+      throw new Error('Unknown health subcommand. Use: check, quick, drift, uncommitted, esm-cjs');
     }
 
     case 'token': {
