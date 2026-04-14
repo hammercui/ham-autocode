@@ -2,6 +2,20 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.6.1] - 2026-04-14
+
+### Added — Execute Run + Dispatcher
+
+- **`execute prepare --raw`**: 直接输出 instruction 文本，可管道给 codex/opencode
+- **`execute run <task-id>`**: 生成完整 shell 命令（含 agent CLI 参数封装）
+- **`execute run --codex|--opencode`**: 强制指定 target 覆盖路由决策
+- **`dispatcher.ts`**: 封装 codex exec --full-auto / opencode run 参数，默认 opencode 模型 glm-5
+
+### Fixed — 阅读清单去噪
+
+- 上游依赖跳过配置文件 (.json/.yaml/.toml/.md)，只保留源码
+- 模块匹配只用文件路径，不用任务名关键词（修复 "test" 误命中 app/test）
+
 ## [3.6.0] - 2026-04-14
 
 ### Fixed — Context Bundle Pipeline (上下文管道接通)
