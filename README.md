@@ -1,9 +1,11 @@
 # ham-autocode
 
+[![CI](https://github.com/hammercui/ham-autocode/actions/workflows/ci.yml/badge.svg)](https://github.com/hammercui/ham-autocode/actions/workflows/ci.yml)
+
 > Claude Code Plugin for fully autonomous project development.
 > Harness Architecture: DAG scheduler, context engine, agent routing, validation gates, recovery, knowledge compounding.
 
-**v3.4.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md)
+**v3.4.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Examples](examples/)
 
 ## What is it?
 
