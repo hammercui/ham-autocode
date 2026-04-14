@@ -33,6 +33,16 @@ import { suggestAdaptations, applyAdaptations, readLearningHistory, appendToHist
 import { learnPatterns, getPatternHints } from './learning/patterns.js';
 import { onTaskComplete, autoLearnStatus } from './learning/auto-learn.js';
 import { getBrainContext, readBrain, evolveFromScan } from './learning/project-brain.js';
+import { summarizeFile } from './context/summary-cache.js';
+import { searchFiles } from './context/tfidf.js';
+import { indexProjectEntities } from './learning/code-entities.js';
+import { buildDependencyGraph, fileDependencies, impactAnalysis } from './learning/dependency-graph.js';
+import { checkGuard } from './learning/memory-guard.js';
+import { analyzeCriticalPath } from './dag/critical-path.js';
+import { estimatePERT } from './dag/estimation.js';
+import { calculateEVM } from './dag/earned-value.js';
+import { renderGantt } from './dag/gantt.js';
+import { readAnalysis, initAnalysis, generateReport } from './research/competitor.js';
 import type { HarnessConfig, TaskStatus, PipelineStatus, ErrorType, RoutingTarget } from './types.js';
 
 function usage(): string {
@@ -59,6 +69,8 @@ Commands:
   dag status
   context prepare <task-id>
   context budget [consume <amount>]
+  context summary <file>
+  context search <query>
   route <task-id>
   route batch
   route confirm <task-id>
@@ -72,6 +84,10 @@ Commands:
   execute prepare <task-id>
   trace query [--task <id>] [--result ok|error] [--limit N]
   dag visualize
+  dag critical-path
+  dag estimate
+  dag evm
+  dag gantt
   session report
   commit auto <task-id>
   commit rollback
@@ -95,6 +111,13 @@ Commands:
   learn brain
   learn scan
   learn hints <task-name>
+  learn entities
+  learn deps [file]
+  learn impact <file1> [file2...]
+  learn guard [task-id]
+  research init <project> <domain>
+  research report
+  research status
   token estimate <file>
   token index [dir]
   help`;
@@ -241,6 +264,18 @@ function dispatch(args: string[], projectDir: string): any {
       if (sub === 'visualize') {
         return visualizeDAG(readAllTasks(projectDir));
       }
+      if (sub === 'critical-path') {
+        return analyzeCriticalPath(readAllTasks(projectDir));
+      }
+      if (sub === 'estimate') {
+        return estimatePERT(readAllTasks(projectDir), projectDir);
+      }
+      if (sub === 'evm') {
+        return calculateEVM(projectDir);
+      }
+      if (sub === 'gantt') {
+        return renderGantt(readAllTasks(projectDir));
+      }
       throw new Error(`Unknown dag subcommand: ${sub}`);
     }
 
@@ -271,6 +306,16 @@ function dispatch(args: string[], projectDir: string): any {
           budgetRemaining: Math.max(0, 100 - budgetStatus.usagePercent),
           recommendation: prepared.recommendation,
         };
+      }
+      if (sub === 'summary') {
+        const file = args[2];
+        if (!file) throw new Error('Usage: context summary <file>');
+        return summarizeFile(projectDir, file);
+      }
+      if (sub === 'search') {
+        const query = args.slice(2).join(' ');
+        if (!query) throw new Error('Usage: context search <query>');
+        return searchFiles(projectDir, query);
       }
       throw new Error(`Unknown context subcommand: ${sub}`);
     }
@@ -520,7 +565,41 @@ function dispatch(args: string[], projectDir: string): any {
         if (!taskName) throw new Error('Usage: learn hints <task-name>');
         return getPatternHints(projectDir, taskName);
       }
-      throw new Error(`Unknown learn subcommand: ${sub}. Use: analyze, suggest, apply, patterns, history, reset, status, brain, scan, hints`);
+      if (sub === 'entities') {
+        return indexProjectEntities(projectDir);
+      }
+      if (sub === 'deps') {
+        const file = args[2];
+        if (file) return fileDependencies(projectDir, file);
+        return buildDependencyGraph(projectDir);
+      }
+      if (sub === 'impact') {
+        const files = args.slice(2);
+        if (files.length === 0) throw new Error('Usage: learn impact <file1> [file2] ...');
+        return impactAnalysis(projectDir, files);
+      }
+      if (sub === 'guard') {
+        const taskId = args[2];
+        const files = taskId ? (readTask(projectDir, taskId)?.files || []) : [];
+        return checkGuard(projectDir, files);
+      }
+      throw new Error(`Unknown learn subcommand: ${sub}. Use: analyze, suggest, apply, patterns, history, reset, status, brain, scan, hints, entities, deps, impact, guard`);
+    }
+
+    case 'research': {
+      if (sub === 'init') {
+        const project = args[2];
+        const domain = args[3];
+        if (!project || !domain) throw new Error('Usage: research init <project> <domain>');
+        return initAnalysis(projectDir, project, domain);
+      }
+      if (sub === 'report') {
+        return generateReport(projectDir);
+      }
+      if (sub === 'status') {
+        return readAnalysis(projectDir) || { status: 'No competitive analysis found. Run: research init <project> <domain>' };
+      }
+      throw new Error(`Unknown research subcommand: ${sub}. Use: init, report, status`);
     }
 
     case 'token': {
