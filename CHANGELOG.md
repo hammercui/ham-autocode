@@ -2,6 +2,28 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.4.0] - 2026-04-14
+
+### Fixed — Memory System ROI (token收支比 3/10 → 7/10)
+
+- **F1: context-template wired**: `buildMinimalContext()` now used by execute prepare — subagent token -60~80% (was dead code)
+- **F2: Guard auto-inject**: Memory guard warnings now written into task spec, auto-included in next execute prepare
+- **F3: Trimmed low-ROI modules**: field-test 259→101 lines (-61%), patterns 196→93 lines (-53%). Removed: cross-project aggregation, fileStructure/reliableGates/riskyFiles (duplicated Brain/analyzer)
+- **F4: Brain reads code**: evolveFromTask reads file JSDoc headers (first 30 lines) for real module descriptions, replaces heuristic guesses
+- **F5: Memory decay**: painPoints and provenPatterns auto-expire after 30 tasks of age. evolutionLog capped at 50 (was 100). domain terms capped at 30.
+- **F6: Entities incremental**: auto-learn indexes only task.files (not full project scan). Full scan only via `learn entities` CLI.
+- **F7: Patterns auto-consume**: getPatternHints injected into context-template for claude-code tasks
+
+### Added
+
+- `core/learning/code-entities.ts`: `incrementalIndexFiles()` for per-task entity updates
+- `CLAUDE.md`: LSP-First token conservation rules (hover/documentSymbol/findReferences over Read)
+
+### Removed from auto-learn cycle
+
+- `buildDependencyGraph()` — now CLI-only (`learn deps`)
+- `indexProjectEntities()` full scan — replaced by incremental
+
 ## [3.3.0] - 2026-04-14
 
 ### Changed — Token Optimization (40-60% reduction)

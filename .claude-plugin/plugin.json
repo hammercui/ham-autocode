@@ -1,7 +1,7 @@
 {
   "name": "ham-autocode",
   "description": "Autonomous development orchestrator v3.2 — DAG scheduler, context engine, agent routing, validation gates, recovery engine, spec engine, knowledge compounding (CE), project health checks. 10 skills. Field-tested on real projects.",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "author": {
     "name": "hammercui"
   },

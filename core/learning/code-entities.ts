@@ -119,6 +119,35 @@ export function readEntityIndex(projectDir: string): EntityIndex | null {
 /**
  * 搜索实体（按名称模糊匹配）
  */
+/**
+ * v3.4: Incremental index — only re-index specific files, merge into existing index.
+ */
+export function incrementalIndexFiles(projectDir: string, files: string[]): void {
+  const existing = readEntityIndex(projectDir);
+  const allEntities = existing ? existing.entities.filter(e => !files.some(f => e.file.includes(f))) : [];
+
+  for (const relFile of files) {
+    const fullPath = path.resolve(projectDir, relFile);
+    if (!fs.existsSync(fullPath)) continue;
+    if (!/\.(ts|tsx|js|jsx)$/.test(relFile) || relFile.endsWith('.d.ts')) continue;
+    try {
+      const content = fs.readFileSync(fullPath, 'utf8');
+      const normalized = relFile.replace(/\\/g, '/');
+      allEntities.push(...extractEntities(content, normalized));
+    } catch { /* skip */ }
+  }
+
+  const index: EntityIndex = {
+    schemaVersion: 1,
+    indexedAt: new Date().toISOString(),
+    totalEntities: allEntities.length,
+    entities: allEntities,
+  };
+  const dir = path.dirname(indexPath(projectDir));
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  atomicWriteJSON(indexPath(projectDir), index);
+}
+
 export function searchEntities(projectDir: string, query: string): CodeEntity[] {
   const index = readEntityIndex(projectDir);
   if (!index) return [];

@@ -12,6 +12,7 @@
 
 import { readBrain } from '../learning/project-brain.js';
 import { searchEntities, readEntityIndex } from '../learning/code-entities.js';
+import { getPatternHints } from '../learning/patterns.js';
 import type { TaskState, RoutingTarget } from '../types.js';
 
 export interface MinimalContext {
@@ -114,6 +115,12 @@ function buildClaudeCodeContext(projectDir: string, task: TaskState): MinimalCon
         lines.push(`${e.type} ${e.name} @ ${e.file}:${e.line}`);
       }
     }
+  }
+
+  // v3.4 F7: auto-consume pattern hints
+  const hints = getPatternHints(projectDir, task.name);
+  if (hints.length > 0) {
+    lines.push('', 'Hints: ' + hints.join('; '));
   }
 
   const text = lines.filter(Boolean).join('\n');

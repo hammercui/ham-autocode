@@ -11,7 +11,7 @@ import { CodexAdapter } from '../executor/codex.js';
 import { ClaudeAppAdapter } from '../executor/claude-app.js';
 import { AgentTeamsAdapter } from '../executor/agent-teams.js';
 import { OpenCodeAdapter } from '../executor/opencode.js';
-import { getBrainContext } from '../learning/project-brain.js';
+import { buildMinimalContext } from '../executor/context-template.js';
 import type { RoutingTarget } from '../types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,10 +32,10 @@ export function handleExecute(args: string[], projectDir: string): any {
     };
     const adapter = adapters[target];
     if (!adapter) throw new Error(`Unknown routing target: ${target}`);
-    const instruction = adapter.generateInstruction(task);
-    const brainContext = getBrainContext(projectDir, task.name);
-    const enrichedInstruction = brainContext ? instruction + '\n\n' + brainContext : instruction;
-    return { taskId, target, instruction: enrichedInstruction };
+    // v3.4: use minimal context template instead of full brain dump
+    const minimal = buildMinimalContext(projectDir, task, target);
+    const baseInstruction = adapter.generateInstruction(task);
+    return { taskId, target, instruction: minimal.instruction || baseInstruction, estimatedTokens: minimal.estimatedTokens };
   }
   throw new Error(`Unknown execute subcommand: ${sub}`);
 }

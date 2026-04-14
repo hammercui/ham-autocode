@@ -111,6 +111,21 @@ Every code change must pass:
 4. Integration tests (if applicable)
 5. Code review (human or agent)
 
+## Token Conservation (LSP-First)
+
+**LSP is available and MUST be preferred over Read for code understanding.**
+
+| Need | Use | NOT |
+|------|-----|-----|
+| Function/type signature | `LSP hover` | Read entire file |
+| File structure overview | `LSP documentSymbol` | Read entire file |
+| Where is X defined? | `LSP goToDefinition` | Grep + Read |
+| Who calls X? | `LSP findReferences` / `incomingCalls` | Grep |
+| What does X call? | `LSP outgoingCalls` | Read + trace manually |
+| All symbols in workspace | `LSP workspaceSymbol` | Glob + Grep |
+
+**Only use Read when you need actual code logic (implementation bodies, not signatures).**
+
 ## Context Management
 
 - Main session stays at 30-40% context usage

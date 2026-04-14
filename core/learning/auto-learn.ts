@@ -10,11 +10,10 @@ import { analyzeHistory, readInsights } from './analyzer.js';
 import { appendToHistory } from './adapter.js';
 import { learnPatterns } from './patterns.js';
 import { evolveFromTask } from './project-brain.js';
-import { indexProjectEntities } from './code-entities.js';
-import { buildDependencyGraph } from './dependency-graph.js';
+import { incrementalIndexFiles } from './code-entities.js';
 import { checkGuard } from './memory-guard.js';
 import { autoDetectFindings } from './field-test.js';
-import { readTask } from '../state/task-graph.js';
+import { readTask, writeTask } from '../state/task-graph.js';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
 import path from 'path';
 import fs from 'fs';
@@ -73,11 +72,17 @@ export function onTaskComplete(projectDir: string, taskId: string, success: bool
     if (task) {
       const guardResult = checkGuard(projectDir, task.files || []);
       if (!guardResult.passed) {
-        // Log guard issues to learning directory for visibility
         const guardLogPath = path.join(projectDir, '.ham-autocode', 'learning', 'guard-log.json');
         const dir = path.dirname(guardLogPath);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         atomicWriteJSON(guardLogPath, guardResult);
+        // v3.4: inject guard warnings into task context for next execute prepare
+        if (guardResult.suggestions.length > 0) {
+          task.spec = { ...(task.spec || { description: '', interface: '', acceptance: '', completeness: 0 }) };
+          task.spec.acceptance = (task.spec.acceptance || '') +
+            '\n[Guard] ' + guardResult.suggestions.slice(0, 3).join('; ');
+          writeTask(projectDir, task);
+        }
       }
     }
 
@@ -97,9 +102,10 @@ export function onTaskComplete(projectDir: string, taskId: string, success: bool
       appendToHistory(projectDir, insights);
       learnPatterns(projectDir);
 
-      // Update entity index and dependency graph periodically
-      indexProjectEntities(projectDir);
-      buildDependencyGraph(projectDir);
+      // v3.4: incremental entity index (only current task files)
+      if (task?.files && task.files.length > 0) {
+        incrementalIndexFiles(projectDir, task.files);
+      }
 
       state.completionsSinceLastAnalysis = 0;
       state.lastAnalyzedAt = new Date().toISOString();

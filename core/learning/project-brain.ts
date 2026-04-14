@@ -115,13 +115,31 @@ export function evolveFromTask(projectDir: string, task: TaskState): void {
     const ext = path.extname(file);
     const baseName = path.basename(file, ext);
 
-    // Discover key modules
+    // Discover key modules — v3.4: read file header for real description
     const existingModule = brain.architecture.keyModules.find(m => m.path === dir);
-    if (!existingModule && dir !== '.' && dir !== '') {
-      // Infer role from directory name and file content
-      const role = inferModuleRole(dir, baseName, task.name);
+    if (dir !== '.' && dir !== '') {
+      let role = '';
+      // Try reading the file's JSDoc/header comment (first 30 lines)
+      const fullPath = path.resolve(projectDir, file);
+      try {
+        if (fs.existsSync(fullPath)) {
+          const head = fs.readFileSync(fullPath, 'utf8').split('\n').slice(0, 30).join('\n');
+          const docMatch = head.match(/\/\*\*\s*([\s\S]*?)\*\//);
+          if (docMatch) {
+            role = docMatch[1].replace(/\s*\*\s*/g, ' ').trim().slice(0, 100);
+          }
+        }
+      } catch { /* skip unreadable */ }
+      // Fallback to heuristic
+      if (!role) role = inferModuleRole(dir, baseName, task.name);
+
       if (role) {
-        brain.architecture.keyModules.push({ name: path.basename(dir), path: dir, role });
+        if (existingModule) {
+          // Update with better description if we got a real one from code
+          if (role.length > existingModule.role.length) existingModule.role = role;
+        } else {
+          brain.architecture.keyModules.push({ name: path.basename(dir), path: dir, role });
+        }
       }
     }
 
@@ -189,14 +207,23 @@ export function evolveFromTask(projectDir: string, task: TaskState): void {
     insight,
   });
 
-  // Keep evolution log bounded (last 100 entries)
-  if (brain.evolutionLog.length > 100) {
-    brain.evolutionLog = brain.evolutionLog.slice(-100);
+  // v3.4: Memory decay — age-based cleanup
+  // Increment age on all entries, remove stale ones
+  const MAX_AGE = 30;  // tasks since creation
+  for (const pp of brain.painPoints) { (pp as any).age = ((pp as any).age || 0) + 1; }
+  brain.painPoints = brain.painPoints.filter(pp => ((pp as any).age || 0) < MAX_AGE);
+
+  for (const pp of brain.provenPatterns) { (pp as any).age = ((pp as any).age || 0) + 1; }
+  brain.provenPatterns = brain.provenPatterns.filter(pp => ((pp as any).age || 0) < MAX_AGE);
+
+  // Keep evolution log bounded (last 50, was 100)
+  if (brain.evolutionLog.length > 50) {
+    brain.evolutionLog = brain.evolutionLog.slice(-50);
   }
 
-  // Keep pain points bounded (last 50)
-  if (brain.painPoints.length > 50) {
-    brain.painPoints = brain.painPoints.slice(-50);
+  // Keep domain terms bounded
+  if (brain.domain.terms.length > 30) {
+    brain.domain.terms = brain.domain.terms.slice(-30);
   }
 
   saveBrain(projectDir, brain);
