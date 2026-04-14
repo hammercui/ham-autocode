@@ -92,11 +92,11 @@ Tested on real projects (ham-video — Electron desktop video pipeline):
 
 ## Dependencies
 
-| Framework | Role | Install |
-|-----------|------|---------|
-| [GSD](https://github.com/gsd-build/get-shit-done) | Project init, milestones, execution | `git clone --depth 1 https://github.com/gsd-build/get-shit-done.git ~/.claude/plugins/gsd` |
-| [gstack](https://github.com/garrytan/gstack) | Idea review, QA, shipping | `git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack` |
-| [Superpowers](https://github.com/nichochar/superpowers) | TDD methodology | `git clone --depth 1 https://github.com/nichochar/superpowers.git ~/.claude/plugins/superpowers` |
+| Framework | Author | Stars | Role | Install |
+|-----------|--------|-------|------|---------|
+| [GSD](https://github.com/gsd-build/get-shit-done) | TACHES | 52k+ | Context engineering, spec-driven workflow | `git clone --depth 1 https://github.com/gsd-build/get-shit-done.git ~/.claude/plugins/gsd` |
+| [gstack](https://github.com/garrytan/gstack) | Garry Tan | 72k+ | 23 opinionated tools: CEO/Designer/Eng/QA | `git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack` |
+| [Superpowers](https://github.com/obra/superpowers) | Jesse Vincent | 151k+ | Agentic skills framework & dev methodology | `git clone --depth 1 https://github.com/obra/superpowers.git ~/.claude/plugins/superpowers` |
 
 ## Build & Test
 
@@ -122,3 +122,7 @@ Zero-config by default. Override in `.ham-autocode/harness.json`:
 ## License
 
 MIT
+
+---
+
+[中文文档](README.zh-CN.md)
