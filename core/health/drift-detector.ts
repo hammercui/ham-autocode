@@ -131,7 +131,26 @@ function searchCodeEvidence(projectDir: string, terms: string[]): { found: boole
     } catch { /* ignore */ }
   }
 
-  return { found: false, evidence: 'No fix evidence in git history' };
+  // Fallback: grep source code for the term (catches implemented but uncommitted features)
+  for (const term of terms) {
+    if (term.length < 4) continue;  // skip short terms to avoid noise
+    try {
+      const output = execFileSync('git', [
+        'grep', '-li', term, '--', '*.ts', '*.tsx', '*.js', '*.jsx',
+      ], {
+        cwd: projectDir,
+        encoding: 'utf-8',
+        timeout: 5000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      if (output.trim()) {
+        const files = output.trim().split('\n');
+        return { found: true, evidence: `Code: "${term}" found in ${files[0]} (+${files.length - 1} more)` };
+      }
+    } catch { /* ignore */ }
+  }
+
+  return { found: false, evidence: 'No fix evidence in git history or code' };
 }
 
 // ─── Core Detection ─────────────────────────────────────────────

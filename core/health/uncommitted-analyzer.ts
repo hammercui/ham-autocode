@@ -201,8 +201,12 @@ export function analyzeUncommitted(projectDir: string): UncommittedAnalysis {
   let totalDel = 0;
 
   for (const line of statusLines) {
+    if (line.length < 4) continue;
     const statusCode = line.substring(0, 2).trim();
-    const filePath = line.substring(3).trim();
+    // git status --porcelain: XY<space>filename, or XY<space>"path with spaces"
+    let filePath = line.substring(3).trim().replace(/^"(.*)"$/, '$1');
+    // Handle renames: "old -> new"
+    if (filePath.includes(' -> ')) filePath = filePath.split(' -> ')[1];
 
     // Get diff for this file
     let diff = '';

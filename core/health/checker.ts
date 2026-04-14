@@ -126,11 +126,29 @@ function checkGitStatus(projectDir: string): HealthCheck {
  * Check 2: TypeScript compilation — supports multiple tsconfig files (F3).
  */
 function checkTypeScript(projectDir: string): HealthCheck {
-  // Find all tsconfig*.json files
-  const entries = fs.readdirSync(projectDir);
-  const tsconfigs = entries.filter(f =>
-    f.startsWith('tsconfig') && f.endsWith('.json') && !f.includes('node_modules')
-  );
+  // Find all tsconfig*.json files — check root and one level of subdirs (monorepo)
+  let tsconfigs: { config: string; cwd: string }[] = [];
+  const rootEntries = fs.readdirSync(projectDir);
+  for (const f of rootEntries) {
+    if (f.startsWith('tsconfig') && f.endsWith('.json')) {
+      tsconfigs.push({ config: f, cwd: projectDir });
+    }
+  }
+  // Monorepo: scan subdirs if root has no tsconfig
+  if (tsconfigs.length === 0) {
+    for (const entry of rootEntries) {
+      if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) continue;
+      const subDir = path.join(projectDir, entry);
+      try {
+        if (!fs.statSync(subDir).isDirectory()) continue;
+        for (const f of fs.readdirSync(subDir)) {
+          if (f.startsWith('tsconfig') && f.endsWith('.json')) {
+            tsconfigs.push({ config: f, cwd: subDir });
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
 
   if (tsconfigs.length === 0) {
     return {
@@ -145,19 +163,19 @@ function checkTypeScript(projectDir: string): HealthCheck {
 
   const results: { config: string; ok: boolean; errorCount: number; errors: string[] }[] = [];
 
-  for (const tsconfig of tsconfigs) {
-    const res = safeExec('npx', ['tsc', '--noEmit', '-p', tsconfig], projectDir, 120000);
+  for (const { config: tsconfig, cwd } of tsconfigs) {
+    const label = cwd === projectDir ? tsconfig : path.relative(projectDir, path.join(cwd, tsconfig));
+    const res = safeExec('npx', ['tsc', '--noEmit', '-p', tsconfig], cwd, 120000);
     const allOutput = res.stdout + '\n' + res.stderr;
     const errorLines = allOutput
       .split('\n')
       .filter(l => /error TS\d+/.test(l));
-    // Pass if exec succeeded OR if no TS errors found in output
     const passed = res.ok || errorLines.length === 0;
     results.push({
-      config: tsconfig,
+      config: label,
       ok: passed,
       errorCount: errorLines.length,
-      errors: errorLines.slice(0, 10),  // cap at 10 errors per config
+      errors: errorLines.slice(0, 10),
     });
   }
 
@@ -186,10 +204,25 @@ function checkTypeScript(projectDir: string): HealthCheck {
 /**
  * Check 3: Test execution — auto-detect test runner.
  */
+/**
+ * Find package.json — check root, then one level of subdirs (monorepo).
+ */
+function findPackageDir(projectDir: string): string | null {
+  if (fs.existsSync(path.join(projectDir, 'package.json'))) return projectDir;
+  try {
+    for (const entry of fs.readdirSync(projectDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+      const sub = path.join(projectDir, entry.name);
+      if (fs.existsSync(path.join(sub, 'package.json'))) return sub;
+    }
+  } catch { /* skip */ }
+  return null;
+}
+
 function checkTests(projectDir: string): HealthCheck {
-  // Detect test runner from package.json
-  const pkgPath = path.join(projectDir, 'package.json');
-  if (!fs.existsSync(pkgPath)) {
+  const pkgDir = findPackageDir(projectDir);
+  const pkgPath = pkgDir ? path.join(pkgDir, 'package.json') : null;
+  if (!pkgPath) {
     return {
       name: 'Tests',
       category: 'test',
@@ -226,8 +259,20 @@ function checkTests(projectDir: string): HealthCheck {
     };
   }
 
-  const res = safeExec('npm', ['test'], projectDir, 120000);
+  const res = safeExec('npm', ['test'], pkgDir!, 120000);
   const output = res.stdout + '\n' + res.stderr;
+
+  // "No test files found" is not a failure — it's just no tests written yet
+  if (/no test (files|suites?) found/i.test(output)) {
+    return {
+      name: 'Tests',
+      category: 'test',
+      pass: true,
+      score: 70,
+      weight: 25,
+      detail: 'No test files found (consider adding tests)',
+    };
+  }
 
   // Try to extract pass/fail counts
   const passMatch = output.match(/(\d+)\s+pass/i);
@@ -258,8 +303,8 @@ function checkTests(projectDir: string): HealthCheck {
  * Check 4: Dependency audit.
  */
 function checkDeps(projectDir: string): HealthCheck {
-  const pkgPath = path.join(projectDir, 'package.json');
-  if (!fs.existsSync(pkgPath)) {
+  const pkgDir = findPackageDir(projectDir);
+  if (!pkgDir) {
     return {
       name: 'Dependencies',
       category: 'deps',
@@ -271,7 +316,7 @@ function checkDeps(projectDir: string): HealthCheck {
   }
 
   // Check node_modules exists
-  const nmPath = path.join(projectDir, 'node_modules');
+  const nmPath = path.join(pkgDir, 'node_modules');
   if (!fs.existsSync(nmPath)) {
     return {
       name: 'Dependencies',
@@ -285,7 +330,7 @@ function checkDeps(projectDir: string): HealthCheck {
   }
 
   // Run npm audit
-  const res = safeExec('npm', ['audit', '--json'], projectDir, 30000);
+  const res = safeExec('npm', ['audit', '--json'], pkgDir, 30000);
   let vulns = 0;
   let critical = 0;
   let high = 0;
