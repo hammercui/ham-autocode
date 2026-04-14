@@ -68,9 +68,9 @@ function getRelatedModules(projectDir: string, task: TaskState): string {
   const brain = readBrain(projectDir);
   if (!brain?.architecture?.keyModules?.length) return '';
   const taskFiles = task.files || [];
-  // 找到任务文件所在的模块
+  // 只用文件路径匹配模块，不用任务名（避免 "test" 匹配 app/test 等误命中）
   const related = brain.architecture.keyModules.filter(m =>
-    taskFiles.some(f => f.startsWith(m.path) || f.includes(m.name))
+    taskFiles.some(f => f.startsWith(m.path))
   );
   if (related.length === 0) return '';
   return related.map(m => `- ${m.path}: ${m.role}`).join('\n');
@@ -105,13 +105,16 @@ function getReadingList(projectDir: string, task: TaskState): string {
     entries.push(`- ${f} — ${desc}`);
   }
 
-  // 2. 依赖任务的文件（agent 应该读，理解上游接口）
+  // 2. 依赖任务的源码文件（跳过配置文件，agent 主要需要接口定义）
+  const configExts = new Set(['.json', '.yaml', '.yml', '.toml', '.md']);
   const deps = task.blockedBy || [];
   for (const depId of deps) {
     const depTask = readTask(projectDir, depId);
     if (!depTask || depTask.status !== 'done') continue;
     for (const f of depTask.files || []) {
-      if (taskFiles.has(f)) continue; // 已在任务文件中
+      if (taskFiles.has(f)) continue;
+      const ext = f.slice(f.lastIndexOf('.'));
+      if (configExts.has(ext)) continue; // 跳过 package.json/tsconfig.json 等配置文件
       const mod = modules.find(m => f.startsWith(m.path));
       entries.push(`- ${f} — upstream from ${depId}${mod ? ', ' + mod.role : ''}`);
     }
