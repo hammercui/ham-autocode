@@ -6,17 +6,32 @@ All notable changes to ham-autocode will be documented in this file.
 
 ### Added — Memory Progressive Disclosure (claude-mem inspired)
 
-- **Progressive disclosure**: `getBrainContext()` now returns compact index (~150 tokens vs ~400), agents use `learn detail <topic>` for full details
+- **Progressive disclosure**: `getBrainContext()` returns compact index (~150 tokens vs ~400), agents use `learn detail <topic>` for full details
 - **`getBrainDetail()`**: Layer 2 retrieval — `pain`, `pattern`, `domain`, `history`, `all` topics
 - **CLI**: `learn detail <topic>` command for on-demand memory access
 - **PostToolUse observation capture**: hook records Write/Edit file paths to `observations.jsonl` (shell-only, zero Node overhead)
 - **File co-occurrence analysis**: `auto-learn` consumes observations, identifies files frequently edited together → `brain.architecture.connections`
 - **Enhanced task summaries**: `generateInsight()` produces `[date] type: name (files, outcome)` format — directly agent-readable
 
+### Added — Verifiable Engineering Evidence
+
+- **GitHub Actions CI**: Node 18+22 matrix, build + 8 test suites on every push/PR
+- **README CI badge**: passing/failing status visible on GitHub
+- **`examples/`**: `verify.sh` automated validation script + quick start README
+
+### Added — Documentation
+
+- **GUIDE.md**: 10-minute onboarding tutorial for new users
+
 ### Changed
 
 - **context-template**: `buildClaudeCodeContext()` uses compact brain index (~150 tokens) instead of full painPoints/patterns embed (~400 tokens). ~60% brain section token reduction
 - **evolutionLog**: capped at 30 entries (was 50), each entry now more informative with date/type/scope
+- **Token waste**: trimmed 1516 lines of redundant/verbose content across docs and skills
+
+### Fixed
+
+- **3 field-test findings** from ham-video session: paths.ts ESM/CJS compatibility, orchestrator unused import, doc-code status drift
 
 ## [3.4.0] - 2026-04-14
 
