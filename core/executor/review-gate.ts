@@ -206,3 +206,28 @@ export async function reviewTaskOutput(
     try { fs.unlinkSync(tmpFile); } catch { /* best effort */ }
   }
 }
+
+/**
+ * 将 review FAIL 结果写入反馈文件，供人工快速定位修复
+ * 文件路径: .ham-autocode/logs/review-feedback.jsonl
+ */
+export function writeReviewFeedback(projectDir: string, result: ReviewResult, task: TaskState): void {
+  if (result.verdict !== 'FAIL') return;
+
+  const logDir = path.join(projectDir, '.ham-autocode', 'logs');
+  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+
+  const entry = {
+    time: new Date().toISOString(),
+    taskId: result.taskId,
+    taskName: task.name,
+    verdict: result.verdict,
+    reason: result.reason,
+    files: task.files || [],
+    specDescription: task.spec?.description?.slice(0, 200) || '',
+  };
+
+  try {
+    fs.appendFileSync(path.join(logDir, 'review-feedback.jsonl'), JSON.stringify(entry) + '\n');
+  } catch { /* best-effort */ }
+}

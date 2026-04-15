@@ -196,7 +196,7 @@ function verifySpecKeywords(projectDir: string, task: TaskState): CheckResult[] 
 }
 
 /**
- * DAG 预检：检查所有待执行任务的 spec 完整性
+ * DAG 预检：检查所有待执行任务的 spec 完整性 + 质量评分
  */
 export function preflightCheck(_projectDir: string, tasks: TaskState[]): { ready: string[]; warnings: { taskId: string; issues: string[] }[] } {
   const ready: string[] = [];
@@ -204,11 +204,19 @@ export function preflightCheck(_projectDir: string, tasks: TaskState[]): { ready
 
   for (const task of tasks) {
     const issues: string[] = [];
+
+    // 基础完整性检查
     if (!task.spec?.description) issues.push('spec.description 为空');
     if (!task.spec?.interface) issues.push('spec.interface 为空 — bundle 质量可能不足');
     if (!task.files?.length) issues.push('未声明 files');
 
-    // 依赖检查由 DAG 层保证，这里只检查 spec 完整性
+    // codexfake 路由的中高复杂度任务 — spec 质量强化检查
+    const isCodexfake = task.routing?.target === 'codexfake';
+    const isComplex = (task.scores?.complexityScore ?? 0) >= 30;
+    if (isCodexfake || isComplex) {
+      const specIssues = checkSpecQuality(task);
+      issues.push(...specIssues);
+    }
 
     if (issues.length > 0) {
       warnings.push({ taskId: task.id, issues });
@@ -218,4 +226,58 @@ export function preflightCheck(_projectDir: string, tasks: TaskState[]): { ready
   }
 
   return { ready, warnings };
+}
+
+/**
+ * Spec 质量检查（针对 codexfake / 中高复杂度任务）
+ * 检测 spec 是否缺少关键实现细节，避免 agent 自行补全出错。
+ */
+function checkSpecQuality(task: TaskState): string[] {
+  const issues: string[] = [];
+  const desc = task.spec?.description || '';
+  const iface = task.spec?.interface || '';
+  const acceptance = task.spec?.acceptance || '';
+
+  // 1. description 长度：中等任务至少 80 字符
+  if (desc.length < 80) {
+    issues.push(`spec.description 过短 (${desc.length} chars) — codexfake 任务建议 ≥80 字符`);
+  }
+
+  // 2. acceptance 条目数：至少 3 条
+  const acceptanceItems = acceptance.split(/\d+[.、)]\s*/).filter(Boolean);
+  if (acceptanceItems.length < 3) {
+    issues.push(`spec.acceptance 条目不足 (${acceptanceItems.length}) — 建议 ≥3 条验收标准`);
+  }
+
+  // 3. interface 声明的参数 vs description 中的提及
+  // 如果 interface 有参数名，description 应该提及如何使用
+  const paramNames = extractParamNames(iface);
+  const missingParams = paramNames.filter(p => !desc.includes(p) && p.length > 2);
+  if (missingParams.length > 0) {
+    issues.push(`spec.interface 声明了参数 [${missingParams.join(', ')}] 但 description 未说明用法`);
+  }
+
+  // 4. 依赖模块使用说明
+  const deps = task.blockedBy || [];
+  const requiredFiles = task.context?.requiredFiles || [];
+  if ((deps.length > 0 || requiredFiles.length > 1) && !desc.includes('导入') && !desc.includes('import') && !desc.includes('调用')) {
+    issues.push('任务有依赖但 description 未说明如何导入/调用依赖模块');
+  }
+
+  return issues;
+}
+
+/** 从 interface 签名中提取参数名 */
+function extractParamNames(iface: string): string[] {
+  const names: string[] = [];
+  // 匹配函数参数: (argName: Type, argName2: Type)
+  const funcMatch = iface.match(/\(([^)]*)\)/);
+  if (funcMatch) {
+    const params = funcMatch[1].split(',');
+    for (const p of params) {
+      const nameMatch = p.trim().match(/^(\w+)\s*[?:]/)
+      if (nameMatch && nameMatch[1] !== 'args') names.push(nameMatch[1]);
+    }
+  }
+  return names;
 }

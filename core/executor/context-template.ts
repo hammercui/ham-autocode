@@ -19,6 +19,15 @@ import { summarizeFile } from '../context/summary-cache.js';
 import { readTask } from '../state/task-graph.js';
 import type { TaskState, RoutingTarget } from '../types.js';
 
+/** 实现前检查清单 — 防止 agent 自行补全关键细节时出错 */
+const PRE_IMPL_CHECKLIST = [
+  'Pre-implementation checklist:',
+  '- Use ALL function parameters. Never hardcode a value that is passed as an argument.',
+  '- Match the return type EXACTLY as specified in the Interface section.',
+  '- If importing other modules, check their actual exported function signatures first.',
+  '- Handle errors: return error info, do not throw unhandled exceptions.',
+].join('\n');
+
 /** Surgical Changes 约束（inspired by Karpathy guidelines） */
 const SURGICAL_CHANGES_RULE = [
   'Rules: surgical changes only.',
@@ -230,6 +239,9 @@ function buildCodexContext(projectDir: string, task: TaskState): MinimalContext 
   }
 
   lines.push('', SURGICAL_CHANGES_RULE);
+
+  // codexfake 任务自动追加实现检查清单（防止 agent 自行补全关键细节时出错）
+  lines.push('', PRE_IMPL_CHECKLIST);
 
   const text = lines.filter(Boolean).join('\n');
   return { instruction: text, estimatedTokens: Math.ceil(text.length / 4) };

@@ -15,7 +15,7 @@ import { readTask, readAllTasks } from '../state/task-graph.js';
 import { buildMinimalContext } from './context-template.js';
 import { appendAgentExec } from '../trace/logger.js';
 import { verifyTaskOutput, preflightCheck, verifyProjectTsc } from './quality-gate.js';
-import { reviewTaskOutput } from './review-gate.js';
+import { reviewTaskOutput, writeReviewFeedback } from './review-gate.js';
 import type { ReviewResult } from './review-gate.js';
 import { getAvailableAgent, recordSuccess, recordFailure } from './agent-status.js';
 import { loadConfig } from '../state/config.js';
@@ -344,6 +344,7 @@ async function executeTask(
           review = await reviewTaskOutput(projectDir, task, { timeout: 120000 });
           if (review.verdict === 'FAIL') {
             log(`${task.id} ⚠ L4 review FAIL: ${review.reason}`);
+            writeReviewFeedback(projectDir, review, task);
             // review FAIL 不阻塞（记录警告，仍然 commit），但记入结果供人工复查
           } else if (review.verdict === 'ERROR') {
             log(`${task.id} ⚠ L4 review error: ${review.reason}`);
