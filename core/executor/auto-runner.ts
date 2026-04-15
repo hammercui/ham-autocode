@@ -568,11 +568,12 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     totalCompleted += ok;
     totalFailed += failed;
     totalSkipped += skipped;
-    // I5: 计算 ETA
-    const elapsedMs = Date.now() - startTime;
-    const avgMs = totalCompleted > 0 ? elapsedMs / totalCompleted : 0;
+    // I5: 计算 ETA — 用各任务实际耗时平均值（非墙钟时间，避免并行偏低）
+    const allOkResults = waves.flatMap(w => w.tasks).filter(t => t.result === 'ok');
+    const totalTaskMs = allOkResults.reduce((sum, t) => sum + t.durationMs, 0);
+    const avgMs = allOkResults.length > 0 ? totalTaskMs / allOkResults.length : 0;
     const remainingCount = Math.max(0, status.remaining - totalCompleted - totalFailed - totalSkipped - allDeferredTasks.length);
-    const etaSec = totalCompleted > 0 ? Math.round(remainingCount * avgMs / 1000) : 0;
+    const etaSec = allOkResults.length > 0 ? Math.round(remainingCount * avgMs / 1000) : 0;
     const etaStr = etaSec > 0
       ? (etaSec >= 60 ? `~${Math.round(etaSec / 60)} min remaining` : `~${etaSec}s remaining`)
       : (remainingCount === 0 ? 'done' : 'calculating...');
