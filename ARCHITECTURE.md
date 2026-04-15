@@ -1,6 +1,12 @@
-# ham-autocode Architecture (v3.4)
+# ham-autocode Architecture (v3.9.1)
 
-> Claude Code Plugin — Harness Architecture for autonomous development.
+> Claude Code Plugin — Harness Architecture aligned with Four Pillars.
+
+## Design Principle
+
+> "If the Harness keeps getting more complex, it's probably over-engineered." — Manus team
+>
+> v3.9.1 deleted 1,760 lines of unused "learning" code. Simpler = better.
 
 ## Layers
 
@@ -9,53 +15,69 @@ User → Skills (10) → CLI Dispatcher → Command Modules → Core Engine
                                                             │
                     ┌───────────┬──────────┬────────────────┤
                     ▼           ▼          ▼                ▼
-               DAG/Scheduler  Context   Routing         Learning
-               Parser/CPM     Budget    Scorer/Quota    Brain/Entities
-               EVM/Gantt      Summary   Adapters(5)     Guard/Patterns
-                              TF-IDF    Executor        Analyzer/Adapter
+               DAG/Scheduler  Context   Routing         Brain
+               Parser/CPM     Summary   Scorer(5-target)  Entities
+               EVM/Gantt      Template  Executor(auto)    Auto-learn
+               Merge/Impact             Quality Gate
+                                        Review Gate
 ```
 
 ## Directory Map
 
-| Path | Purpose |
-|------|---------|
-| `core/commands/` | CLI command handlers (8 files, dispatched by index.ts) |
-| `core/dag/` | DAG scheduler, parser, CPM, PERT, EVM, Gantt |
-| `core/context/` | Token budget, file summary cache, incremental, TF-IDF |
-| `core/routing/` | 3-dimension scorer, 5-target router, quota fallback |
-| `core/executor/` | Adapters: claude-code, codex, claude-app, agent-teams, opencode |
-| `core/learning/` | Project brain, entities, patterns, analyzer, guard, field-test |
-| `core/validation/` | Gate detector, two-strike validator |
-| `core/recovery/` | Git checkpoint, worktree isolation |
-| `core/health/` | Project health check, drift, ESM/CJS, uncommitted analyzer |
-| `core/spec/` | OpenSpec reader, enricher, sync |
-| `core/state/` | Atomic JSON, pipeline, task-graph, config, validator |
-| `core/types/` | Domain type files (pipeline, task, config, engine) |
-| `skills/` | 10 skills: auto, detect, status, pause, resume, ship, parallel, setup, health-check, research |
-| `agents/` | 6 agent definitions (planner, coder, reviewer, qa-tester, infra, opencode) |
-| `hooks/` | SessionStart, SessionEnd, PostToolUse |
+| Path | Purpose | LoC |
+|------|---------|-----|
+| `core/commands/` | CLI command handlers (7 files) | ~800 |
+| `core/dag/` | DAG: scheduler, parser, CPM, PERT, EVM, Gantt, merge, graph | ~900 |
+| `core/context/` | File summary cache (1 file, after v3.9.1 cleanup) | ~170 |
+| `core/routing/` | 5-target scorer + static router + quota (simplified) | ~250 |
+| `core/executor/` | auto-runner, dispatcher, context-template, quality-gate, review-gate | ~2,100 |
+| `core/learning/` | Project brain, code entities, auto-learn (3 files, after v3.9.1 cleanup) | ~760 |
+| `core/recovery/` | Git checkpoint, worktree isolation | ~130 |
+| `core/health/` | Health check, drift, ESM/CJS, uncommitted analyzer | ~1,400 |
+| `core/spec/` | OpenSpec reader, enricher, sync | ~450 |
+| `core/state/` | Atomic JSON, pipeline, task-graph, config, validator, lock | ~400 |
+| `core/types/` | Domain types (pipeline, task, config, engine) | ~280 |
 
 ## Routing Targets
 
 | Target | Model | When |
 |--------|-------|------|
-| opencode | GLM-5.1 (free) | complexity ≤ 20, files ≤ 3 |
-| codex | GPT-5 | specScore ≥ 80, isolationScore ≥ 70 |
+| opencode | glm-4.7 (free) | complexity <= 40, files <= 5 |
+| codexfake | gpt-5.3-codex | specScore >= 80, isolationScore >= 70 |
 | claude-app | Sonnet | doc/config/hotfix tasks |
-| claude-code | Opus | complex/architectural (default) |
-| agent-teams | Sonnet ×N | parallel wave ≥ 3 isolated tasks |
+| claude-code | Opus 4.6 | complex/architectural (default) |
+| agent-teams | Opus x N | parallel wave >= 3 isolated tasks |
 
-Quota fallback: codex → opencode → claude-code (auto after 2 failures, 30min recovery).
+Static rules. No learned thresholds. Use `--agent` to override.
+
+## Quality Gates
+
+| Level | Check | On Failure |
+|-------|-------|------------|
+| L0 | File exists + non-empty | Error + fix instruction |
+| L1 | TypeScript single-file syntax | Error + TS error code guide |
+| L2 | spec.interface export verification | Error + "add export" instruction |
+| L3 | Project-level tsc --noEmit | Warning (doesn't block commit) |
+| L4 | opencode self-review (diff vs spec) | Warning + auto-append to CLAUDE.md |
 
 ## Data Flow
 
 ```
-dag complete/fail → auto-learn → brain + guard + entities (incremental) + field-test
-                               → every 5 tasks: analyzer → insights → adapter (threshold suggestions)
-                               → patterns (task type stats)
+dag add/init → task JSON files → auto-runner waves
+                                     │
+                          ┌──────────┼──────────┐
+                          ▼          ▼          ▼
+                    buildContext  executeTask  commitWave
+                    (per target)  (opencode)   (git add+commit)
+                          │          │
+                          │     quality gate
+                          │     L4 review
+                          │          │
+                          │     CLAUDE.md ← FAIL auto-append
+                          │
+                    40% Smart Zone budget check
 
-execute prepare → context-template → minimal context per target (1-5K tokens)
-route <task>    → scorer + router + quota check → routing decision
+dag complete → auto-learn → brain evolve + entity index
 ```
 
 ## Key Design Decisions
@@ -64,4 +86,7 @@ route <task>    → scorer + router + quota check → routing decision
 - TypeScript strict mode, Node16 module resolution
 - Atomic JSON writes with file locking
 - LSP-first for code understanding (CLAUDE.md rule)
-- Memory decay: painPoints/provenPatterns expire after 30 tasks
+- Static routing rules (deleted ML-style threshold adaptation in v3.9.1)
+- Error messages include fix instructions (OpenAI linter pattern)
+- CLAUDE.md as living feedback loop (Hashimoto AGENTS.md pattern)
+- Context budget: 40% Smart Zone threshold per target

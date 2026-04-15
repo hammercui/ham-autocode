@@ -3,23 +3,30 @@
 [![CI](https://github.com/hammercui/ham-autocode/actions/workflows/ci.yml/badge.svg)](https://github.com/hammercui/ham-autocode/actions/workflows/ci.yml)
 
 > Claude Code 插件：全自动项目开发。
-> Harness 架构：DAG 调度、上下文引擎、Agent 路由、验证门、恢复引擎、知识复利。
+> Harness 架构对齐 [Harness Engineering 四大支柱](docs/Harness%20Engineering%20深度解析：AI%20Agent%20时代的工程范式革命%201.md)：上下文架构、Agent 专业化、持久化记忆、结构化执行。
 
-**v3.5.0** | [更新日志](CHANGELOG.md) | [架构文档](ARCHITECTURE.md) | [入门指南](GUIDE.md) | [示例](examples/) | [English](README.md)
+**v3.9.1** | [更新日志](CHANGELOG.md) | [架构文档](ARCHITECTURE.md) | [入门指南](docs/GUIDE.md) | [示例](examples/) | [English](README.md)
 
 ## 这是什么？
 
 **Harness 层**——让 AI 编程 Agent 从"能跑"变成"稳定交付"：
 
-| 层 | 解决什么问题 |
-|----|-------------|
-| 上下文引擎 | Token 预算、文件摘要、TF-IDF 搜索、渐进披露 |
-| DAG 编排 | 拓扑排序、波次调度、关键路径/挣值分析/甘特图 |
-| 验证门 | 自动检测 lint/test，两次失败策略 |
-| 恢复引擎 | Git checkpoint + worktree 隔离 |
-| Agent 路由 | 5 目标评分（Claude Code/Codex/App/Teams/OpenCode）+ 配额回退 |
-| Spec 引擎 | OpenSpec 集成 + 启发式补全 |
-| 知识复利 | Brain、实体索引、模式记忆、Guard——每次任务自动学习 |
+| 支柱 | 解决什么问题 | 核心模块 |
+|------|-------------|---------|
+| 上下文架构 | 给对的 agent 对的上下文，不多不少。40% Smart Zone 预算控制 | context-template, summary-cache |
+| Agent 专业化 | 5 目标路由：opencode(免费) / codexfake(中等) / claude-code(复杂) / claude-app / agent-teams | router, scorer |
+| 持久化记忆 | 跨会话连续性：CHECKPOINT.md + DAG 状态 + git log。CLAUDE.md 活反馈循环 | DAG state, review-gate → CLAUDE.md |
+| 结构化执行 | DAG → 波次调度 → 质量门禁(L0-L4) → 自动提交。运行时 DAG 编辑(v3.9) | auto-runner, quality-gate, review-gate |
+
+## 设计理念
+
+基于 OpenAI、Anthropic、Stripe、Hashimoto 的行业共识：
+
+- **基础设施 > 模型智能** — 同模型、好 Harness = 质变级提升
+- **静态规则 > ML 自适应** — 路由用确定性评分，不用学习阈值
+- **简化而非复杂化** — v3.9.1 删除 1,760 行过度工程的"学习"代码
+- **错误消息即教学** — 质量门禁失败时告诉 agent 怎么修（OpenAI Linter 模式）
+- **CLAUDE.md 活反馈循环** — L4 review FAIL 自动追加到 CLAUDE.md（Hashimoto AGENTS.md 模式）
 
 ## 安装
 
@@ -36,31 +43,15 @@ claude --plugin-dir ./ham-autocode
 ## 快速开始
 
 ```
-/ham-autocode:auto        # 全自动 6 阶段流水线
+/ham-autocode:auto        # 全自动流水线
 /ham-autocode:detect      # 扫描现有项目状态
 /ham-autocode:parallel    # Agent Teams + DAG 路由
 /ham-autocode:ship        # 审查 + QA + 发布
-/ham-autocode:setup       # 安装缺失依赖（gstack/GSD/Superpowers）
 ```
 
-详见 [GUIDE.md](GUIDE.md)（10 分钟入门教程）。
+详见 [GUIDE.md](docs/GUIDE.md)（10 分钟入门教程）。
 
-## 技能（10 个）
-
-| 技能 | 用途 |
-|------|------|
-| detect | 扫描项目，跳过已完成阶段 |
-| auto | 全自动 6 阶段流水线 |
-| parallel | Agent Teams + DAG 路由 |
-| ship | 审查 + QA + 修复 + 发布 |
-| status | 显示进度 / 暂停流水线 |
-| resume | 从保存状态恢复 |
-| pause | 暂停并保存状态 |
-| setup | 安装缺失的技能包 |
-| health-check | 项目健康评分（git/编译/测试/依赖/lint） |
-| research | 竞品分析 |
-
-## CLI 命令（45+）
+## CLI 命令
 
 ```bash
 node dist/index.js <命令>
@@ -68,43 +59,32 @@ node dist/index.js <命令>
 
 | 分类 | 命令 |
 |------|------|
-| 配置 | `config show` |
-| DAG | `dag init`, `dag status`, `dag next-wave`, `dag complete <id>`, `dag fail <id> <type>`, `dag visualize`, `dag critical-path`, `dag estimate`, `dag evm`, `dag gantt` |
-| 路由 | `route <id>`, `route batch`, `route confirm <id>` |
-| 执行 | `execute prepare <id>` |
-| 上下文 | `context budget`, `context summary <file>`, `context search <query>` |
-| 学习 | `learn brain`, `learn detail <topic>`, `learn scan`, `learn analyze`, `learn suggest`, `learn apply`, `learn patterns`, `learn hints <name>`, `learn entities`, `learn deps`, `learn impact <files>`, `learn guard`, `learn field-test` |
-| 健康 | `health check`, `health drift`, `health uncommitted`, `health esm-cjs` |
-| 验证 | `validate detect`, `validate gates` |
-| 配额 | `quota status`, `quota mark-unavailable <target>`, `quota mark-available <target>` |
-| 团队 | `teams assign`, `teams should-use` |
+| DAG | `dag init\|status\|next-wave\|complete\|fail\|visualize\|critical-path\|estimate\|evm\|gantt` |
+| DAG 编辑 (v3.9) | `dag add\|remove\|add-dep\|remove-dep\|re-init --merge\|scope-cut\|impact\|move` |
+| 路由 | `route <id>\|batch\|confirm` |
+| 执行 | `execute prepare\|run\|auto\|auto-status\|stats` |
+| 上下文 | `context summary <file>` |
+| 学习 | `learn brain\|detail\|scan\|entities\|status` |
+| 健康 | `health check\|drift\|uncommitted\|esm-cjs` |
+| 验证 | `validate detect\|gates` |
 
-## 已验证证据
+## 实测数据
 
-在真实项目上测试（ham-video —— Electron 桌面视频创作管线）：
+在真实项目上验证（ham-video — 43 个任务，3 个里程碑）：
 
-- **8/8 单元测试通过**（token、git、lock、atomic、DAG、routing、context、CLI）
-- **完整执行闭环**：PLAN.md → dag init → route → codex exec → 编译 → commit → dag complete
-- **12 任务 DAG**：依赖解析、波次调度、5 目标路由
-- **Codex 自动执行**：2 个任务由 Codex 成功执行，零人工干预
-- **Memory 渐进披露**：~150 token 紧凑索引 vs ~400 token 全量注入（-60%）
-- **CI**：GitHub Actions，Node 18 + 22 矩阵，每次推送自动检查
-
-## 依赖
-
-| 框架 | 作者 | Star 数 | 角色 | 安装 |
-|------|------|---------|------|------|
-| [GSD](https://github.com/gsd-build/get-shit-done) | TACHES | 52k+ | 上下文工程、Spec 驱动工作流 | `git clone --depth 1 https://github.com/gsd-build/get-shit-done.git ~/.claude/plugins/gsd` |
-| [gstack](https://github.com/garrytan/gstack) | Garry Tan | 72k+ | 23 个专业工具：CEO/设计师/工程经理/QA | `git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack` |
-| [Superpowers](https://github.com/obra/superpowers) | Jesse Vincent | 151k+ | Agent 技能框架与开发方法论 | `git clone --depth 1 https://github.com/obra/superpowers.git ~/.claude/plugins/superpowers` |
+- **8/8 单元测试通过**
+- **43 任务全部完成**：opencode 15/15 (100%), codexfake 7/7 (100%)
+- **平均任务耗时**：91s (opencode), 80s (codexfake)
+- **Token 成本**：35,549 tokens/任务，opencode 免费 (glm-4.7)
+- **编排器开销**：~7,400 tokens / 37 任务（节省 93%）
+- **L4 review**：在 ham-video v0.3 中发现真实 bug（缺少 await）
+- **DAG 变更管理**：执行中运行时插入/删除/重排任务
+- **CI**：GitHub Actions，Node 18 + 22 矩阵
 
 ## 编译与测试
 
 ```bash
-npm ci              # 安装依赖
-npm run build       # TypeScript → dist/
-npm test            # 运行 8 个测试套件
-npm run test:quick  # 编译 + 测试一步完成
+npm ci && npm run build && npm test
 ```
 
 ## 配置

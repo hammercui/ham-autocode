@@ -1,8 +1,8 @@
 # ham-autocode Progress Checkpoint
 
-> Updated: 2026-04-15 Session 5 | v3.9 DAG Change Management
+> Updated: 2026-04-15 Session 5 | v3.9.1 Harness Engineering 四大支柱对齐
 
-## Current Version: v3.9
+## Current Version: v3.9.1
 
 ### Session 5 交付清单
 

@@ -2,6 +2,42 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.9.1] - 2026-04-15
+
+### Changed — Harness Engineering 四大支柱对齐
+
+基于行业文献（OpenAI/Anthropic/Stripe/Hashimoto）和 ham-video 43 tasks 实战验证，
+对架构做了方向性调整：删除过度工程，强化真正有价值的部分。
+
+### Removed — CE 层精简 (-1,760 行)
+
+- **删除 6 个学习模块**: analyzer, adapter, patterns, field-test, dependency-graph, memory-guard
+  - 原因: thresholdSuggestions 永远为空, failurePatterns 从未触发, patterns 内容空洞
+  - 行业文献: 无团队在做 ML 式阈值自适应, 这不是 Harness Engineering 的一部分
+- **删除 4 个 context 文件**: manager, budget, incremental, tfidf
+  - 原因: 仅被 CLI 调用, auto 执行流程不使用
+- **精简 quota.ts**: 260→30 行, 冷却/可用性追踪从未触发
+- **精简 cmd-learn.ts**: 15→5 个子命令
+- **精简 cmd-context.ts**: 4→1 个子命令
+- **路由器**: 删除 readInsights 自适应, 回归静态配置
+
+### Added — Harness Engineering 三项改进
+
+- **H1: 质量门禁错误消息含修复指令** (L0-L3)
+  - 来源: OpenAI "Linter 错误消息即修复指令"
+- **H2: 上下文 40% Smart Zone 预算控制**
+  - 来源: Dex Horthy "上下文填到 40% 就开始走下坡路"
+- **H3: CLAUDE.md 活反馈循环**
+  - L4 review FAIL 自动追加经验到项目 CLAUDE.md
+  - 来源: Hashimoto "AGENTS.md 每一行对应一个历史失败案例"
+
+### Fixed — ham-video 实战反馈
+
+- dag add 调用 routeTask 评分路由 (不再硬编码 claude-code)
+- preflight 对 runtime-added 任务跳过 spec.interface 空 warning
+- L4 review parseVerdict 增加中文短语识别
+- L3 tsc 注释澄清为"警告模式"
+
 ## [3.9.0] - 2026-04-15
 
 ### Added — DAG Change Management (运行时 DAG 编辑)

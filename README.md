@@ -3,23 +3,30 @@
 [![CI](https://github.com/hammercui/ham-autocode/actions/workflows/ci.yml/badge.svg)](https://github.com/hammercui/ham-autocode/actions/workflows/ci.yml)
 
 > Claude Code Plugin for fully autonomous project development.
-> Harness Architecture: DAG scheduler, context engine, agent routing, validation gates, recovery, knowledge compounding.
+> Harness Architecture aligned with [Harness Engineering Four Pillars](docs/Harness%20Engineering%20深度解析：AI%20Agent%20时代的工程范式革命%201.md): Context Architecture, Agent Specialization, Persistent Memory, Structured Execution.
 
-**v3.5.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Guide](GUIDE.md) | [Examples](examples/) | [中文文档](README.zh-CN.md)
+**v3.9.1** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Guide](docs/GUIDE.md) | [Examples](examples/) | [中文文档](README.zh-CN.md)
 
 ## What is it?
 
 The **Harness** layer that turns AI coding agents from "can run" into "runs reliably":
 
-| Layer | What it solves |
-|-------|---------------|
-| Context Engine | Token budget, file summaries, TF-IDF search, progressive disclosure |
-| DAG Orchestration | Topo sort, wave scheduling, CPM/EVM/Gantt |
-| Validation Gates | Auto-detect lint/test, two-strike policy |
-| Recovery Engine | Git checkpoint + worktree isolation |
-| Agent Routing | 5-target scoring (Claude Code/Codex/App/Teams/OpenCode) + quota fallback |
-| Spec Engine | OpenSpec integration + heuristic enrichment |
-| Knowledge Compounding | Brain, entities, patterns, guard — auto-learn on every task |
+| Pillar | What it solves | Key Modules |
+|--------|---------------|-------------|
+| Context Architecture | Right context for right agent — no more, no less. 40% Smart Zone budget control | context-template, summary-cache |
+| Agent Specialization | 5-target routing: opencode (free) / codexfake (mid) / claude-code (complex) / claude-app / agent-teams | router, scorer |
+| Persistent Memory | Cross-session continuity via CHECKPOINT.md, DAG state, git log. CLAUDE.md as living feedback loop | DAG state, review-gate → CLAUDE.md |
+| Structured Execution | DAG → wave scheduling → quality gates (L0-L4) → auto-commit. Runtime DAG editing (v3.9) | auto-runner, quality-gate, review-gate |
+
+## Design Philosophy
+
+Based on industry consensus from OpenAI, Anthropic, Stripe, and Hashimoto:
+
+- **Infrastructure > Intelligence** — Same model, better harness = dramatically better results
+- **Static rules > ML adaptation** — Routing uses deterministic scoring, not learned thresholds
+- **Simplify, don't complexify** — v3.9.1 deleted 1,760 lines of over-engineered "learning" code
+- **Error messages teach** — Quality gate failures include fix instructions (OpenAI linter pattern)
+- **CLAUDE.md as feedback loop** — L4 review failures auto-append to CLAUDE.md (Hashimoto AGENTS.md pattern)
 
 ## Install
 
@@ -36,31 +43,15 @@ Verify: `/ham-autocode:status`
 ## Quick Start
 
 ```
-/ham-autocode:auto        # Full 6-phase pipeline
+/ham-autocode:auto        # Full autonomous pipeline
 /ham-autocode:detect      # Scan existing project state
 /ham-autocode:parallel    # Agent Teams + DAG routing
 /ham-autocode:ship        # Review + QA + release
-/ham-autocode:setup       # Install missing dependencies (gstack/GSD/Superpowers)
 ```
 
-See [GUIDE.md](GUIDE.md) for a 10-minute onboarding tutorial.
+See [GUIDE.md](docs/GUIDE.md) for a 10-minute onboarding tutorial.
 
-## Skills (10)
-
-| Skill | Purpose |
-|-------|---------|
-| detect | Scan project, skip completed phases |
-| auto | Full 6-phase autonomous pipeline |
-| parallel | Agent Teams + DAG routing |
-| ship | Review + QA + fix + release |
-| status | Show progress / pause pipeline |
-| resume | Continue from saved state |
-| pause | Pause with state preservation |
-| setup | Install missing skill packs |
-| health-check | Project health score (git/compile/test/deps/lint) |
-| research | Competitive analysis |
-
-## CLI Commands (45+)
+## CLI Commands
 
 ```bash
 node dist/index.js <command>
@@ -68,43 +59,32 @@ node dist/index.js <command>
 
 | Category | Commands |
 |----------|----------|
-| Config | `config show` |
-| DAG | `dag init`, `dag status`, `dag next-wave`, `dag complete <id>`, `dag fail <id> <type>`, `dag visualize`, `dag critical-path`, `dag estimate`, `dag evm`, `dag gantt` |
-| Route | `route <id>`, `route batch`, `route confirm <id>` |
-| Execute | `execute prepare <id>` |
-| Context | `context budget`, `context summary <file>`, `context search <query>` |
-| Learn | `learn brain`, `learn detail <topic>`, `learn scan`, `learn analyze`, `learn suggest`, `learn apply`, `learn patterns`, `learn hints <name>`, `learn entities`, `learn deps`, `learn impact <files>`, `learn guard`, `learn field-test` |
-| Health | `health check`, `health drift`, `health uncommitted`, `health esm-cjs` |
-| Validate | `validate detect`, `validate gates` |
-| Quota | `quota status`, `quota mark-unavailable <target>`, `quota mark-available <target>` |
-| Teams | `teams assign`, `teams should-use` |
+| DAG | `dag init\|status\|next-wave\|complete\|fail\|visualize\|critical-path\|estimate\|evm\|gantt` |
+| DAG Edit (v3.9) | `dag add\|remove\|add-dep\|remove-dep\|re-init --merge\|scope-cut\|impact\|move` |
+| Route | `route <id>\|batch\|confirm` |
+| Execute | `execute prepare\|run\|auto\|auto-status\|stats` |
+| Context | `context summary <file>` |
+| Learn | `learn brain\|detail\|scan\|entities\|status` |
+| Health | `health check\|drift\|uncommitted\|esm-cjs` |
+| Validate | `validate detect\|gates` |
 
 ## Verified Evidence
 
-Tested on real projects (ham-video — Electron desktop video pipeline):
+Tested on real projects (ham-video — 43 tasks across 3 milestones):
 
-- **8/8 unit test suites passing** (token, git, lock, atomic, DAG, routing, context, CLI)
-- **Complete execution loop**: PLAN.md → dag init → route → codex exec → compile → commit → dag complete
-- **12-task DAG** with dependency resolution, wave scheduling, and 5-target routing
-- **Codex auto-execution**: 2 tasks successfully executed by Codex with zero manual intervention
-- **Memory progressive disclosure**: ~150 token compact index vs ~400 token full dump (-60%)
-- **CI**: GitHub Actions with Node 18 + 22 matrix on every push
-
-## Dependencies
-
-| Framework | Author | Stars | Role | Install |
-|-----------|--------|-------|------|---------|
-| [GSD](https://github.com/gsd-build/get-shit-done) | TACHES | 52k+ | Context engineering, spec-driven workflow | `git clone --depth 1 https://github.com/gsd-build/get-shit-done.git ~/.claude/plugins/gsd` |
-| [gstack](https://github.com/garrytan/gstack) | Garry Tan | 72k+ | 23 opinionated tools: CEO/Designer/Eng/QA | `git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack` |
-| [Superpowers](https://github.com/obra/superpowers) | Jesse Vincent | 151k+ | Agentic skills framework & dev methodology | `git clone --depth 1 https://github.com/obra/superpowers.git ~/.claude/plugins/superpowers` |
+- **8/8 unit test suites passing**
+- **43 tasks completed**: opencode 15/15 (100%), codexfake 7/7 (100%)
+- **Average task time**: 91s (opencode), 80s (codexfake)
+- **Token cost**: 35,549 tokens/task via opencode (free, glm-4.7)
+- **Orchestrator overhead**: ~7,400 tokens / 37 tasks (93% savings)
+- **L4 review**: Caught real bug (missing await) in ham-video v0.3
+- **DAG Change Management**: Runtime task insertion/removal/reorder during execution
+- **CI**: GitHub Actions with Node 18 + 22 matrix
 
 ## Build & Test
 
 ```bash
-npm ci              # Install dependencies
-npm run build       # TypeScript → dist/
-npm test            # Run 8 test suites
-npm run test:quick  # Build + test in one step
+npm ci && npm run build && npm test
 ```
 
 ## Configuration
