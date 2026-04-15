@@ -260,26 +260,20 @@ async function executeTask(
     const startTime = Date.now();
 
     try {
-      // 构建命令 — codex 用文件参数，opencode 用 stdin 重定向
-      let cmd: string;
-      let args: string[];
-
+      // 构建 shell 命令 — Windows 需要 shell:true 来解析 .cmd 脚本
+      // 用 < file 重定向传 prompt（codex/opencode 都从 stdin 读取）
+      let shellCmd: string;
       if (agentName === 'codex') {
-        // codex: 读取 bundle 内容作为参数传入（避免 stdin 卡死）
-        const bundleContent = fs.readFileSync(bundlePath, 'utf-8');
-        cmd = 'codex';
-        args = ['exec', '--full-auto', bundleContent];
+        shellCmd = `codex exec --full-auto < "${bundlePath.replace(/\\/g, '/')}"`;
       } else {
-        // opencode: 用 stdin 重定向（已验证可靠）
-        cmd = 'opencode';
-        args = ['run', '--dangerously-skip-permissions', fs.readFileSync(bundlePath, 'utf-8')];
+        shellCmd = `opencode run --dangerously-skip-permissions < "${bundlePath.replace(/\\/g, '/')}"`;
       }
 
-      // spawn 实现真正的异步并行
+      // spawn + shell:true 实现真正的异步并行
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(cmd, args, {
+        const child = spawn(shellCmd, [], {
           cwd: projectDir,
-          shell: false,
+          shell: true,
           stdio: ['pipe', 'pipe', 'pipe'],
         });
 
