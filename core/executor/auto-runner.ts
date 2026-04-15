@@ -15,6 +15,8 @@ import { readTask, readAllTasks } from '../state/task-graph.js';
 import { buildMinimalContext } from './context-template.js';
 import { appendAgentExec } from '../trace/logger.js';
 import { verifyTaskOutput, preflightCheck, verifyProjectTsc } from './quality-gate.js';
+import { reviewTaskOutput } from './review-gate.js';
+import type { ReviewResult } from './review-gate.js';
 import { getAvailableAgent, recordSuccess, recordFailure } from './agent-status.js';
 import { loadConfig } from '../state/config.js';
 import type { TaskState, RoutingTarget } from '../types.js';
@@ -27,6 +29,7 @@ export interface AutoRunOptions {
   concurrency?: number;     // 最大并行数，默认无限制
   dryRun?: boolean;
   push?: boolean;
+  review?: boolean;         // L4: opencode 自审（默认 true）
 }
 
 /** 需要 Claude Code 处理的任务（auto 无法自动执行） */
@@ -50,6 +53,7 @@ export interface TaskExecResult {
   error?: string;
   fallbackUsed?: boolean;
   qualityPassed?: boolean;
+  review?: ReviewResult;
 }
 
 export interface WaveResult {
@@ -332,6 +336,22 @@ async function executeTask(
       const quality = verifyTaskOutput(projectDir, task);
 
       if (quality.passed) {
+        // L4: opencode 自审（默认启用，--no-review 可跳过）
+        let review: ReviewResult | undefined;
+        const doReview = options.review !== false;
+        if (doReview) {
+          log(`${task.id} → L4 review...`);
+          review = await reviewTaskOutput(projectDir, task, { timeout: 120000 });
+          if (review.verdict === 'FAIL') {
+            log(`${task.id} ⚠ L4 review FAIL: ${review.reason}`);
+            // review FAIL 不阻塞（记录警告，仍然 commit），但记入结果供人工复查
+          } else if (review.verdict === 'ERROR') {
+            log(`${task.id} ⚠ L4 review error: ${review.reason}`);
+          } else {
+            log(`${task.id} ✓ L4 review PASS (${Math.round(review.durationMs / 1000)}s)`);
+          }
+        }
+
         recordSuccess(projectDir, agentName);
         dagComplete(projectDir, task.id);
         appendAgentExec(projectDir, {
@@ -351,7 +371,7 @@ async function executeTask(
         return {
           taskId: task.id, taskName: task.name, agent: agentName,
           result: 'ok', durationMs, filesCreated: created, filesModified: modified,
-          fallbackUsed: attempt > 0, qualityPassed: true,
+          fallbackUsed: attempt > 0, qualityPassed: true, review,
         };
       }
 

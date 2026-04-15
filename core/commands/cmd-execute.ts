@@ -136,9 +136,10 @@ export function handleExecute(args: string[], projectDir: string): any {
     const concurrency = concurrencyIdx >= 0 ? parseInt(args[concurrencyIdx + 1], 10) : undefined;
     const dryRun = args.includes('--dry-run');
     const push = args.includes('--push');
+    const review = !args.includes('--no-review'); // 默认启用 L4 review
 
     // runAuto 是 async，返回 Promise
-    return runAuto(projectDir, { agent, timeout, concurrency, dryRun, push });
+    return runAuto(projectDir, { agent, timeout, concurrency, dryRun, push, review });
   }
 
   if (sub === 'auto-status') {
