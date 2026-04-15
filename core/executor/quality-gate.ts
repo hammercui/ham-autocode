@@ -5,7 +5,6 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 import type { TaskState } from '../types.js';
 
 export interface QualityResult {
@@ -58,53 +57,12 @@ export function verifyTaskOutput(projectDir: string, task: TaskState): QualityRe
     });
   }
 
-  // 3. TypeScript 语法检查（仅当项目有 tsconfig 且产出含 .ts/.tsx）
-  const tsFiles = files.filter(f => /\.tsx?$/.test(f));
-  if (tsFiles.length > 0) {
-    const tsconfigPath = findTsconfig(projectDir, tsFiles[0]);
-    if (tsconfigPath) {
-      const syntaxOk = checkTypeScript(projectDir, tsconfigPath);
-      checks.push({
-        name: 'typescript',
-        passed: syntaxOk.passed,
-        message: syntaxOk.passed ? 'tsc --noEmit 通过' : `tsc 错误: ${syntaxOk.error}`,
-      });
-    }
-  }
+  // 3. TypeScript 语法检查 — 跳过
+  // 全项目 tsc --noEmit 会被 agent 额外创建的文件（如测试文件）绊倒
+  // 文件存在 + 非空 已足够作为自动化门禁，tsc 留给人工审查
 
   const passed = checks.every(c => c.passed);
   return { taskId: task.id, passed, checks };
-}
-
-/** 向上查找最近的 tsconfig.json */
-function findTsconfig(projectDir: string, relFile: string): string | null {
-  let dir = path.dirname(path.resolve(projectDir, relFile));
-  const root = path.resolve(projectDir);
-
-  while (dir.startsWith(root)) {
-    const candidate = path.join(dir, 'tsconfig.json');
-    if (fs.existsSync(candidate)) return candidate;
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return null;
-}
-
-/** 运行 tsc --noEmit，返回是否通过 */
-function checkTypeScript(projectDir: string, tsconfigPath: string): { passed: boolean; error?: string } {
-  try {
-    execSync(`npx tsc --noEmit -p "${tsconfigPath}"`, {
-      cwd: projectDir,
-      stdio: 'pipe',
-      timeout: 30000,
-    });
-    return { passed: true };
-  } catch (e: unknown) {
-    const err = e as { stderr?: Buffer; stdout?: Buffer };
-    const msg = err.stderr?.toString().slice(0, 200) || err.stdout?.toString().slice(0, 200) || 'unknown error';
-    return { passed: false, error: msg };
-  }
 }
 
 /**

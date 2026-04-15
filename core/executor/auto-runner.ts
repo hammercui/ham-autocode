@@ -247,7 +247,9 @@ async function executeTask(
   for (let attempt = 0; attempt < fallbackChain.length; attempt++) {
     const agentName = options.agent
       ? options.agent  // 强制指定时不 fallback
-      : getAvailableAgent(projectDir, fallbackChain[0], fallbackChain.slice(1)) || fallbackChain[0];
+      : (attempt === 0
+        ? (getAvailableAgent(projectDir, fallbackChain[0], fallbackChain.slice(1)) || fallbackChain[0])
+        : fallbackChain[attempt]);
 
     // 生成 bundle
     const target = agentName as RoutingTarget;
@@ -258,22 +260,27 @@ async function executeTask(
     const startTime = Date.now();
 
     try {
-      // 构建命令 — 用 shell 重定向 stdin（避免 codex stdin 解析问题）
-      let shellCmd: string;
+      // 构建命令 — codex 用文件参数，opencode 用 stdin 重定向
+      let cmd: string;
+      let args: string[];
 
       if (agentName === 'codex') {
-        shellCmd = `codex exec --full-auto < "${bundlePath}"`;
+        // codex: 读取 bundle 内容作为参数传入（避免 stdin 卡死）
+        const bundleContent = fs.readFileSync(bundlePath, 'utf-8');
+        cmd = 'codex';
+        args = ['exec', '--full-auto', bundleContent];
       } else {
-        shellCmd = `opencode run --dangerously-skip-permissions < "${bundlePath}"`;
+        // opencode: 用 stdin 重定向（已验证可靠）
+        cmd = 'opencode';
+        args = ['run', '--dangerously-skip-permissions', fs.readFileSync(bundlePath, 'utf-8')];
       }
 
-      // 用 spawn + shell 模式实现真正的异步并行
+      // spawn 实现真正的异步并行
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(shellCmd, [], {
+        const child = spawn(cmd, args, {
           cwd: projectDir,
-          shell: true,
+          shell: false,
           stdio: ['pipe', 'pipe', 'pipe'],
-          timeout,
         });
 
         let killed = false;
@@ -313,6 +320,12 @@ async function executeTask(
         });
 
         log(`${task.id} ✓ ${Math.round(durationMs / 1000)}s (${agentName}, ${created} files created)`);
+        if (_progressState) {
+          _progressState.completed++;
+          _progressState.remaining = Math.max(0, _progressState.remaining - 1);
+          _progressState.currentTasks = _progressState.currentTasks.filter(t => t.taskId !== task.id);
+          flushProgress();
+        }
         return {
           taskId: task.id, taskName: task.name, agent: agentName,
           result: 'ok', durationMs, filesCreated: created, filesModified: modified,
