@@ -15,6 +15,7 @@ import { buildMinimalContext } from '../executor/context-template.js';
 import { buildDispatchCommand, checkAgentAvailable } from '../executor/dispatcher.js';
 import { appendAgentExec, agentExecStats, resetAgentExecLog } from '../trace/logger.js';
 import { runAuto, readProgress } from '../executor/auto-runner.js';
+import { runFullAuto } from '../executor/phase-loop.js';
 import type { RoutingTarget } from '../types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -142,13 +143,29 @@ export function handleExecute(args: string[], projectDir: string): any {
     return runAuto(projectDir, { agent, timeout, concurrency, dryRun, push, review });
   }
 
+  if (sub === 'full-auto') {
+    // 24h 自治循环: PLAN.md → Opus spec → routeTask → 波次执行 → phase 推进
+    const agent = args.includes('--agent') ? args[args.indexOf('--agent') + 1] as 'codexfake' | 'opencode' : undefined;
+    const timeoutIdx = args.indexOf('--timeout');
+    const timeout = timeoutIdx >= 0 ? parseInt(args[timeoutIdx + 1], 10) : undefined;
+    const concurrencyIdx = args.indexOf('--concurrency');
+    const concurrency = concurrencyIdx >= 0 ? parseInt(args[concurrencyIdx + 1], 10) : undefined;
+    const maxPhasesIdx = args.indexOf('--max-phases');
+    const maxPhases = maxPhasesIdx >= 0 ? parseInt(args[maxPhasesIdx + 1], 10) : undefined;
+    const dryRun = args.includes('--dry-run');
+    const push = args.includes('--push');
+    const review = !args.includes('--no-review');
+
+    return runFullAuto(projectDir, { agent, timeout, concurrency, maxPhases, dryRun, push, review });
+  }
+
   if (sub === 'auto-status') {
     const progress = readProgress(projectDir);
     if (!progress) return { status: 'idle', message: 'No auto-execution running or completed' };
     return progress;
   }
 
-  throw new Error('Usage: execute prepare|run|log|stats|auto|auto-status [--raw|--codexfake|--opencode|--dry-run|--push]');
+  throw new Error('Usage: execute prepare|run|log|stats|auto|full-auto|auto-status [--agent|--timeout|--dry-run|--push|--max-phases]');
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
