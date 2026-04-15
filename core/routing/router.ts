@@ -11,9 +11,8 @@
 import { scoreTask } from './scorer.js';
 import { loadConfig } from '../state/config.js';
 import { writeTask } from '../state/task-graph.js';
-import { readInsights } from '../learning/analyzer.js';
 import { resolveTarget } from './quota.js';
-import type { TaskState, TaskScores, RoutingDecision, RoutingTarget, HarnessConfig, RoutingConfig } from '../types.js';
+import type { TaskState, TaskScores, RoutingDecision, RoutingTarget, HarnessConfig } from '../types.js';
 
 type TaskType = 'doc' | 'config' | 'hotfix' | 'default';
 
@@ -38,18 +37,8 @@ function inferTaskType(task: TaskState & { type?: string }): TaskType {
 }
 
 export function routeTask(task: TaskState & { type?: string }, allTasks: TaskState[], projectDir?: string): RouteResult {
-  const baseConfig = loadConfig(projectDir || '.').routing;
-
-  // v3.0 CE: check learning insights for adapted thresholds
-  const insights = readInsights(projectDir || '.');
-  const config: RoutingConfig = insights?.thresholdSuggestions
-    ? {
-        ...baseConfig,
-        codexMinSpecScore: insights.thresholdSuggestions.codexMinSpecScore ?? baseConfig.codexMinSpecScore,
-        codexMinIsolationScore: insights.thresholdSuggestions.codexMinIsolationScore ?? baseConfig.codexMinIsolationScore,
-        confirmThreshold: insights.thresholdSuggestions.confirmThreshold ?? baseConfig.confirmThreshold,
-      }
-    : baseConfig;
+  // 静态配置驱动路由（v3.9.1: 删除了 readInsights 自适应，参见 Harness Engineering 四大支柱分析）
+  const config = loadConfig(projectDir || '.').routing;
   const scores: TaskScores = scoreTask(task, allTasks);
   const taskType = inferTaskType(task);
 

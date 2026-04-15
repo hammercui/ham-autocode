@@ -94,7 +94,7 @@ export function readBrain(projectDir: string): ProjectBrain {
   };
 }
 
-function saveBrain(projectDir: string, brain: ProjectBrain): void {
+export function saveBrain(projectDir: string, brain: ProjectBrain): void {
   const dir = path.dirname(brainPath(projectDir));
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   brain.updatedAt = new Date().toISOString();

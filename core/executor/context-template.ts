@@ -14,7 +14,6 @@
 
 import { readBrain, getBrainContext as getBrainContextFn } from '../learning/project-brain.js';
 import { searchEntities, readEntityIndex } from '../learning/code-entities.js';
-import { getPatternHints } from '../learning/patterns.js';
 import { summarizeFile } from '../context/summary-cache.js';
 import { readTask } from '../state/task-graph.js';
 import type { TaskState, RoutingTarget } from '../types.js';
@@ -160,10 +159,9 @@ function getDependencyOutputs(projectDir: string, task: TaskState): string {
   return outputs.length > 0 ? outputs.join('\n') : '';
 }
 
-/** 获取 pattern hints */
-function getHints(projectDir: string, taskName: string): string {
-  const hints = getPatternHints(projectDir, taskName);
-  return hints.length > 0 ? hints.join('; ') : '';
+/** pattern hints 已在 v3.9.1 中移除（无实际价值）*/
+function getHints(_projectDir: string, _taskName: string): string {
+  return '';
 }
 
 // ==================== Per-Target Builders ====================
