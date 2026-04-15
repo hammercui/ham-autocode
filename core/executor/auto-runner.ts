@@ -10,7 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import { readTask, readAllTasks } from '../state/task-graph.js';
 import { buildMinimalContext } from './context-template.js';
 import { appendAgentExec } from '../trace/logger.js';
@@ -190,27 +190,42 @@ async function executeTask(
     const startTime = Date.now();
 
     try {
-      // 构建命令
-      let cmd: string;
-      let cmdArgs: string[];
+      // 构建命令 — 用 shell 重定向 stdin（避免 codex stdin 解析问题）
+      let shellCmd: string;
 
       if (agentName === 'codex') {
-        cmd = 'codex';
-        cmdArgs = ['exec', '--full-auto'];
+        shellCmd = `codex exec --full-auto < "${bundlePath}"`;
       } else {
-        cmd = 'opencode';
-        cmdArgs = ['run', '--dangerously-skip-permissions'];
+        shellCmd = `opencode run --dangerously-skip-permissions < "${bundlePath}"`;
       }
 
-      // 执行: 用 shell 模式确保 PATH 解析正确，stdin 传入 bundle
-      const bundleContent = fs.readFileSync(bundlePath, 'utf-8');
-      const fullCommand = [cmd, ...cmdArgs].join(' ');
-      execSync(fullCommand, {
-        cwd: projectDir,
-        input: bundleContent,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout,
-        maxBuffer: 10 * 1024 * 1024,
+      // 用 spawn + shell 模式实现真正的异步并行
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(shellCmd, [], {
+          cwd: projectDir,
+          shell: true,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          timeout,
+        });
+
+        let killed = false;
+        const timer = setTimeout(() => {
+          killed = true;
+          child.kill('SIGTERM');
+          reject(new Error(`timeout after ${timeout}ms`));
+        }, timeout);
+
+        child.on('close', (code) => {
+          clearTimeout(timer);
+          if (killed) return;
+          if (code === 0) resolve();
+          else reject(new Error(`exit code ${code}`));
+        });
+
+        child.on('error', (err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
       });
 
       const durationMs = Date.now() - startTime;
