@@ -19,6 +19,7 @@ import { reviewTaskOutput, writeReviewFeedback } from './review-gate.js';
 import type { ReviewResult } from './review-gate.js';
 import { getAvailableAgent, recordSuccess, recordFailure } from './agent-status.js';
 import { loadConfig } from '../state/config.js';
+import { parseOpenCodeOutput } from './dispatcher.js';
 import type { TaskState, RoutingTarget } from '../types.js';
 
 // ==================== Types ====================
@@ -288,6 +289,9 @@ async function executeTask(
       flushProgress();
     }
 
+    let agentStdout = '';
+    let isTimeout = false;
+
     try {
       // 构建 shell 命令 — 全部通过 opencode CLI 执行
       // codex 路由目标使用 opencode + GPT 模型，opencode 路由目标使用默认模型
@@ -296,12 +300,10 @@ async function executeTask(
       let shellCmd: string;
       if (agentName === 'codexfake') {
         const gptModel = resolveGptModelForAuto(projectDir);
-        shellCmd = `opencode run --dangerously-skip-permissions --model "${gptModel}" < "${bundlePathUnix}"`;
+        shellCmd = `opencode run --dangerously-skip-permissions --format json --model "${gptModel}" < "${bundlePathUnix}"`;
       } else {
-        shellCmd = `opencode run --dangerously-skip-permissions < "${bundlePathUnix}"`;
+        shellCmd = `opencode run --dangerously-skip-permissions --format json < "${bundlePathUnix}"`;
       }
-
-      // spawn + shell:true 实现真正的异步并行
       await new Promise<void>((resolve, reject) => {
         const child = spawn(shellCmd, [], {
           cwd: projectDir,
@@ -309,9 +311,14 @@ async function executeTask(
           stdio: ['pipe', 'pipe', 'pipe'],
         });
 
+        // P0: 捕获 stdout 用于 token 统计解析
+        child.stdout?.on('data', (d: Buffer) => { agentStdout += d.toString(); });
+        child.stderr?.on('data', (d: Buffer) => { agentStdout += d.toString(); });
+
         let killed = false;
         const timer = setTimeout(() => {
           killed = true;
+          isTimeout = true;
           child.kill('SIGTERM');
           reject(new Error(`timeout after ${timeout}ms`));
         }, timeout);
@@ -331,6 +338,9 @@ async function executeTask(
 
       const durationMs = Date.now() - startTime;
       const { created, modified } = checkFiles(projectDir, task.files || []);
+
+      // P0: 从 opencode --format json 输出中解析 token 统计
+      const tokenStats = parseOpenCodeOutput(agentStdout);
 
       // 质量门禁
       const quality = verifyTaskOutput(projectDir, task);
@@ -360,9 +370,12 @@ async function executeTask(
           taskId: task.id, taskName: task.name, agent: agentName,
           result: 'ok', duration_ms: durationMs,
           filesCreated: created, filesModified: modified,
+          tokensIn: tokenStats.tokensIn || undefined,
+          tokensOut: tokenStats.tokensOut || undefined,
         });
 
-        log(`${task.id} ✓ ${Math.round(durationMs / 1000)}s (${agentName}, ${created} files created)`);
+        const tokenInfo = tokenStats.totalTokens > 0 ? `, ${tokenStats.totalTokens} tokens` : '';
+        log(`${task.id} ✓ ${Math.round(durationMs / 1000)}s (${agentName}, ${created} files created${tokenInfo})`);
         if (_progressState) {
           _progressState.completed++;
           _progressState.remaining = Math.max(0, _progressState.remaining - 1);
@@ -383,13 +396,48 @@ async function executeTask(
     } catch (e: unknown) {
       const durationMs = Date.now() - startTime;
       const errMsg = e instanceof Error ? e.message.slice(0, 200) : 'unknown error';
-      log(`${task.id} ✗ ${agentName} failed (${Math.round(durationMs / 1000)}s): ${errMsg}`);
+
+      // P1: 区分 timeout vs error — 超时时检查文件是否已创建
+      if (isTimeout) {
+        const { created } = checkFiles(projectDir, task.files || []);
+        if (created > 0) {
+          // 文件已创建但进程超时 — 可能任务完成了但 agent 进程没退出
+          log(`${task.id} ⚠ timeout but ${created} files created — treating as success`);
+          const quality = verifyTaskOutput(projectDir, task);
+          if (quality.passed) {
+            recordSuccess(projectDir, agentName);
+            dagComplete(projectDir, task.id);
+            appendAgentExec(projectDir, {
+              time: new Date().toISOString(),
+              taskId: task.id, taskName: task.name, agent: agentName,
+              result: 'ok', duration_ms: durationMs,
+              filesCreated: created, filesModified: 0,
+              tokensIn: parseOpenCodeOutput(agentStdout).tokensIn || undefined,
+              tokensOut: parseOpenCodeOutput(agentStdout).tokensOut || undefined,
+            });
+            if (_progressState) {
+              _progressState.completed++;
+              _progressState.remaining = Math.max(0, _progressState.remaining - 1);
+              _progressState.currentTasks = _progressState.currentTasks.filter(t => t.taskId !== task.id);
+              flushProgress();
+            }
+            return {
+              taskId: task.id, taskName: task.name, agent: agentName,
+              result: 'ok', durationMs, filesCreated: created, filesModified: 0,
+              fallbackUsed: attempt > 0, qualityPassed: true,
+            };
+          }
+        }
+        log(`${task.id} ✗ ${agentName} timeout (${Math.round(durationMs / 1000)}s), no valid output`);
+      } else {
+        log(`${task.id} ✗ ${agentName} error (${Math.round(durationMs / 1000)}s): ${errMsg}`);
+      }
 
       recordFailure(projectDir, agentName);
       appendAgentExec(projectDir, {
         time: new Date().toISOString(),
         taskId: task.id, taskName: task.name, agent: agentName,
-        result: 'error', duration_ms: durationMs, error: errMsg,
+        result: 'error', duration_ms: durationMs, error: isTimeout ? `timeout: ${errMsg}` : errMsg,
       });
     }
 
