@@ -28,6 +28,16 @@ export interface AutoRunOptions {
   push?: boolean;
 }
 
+/** 需要 Claude Code 处理的任务（auto 无法自动执行） */
+export interface DeferredTask {
+  taskId: string;
+  taskName: string;
+  reason: string;           // 'claude-code' | 'agent-teams' | 'high-complexity'
+  routedTarget: string;
+  complexityScore?: number;
+  bundle: string;           // 预生成的 bundle，Claude Code 可直接使用
+}
+
 export interface TaskExecResult {
   taskId: string;
   taskName: string;
@@ -52,8 +62,10 @@ export interface AutoRunResult {
   completed: number;
   failed: number;
   skipped: number;
+  deferred: number;
   totalTimeMs: number;
   waves: WaveResult[];
+  deferredTasks: DeferredTask[];  // 需要 Claude Code 处理的任务
 }
 
 // ==================== Helpers ====================
@@ -127,6 +139,27 @@ function checkFiles(projectDir: string, files: string[]): { created: number; mod
 }
 
 // ==================== Task Execution ====================
+
+/** 检查任务是否需要 defer 给 Claude Code */
+function shouldDefer(projectDir: string, task: TaskState, options: AutoRunOptions): DeferredTask | null {
+  if (options.agent) return null;
+
+  const target = task.routing?.target || 'claude-code';
+  const complexity = task.scores?.complexityScore ?? 50;
+
+  if (target === 'claude-code' || target === 'agent-teams') {
+    const minimal = buildMinimalContext(projectDir, task, target);
+    return {
+      taskId: task.id,
+      taskName: task.name,
+      reason: target,
+      routedTarget: target,
+      complexityScore: complexity,
+      bundle: minimal.instruction,
+    };
+  }
+  return null;
+}
 
 /** 执行单个任务（含 fallback） */
 async function executeTask(
@@ -297,9 +330,11 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
   log(`Starting auto-execution...`);
   log(`DAG: ${status.remaining} remaining, ${status.done} done, ${status.total} total`);
 
+  const allDeferredTasks: DeferredTask[] = [];
+
   if (status.remaining === 0) {
     log('All tasks already done!');
-    return { totalTasks: 0, completed: 0, failed: 0, skipped: 0, totalTimeMs: 0, waves: [] };
+    return { totalTasks: 0, completed: 0, failed: 0, skipped: 0, deferred: 0, totalTimeMs: 0, waves: [], deferredTasks: [] };
   }
 
   // DAG 预检
@@ -323,7 +358,7 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
       // 不能继续模拟后续 wave（因为没实际执行）
       break;
     }
-    return { totalTasks: status.remaining, completed: 0, failed: 0, skipped: 0, totalTimeMs: 0, waves: [] };
+    return { totalTasks: status.remaining, completed: 0, failed: 0, skipped: 0, deferred: 0, totalTimeMs: 0, waves: [], deferredTasks: [] };
   }
 
   // 主循环
@@ -335,13 +370,32 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     waveNum++;
     log(`\n=== Wave ${waveNum}: ${wave.length} tasks [${wave.map(t => t.id).join(', ')}] ===`);
 
-    // 并行执行本波任务
-    const concurrency = options.concurrency || wave.length;
+    // 分流: 可自动执行的 vs 需要 defer 给 Claude Code 的
+    const autoTasks: { id: string; name: string }[] = [];
+    for (const w of wave) {
+      const task = readTask(projectDir, w.id);
+      if (!task) continue;
+      const deferred = shouldDefer(projectDir, task, options);
+      if (deferred) {
+        allDeferredTasks.push(deferred);
+        log(`${w.id} → deferred to ${deferred.routedTarget} (complexity: ${deferred.complexityScore})`);
+      } else {
+        autoTasks.push(w);
+      }
+    }
+
+    if (autoTasks.length === 0 && allDeferredTasks.length > 0) {
+      log(`Wave ${waveNum}: all ${wave.length} tasks deferred to Claude Code`);
+      waves.push({ wave: waveNum, tasks: [] });
+      break; // 剩余任务都需要 Claude Code，退出循环
+    }
+
+    // 并行执行可自动化的任务
+    const concurrency = options.concurrency || autoTasks.length;
     const results: TaskExecResult[] = [];
 
-    // 按 concurrency 分批
-    for (let i = 0; i < wave.length; i += concurrency) {
-      const batch = wave.slice(i, i + concurrency);
+    for (let i = 0; i < autoTasks.length; i += concurrency) {
+      const batch = autoTasks.slice(i, i + concurrency);
       const promises = batch.map(async (w) => {
         const task = readTask(projectDir, w.id);
         if (!task) {
@@ -410,5 +464,14 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     }
   }
 
-  return { totalTasks, completed: totalCompleted, failed: totalFailed, skipped: totalSkipped, totalTimeMs, waves };
+  // 输出 deferred 任务提示
+  if (allDeferredTasks.length > 0) {
+    log(`\n=== Deferred to Claude Code: ${allDeferredTasks.length} tasks ===`);
+    for (const d of allDeferredTasks) {
+      log(`${d.taskId} (${d.taskName}) → ${d.routedTarget}, complexity: ${d.complexityScore}`);
+    }
+    log('Use Agent Teams or direct implementation in Claude Code session.');
+  }
+
+  return { totalTasks, completed: totalCompleted, failed: totalFailed, skipped: totalSkipped, deferred: allDeferredTasks.length, totalTimeMs, waves, deferredTasks: allDeferredTasks };
 }
