@@ -53,29 +53,36 @@ export function routeTask(task: TaskState & { type?: string }, allTasks: TaskSta
   const scores: TaskScores = scoreTask(task, allTasks);
   const taskType = inferTaskType(task);
 
-  let target: RoutingTarget = config.defaultTarget || 'claude-code';
+  let target: RoutingTarget = config.defaultTarget || 'codex';
   let reason = 'default';
   let needsConfirmation = false;
 
-  // Rule 0: Very simple tasks → opencode (free model)
-  if (scores.complexityScore <= 20 && (task.files || []).length <= 3 &&
+  // Rule 0: Simple tasks → opencode (free/cheap model, glm-4.7 级别能力足够)
+  if (scores.complexityScore <= 40 && (task.files || []).length <= 5 &&
       !(scores.specScore >= config.codexMinSpecScore && scores.isolationScore >= config.codexMinIsolationScore)) {
     target = 'opencode';
-    reason = `simple task (complexity:${scores.complexityScore}, files:${(task.files || []).length}) → free model`;
+    reason = `simple task (complexity:${scores.complexityScore}, files:${(task.files || []).length}) → opencode`;
   }
-  // Rule 1: High spec + high isolation -> codex
+  // Rule 1: High spec + high isolation → codex (clear requirements, isolated scope)
   else if (scores.specScore >= config.codexMinSpecScore &&
       scores.isolationScore >= config.codexMinIsolationScore) {
     target = 'codex';
     reason = `specScore(${scores.specScore}) >= ${config.codexMinSpecScore} AND isolationScore(${scores.isolationScore}) >= ${config.codexMinIsolationScore}`;
   }
+  // Rule 2: Doc/config/hotfix → claude-app (another account, lightweight)
   else if (['doc', 'config', 'hotfix'].includes(taskType)) {
     target = 'claude-app';
     reason = `task type ${taskType} routes to claude-app`;
   }
-  // Rule 3: Default -> claude-code
+  // Rule 3: High complexity → claude-code (Opus 4.6, strongest reasoning)
+  else if (scores.complexityScore >= 70) {
+    target = 'claude-code';
+    reason = `high complexity (${scores.complexityScore}) → claude-code (Opus)`;
+  }
+  // Rule 4: Default → codex (medium complexity, let codex handle)
   else {
-    reason = `default routing (spec:${scores.specScore} complexity:${scores.complexityScore} isolation:${scores.isolationScore})`;
+    target = 'codex';
+    reason = `default → codex (spec:${scores.specScore} complexity:${scores.complexityScore} isolation:${scores.isolationScore})`;
   }
 
   // v3.2: Quota-aware fallback — check if target is available

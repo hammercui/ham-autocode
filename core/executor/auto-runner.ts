@@ -140,13 +140,14 @@ function checkFiles(projectDir: string, files: string[]): { created: number; mod
 
 // ==================== Task Execution ====================
 
-/** 检查任务是否需要 defer 给 Claude Code */
+/** 检查任务是否需要 defer 给 Claude Code（只有真正需要 Opus 能力的才 defer） */
 function shouldDefer(projectDir: string, task: TaskState, options: AutoRunOptions): DeferredTask | null {
   if (options.agent) return null;
 
-  const target = task.routing?.target || 'claude-code';
+  const target = task.routing?.target || 'codex';
   const complexity = task.scores?.complexityScore ?? 50;
 
+  // 只有路由到 claude-code/agent-teams 的才 defer
   if (target === 'claude-code' || target === 'agent-teams') {
     const minimal = buildMinimalContext(projectDir, task, target);
     return {
@@ -370,6 +371,29 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     waveNum++;
     log(`\n=== Wave ${waveNum}: ${wave.length} tasks [${wave.map(t => t.id).join(', ')}] ===`);
 
+    // Wave 级别: 检查是否整波适合 agent-teams (≥3 任务且全部高隔离)
+    if (!options.agent && wave.length >= 3) {
+      const waveTasks = wave.map(w => readTask(projectDir, w.id)).filter((t): t is TaskState => t !== null);
+      const allHighIsolation = waveTasks.every(t => (t.scores?.isolationScore ?? 0) >= 70);
+      if (allHighIsolation) {
+        // 整波 defer 给 agent-teams
+        for (const task of waveTasks) {
+          const minimal = buildMinimalContext(projectDir, task, 'agent-teams');
+          allDeferredTasks.push({
+            taskId: task.id,
+            taskName: task.name,
+            reason: 'agent-teams',
+            routedTarget: 'agent-teams',
+            complexityScore: task.scores?.complexityScore ?? 50,
+            bundle: minimal.instruction,
+          });
+        }
+        log(`Wave ${waveNum}: ${wave.length} tasks → agent-teams (all isolation ≥ 70, parallel in Claude Code)`);
+        waves.push({ wave: waveNum, tasks: [] });
+        continue; // agent-teams 不阻塞后续 wave，继续循环
+      }
+    }
+
     // 分流: 可自动执行的 vs 需要 defer 给 Claude Code 的
     const autoTasks: { id: string; name: string }[] = [];
     for (const w of wave) {
@@ -384,10 +408,11 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
       }
     }
 
-    if (autoTasks.length === 0 && allDeferredTasks.length > 0) {
-      log(`Wave ${waveNum}: all ${wave.length} tasks deferred to Claude Code`);
+    if (autoTasks.length === 0) {
+      log(`Wave ${waveNum}: all ${wave.length} tasks deferred`);
       waves.push({ wave: waveNum, tasks: [] });
-      break; // 剩余任务都需要 Claude Code，退出循环
+      if (allDeferredTasks.length > 0) break; // 剩余任务需要 Claude Code
+      continue;
     }
 
     // 并行执行可自动化的任务
