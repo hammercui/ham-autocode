@@ -64,6 +64,27 @@ export function readAllTasks(projectDir: string): TaskState[] {
     .filter((d): d is TaskState => d !== null);
 }
 
+/** Delete a task file. No-op if task does not exist. */
+export function deleteTask(projectDir: string, taskId: string): void {
+  validateTaskId(taskId);
+  const sd = path.join(projectDir, '.ham-autocode');
+  withLock(sd, () => {
+    const p = taskPath(projectDir, taskId);
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+  });
+}
+
+/** Find the next available task-NNN ID based on existing tasks. */
+export function nextTaskId(projectDir: string): string {
+  const tasks = readAllTasks(projectDir);
+  const nums = tasks.map(t => {
+    const m = t.id.match(/^task-(\d+)$/);
+    return m ? parseInt(m[1], 10) : 0;
+  });
+  const next = (nums.length > 0 ? Math.max(...nums) : 0) + 1;
+  return `task-${String(next).padStart(3, '0')}`;
+}
+
 export function updateTaskStatus(
   projectDir: string,
   taskId: string,

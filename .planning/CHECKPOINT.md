@@ -1,8 +1,29 @@
 # ham-autocode Progress Checkpoint
 
-> Updated: 2026-04-15 Session 4 | v3.8 完整交付
+> Updated: 2026-04-15 Session 5 | v3.9 DAG Change Management
 
-## Current Version: v3.8
+## Current Version: v3.9
+
+### Session 5 交付清单
+
+**DAG Change Management (8 个新命令)**
+- `dag add` — 运行时插入任务 (--after/--files/--spec)
+- `dag remove` — 删除任务 (--force/--reparent/--cascade)
+- `dag add-dep` / `dag remove-dep` — 依赖关系编辑 (含环检测)
+- `dag re-init --merge` — PLAN.md diff 合并 (Dice 系数名称匹配)
+- `dag scope-cut` — 批量裁剪范围
+- `dag impact` — 影响分析 (下游链 + 关键路径)
+- `dag move` — 任务重排序
+
+**基础设施**
+- graph.ts: getDirectDependents + getTransitiveDependents (BFS)
+- task-graph.ts: deleteTask + nextTaskId
+- merge.ts: 新文件 (~160 行), Dice 系数 + 文件重叠匹配
+
+**验证**
+- tsc --noEmit: 0 errors
+- npm test: 9/9 suites passed (含新 mutations.test.js)
+- E2E: 8 命令全部通过 CLI 验证 (add/remove/add-dep/remove-dep/re-init/scope-cut/impact/move)
 
 ### Session 4 交付清单
 

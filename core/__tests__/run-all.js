@@ -13,6 +13,7 @@ const suites = [
   'state/lock.test.js',
   'state/atomic.test.js',
   'dag/graph.test.js',
+  'dag/mutations.test.js',
   'routing/scorer.test.js',
   'context/budget.test.js',
   'cli.test.js',

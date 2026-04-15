@@ -16,11 +16,11 @@ import { handleHealth, handleResearch } from './commands/cmd-health.js';
 import { handleTraceCmd, handleSession, handleCommit, handleRules, handleSpec, handleToken } from './commands/cmd-misc.js';
 
 function usage(): string {
-  return `ham-autocode v3.3
+  return `ham-autocode v3.9
 
 Commands:
   config show|validate          pipeline init|status|log|pause|resume
-  dag init|status|complete|fail|next-wave|visualize|gantt|evm
+  dag init|status|complete|fail|next-wave|visualize|gantt|evm|add|remove|add-dep|remove-dep|re-init|scope-cut|impact|move
   context prepare|budget|summary|search    route <id>|batch|confirm
   validate detect|<id>          recover checkpoint|rollback|worktree-*
   execute prepare|run|log|stats|auto|auto-status

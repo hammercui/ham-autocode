@@ -2,6 +2,34 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.9.0] - 2026-04-15
+
+### Added — DAG Change Management (运行时 DAG 编辑)
+
+DAG 从"编译期"静态模型升级为"运行时"可编辑活文档。
+
+- **`dag add <name>`**: 运行时插入新任务，支持 `--after`/`--files`/`--spec`
+- **`dag remove <task-id>`**: 删除任务，三种模式: `--force`(默认), `--reparent`(链条重连), `--cascade`(级联删除)
+- **`dag add-dep <task> <dep>`**: 添加依赖边，含环检测 (`wouldCycle`)
+- **`dag remove-dep <task> <dep>`**: 移除依赖边
+- **`dag re-init --merge`**: 重新解析 PLAN.md 并 diff 合并到现有 DAG，保留 done/skipped 任务，更新 pending 任务的 spec/files/deps，新增/标记移除候选。名称匹配使用 Dice 系数 (≥0.7)
+- **`dag scope-cut <ids>`**: 批量裁剪范围 — skip 指定任务，自动释放下游阻塞
+- **`dag impact <task-id>`**: 影响分析 — 下游依赖链、关键路径影响、移除建议
+- **`dag move <task-id> --after <other>`**: 重新排序 — 原子化替换依赖关系
+
+### Added — 图遍历基础设施
+
+- `getDirectDependents()`: 反向查找直接依赖者
+- `getTransitiveDependents()`: BFS 遍历所有下游任务
+- `deleteTask()`: 原子删除任务文件
+- `nextTaskId()`: 自动分配下一个 task-NNN ID
+- `core/dag/merge.ts`: Dice 系数名称匹配 + 文件重叠检测的 merge 算法
+
+### Changed
+
+- `cmd-dag.ts`: 从 12 个子命令扩展到 20 个
+- `core/index.ts`: usage 更新
+
 ## [3.7.0] - 2026-04-15
 
 ### Added — execute auto (全自动循环执行)

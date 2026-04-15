@@ -40,6 +40,29 @@ export function topoSort(tasks: TaskState[]): TopoSortResult {
   return { sorted, cycles };
 }
 
+/** Get all tasks that directly depend on taskId (have taskId in their blockedBy). */
+export function getDirectDependents(tasks: TaskState[], taskId: string): string[] {
+  return tasks
+    .filter(t => t.blockedBy && t.blockedBy.includes(taskId))
+    .map(t => t.id);
+}
+
+/** Get transitive closure of all downstream dependents via BFS. */
+export function getTransitiveDependents(tasks: TaskState[], taskId: string): string[] {
+  const visited = new Set<string>();
+  const queue = getDirectDependents(tasks, taskId);
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const deps = getDirectDependents(tasks, current);
+    for (const d of deps) {
+      if (!visited.has(d)) queue.push(d);
+    }
+  }
+  return [...visited];
+}
+
 /** Detect if adding edge from→to would create a cycle */
 export function wouldCycle(tasks: TaskState[], fromId: string, toId: string): boolean {
   // BFS from toId, see if we can reach fromId
