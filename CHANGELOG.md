@@ -2,6 +2,39 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.7.0] - 2026-04-15
+
+### Added — execute auto (全自动循环执行)
+
+- **`execute auto`**: 一条命令跑完整个 milestone 所有剩余任务
+  - Wave 循环: `dag next-wave → spawn → verify → commit → 下一波`
+  - 并行执行: `Promise.allSettled` + `--concurrency` 控制
+  - 自动 git commit: 每波完成后 commit（只 add task.files）
+  - `--dry-run`: 只输出计划不执行
+  - `--push`: 完成后自动 push
+  - `--agent codex|opencode`: 强制指定 agent
+  - `--timeout N`: 单任务超时 ms (默认 600000)
+
+- **quality-gate.ts**: 轻量质量门禁
+  - 文件存在性 + 非空检查
+  - TypeScript 语法检查 (自动查找 tsconfig)
+  - DAG 预检: spec 完整性检查 (description/interface/files)
+
+- **agent-status.ts**: 限额调度
+  - 连续失败 2 次 → 自动 cooldown 30 min
+  - 自动恢复: cooldown 过期后恢复 available
+  - Fallback 链: codex → opencode → skip
+  - 状态持久化: `.ham-autocode/dispatch/agent-status.json`
+
+### 触发方式
+
+```bash
+# Claude Code / Claude App / 终端 / cron
+ham-cli execute auto
+ham-cli execute auto --agent opencode --push
+ham-cli execute auto --dry-run
+```
+
 ## [3.6.1] - 2026-04-14
 
 ### Added — Execute Run + Dispatcher

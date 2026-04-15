@@ -23,7 +23,7 @@ Commands:
   dag init|status|complete|fail|next-wave|visualize|gantt|evm
   context prepare|budget|summary|search    route <id>|batch|confirm
   validate detect|<id>          recover checkpoint|rollback|worktree-*
-  execute prepare|run|log|stats   learn analyze|suggest|brain|entities|field-test
+  execute prepare|run|log|stats|auto  learn analyze|suggest|brain|entities|field-test
   health check|quick|drift|uncommitted|esm-cjs   quota status|mark-*
   session report|context        research init|report|status
   commit auto|rollback|message  teams assign|should-use
@@ -70,13 +70,15 @@ function formatOutput(result: unknown): string {
   return typeof result === 'string' ? result : JSON.stringify(result, null, 2);
 }
 
-export function main(argv: string[] = process.argv.slice(2), env: Record<string, string | undefined> = process.env): number {
+export async function main(argv: string[] = process.argv.slice(2), env: Record<string, string | undefined> = process.env): Promise<number> {
   const projectDir = env.HAM_PROJECT_DIR || process.cwd();
   const startTime = Date.now();
   const command = argv.join(' ');
   try {
     const result = dispatch(argv, projectDir);
-    if (typeof result !== 'undefined') console.log(formatOutput(result));
+    // 支持 async handler (execute auto 返回 Promise)
+    const resolved = result instanceof Promise ? await result : result;
+    if (typeof resolved !== 'undefined') console.log(formatOutput(resolved));
     appendTrace(projectDir, { time: new Date().toISOString(), command, result: 'ok', duration_ms: Date.now() - startTime });
     return 0;
   } catch (e: unknown) {
@@ -93,4 +95,4 @@ const isMain = process.argv[1] && (
   process.argv[1].endsWith('index.js') ||
   process.argv[1].endsWith('index.ts')
 );
-if (isMain) process.exit(main());
+if (isMain) main().then(code => process.exit(code));

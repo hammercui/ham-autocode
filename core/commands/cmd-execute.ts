@@ -14,6 +14,7 @@ import { OpenCodeAdapter } from '../executor/opencode.js';
 import { buildMinimalContext } from '../executor/context-template.js';
 import { buildDispatchCommand, checkAgentAvailable } from '../executor/dispatcher.js';
 import { appendAgentExec, agentExecStats } from '../trace/logger.js';
+import { runAuto } from '../executor/auto-runner.js';
 import type { RoutingTarget } from '../types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,7 +122,21 @@ export function handleExecute(args: string[], projectDir: string): any {
     return agentExecStats(projectDir);
   }
 
-  throw new Error('Usage: execute prepare|run|log|stats <task-id> [--raw|--codex|--opencode]');
+  if (sub === 'auto') {
+    // 全自动执行: execute auto [--agent codex|opencode] [--timeout N] [--dry-run] [--push] [--concurrency N]
+    const agent = args.includes('--agent') ? args[args.indexOf('--agent') + 1] as 'codex' | 'opencode' : undefined;
+    const timeoutIdx = args.indexOf('--timeout');
+    const timeout = timeoutIdx >= 0 ? parseInt(args[timeoutIdx + 1], 10) : undefined;
+    const concurrencyIdx = args.indexOf('--concurrency');
+    const concurrency = concurrencyIdx >= 0 ? parseInt(args[concurrencyIdx + 1], 10) : undefined;
+    const dryRun = args.includes('--dry-run');
+    const push = args.includes('--push');
+
+    // runAuto 是 async，返回 Promise
+    return runAuto(projectDir, { agent, timeout, concurrency, dryRun, push });
+  }
+
+  throw new Error('Usage: execute prepare|run|log|stats|auto [--raw|--codex|--opencode|--dry-run|--push]');
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
