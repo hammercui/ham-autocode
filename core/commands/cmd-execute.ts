@@ -14,7 +14,7 @@ import { OpenCodeAdapter } from '../executor/opencode.js';
 import { buildMinimalContext } from '../executor/context-template.js';
 import { buildDispatchCommand, checkAgentAvailable } from '../executor/dispatcher.js';
 import { appendAgentExec, agentExecStats } from '../trace/logger.js';
-import { runAuto } from '../executor/auto-runner.js';
+import { runAuto, readProgress } from '../executor/auto-runner.js';
 import type { RoutingTarget } from '../types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -136,7 +136,13 @@ export function handleExecute(args: string[], projectDir: string): any {
     return runAuto(projectDir, { agent, timeout, concurrency, dryRun, push });
   }
 
-  throw new Error('Usage: execute prepare|run|log|stats|auto [--raw|--codex|--opencode|--dry-run|--push]');
+  if (sub === 'auto-status') {
+    const progress = readProgress(projectDir);
+    if (!progress) return { status: 'idle', message: 'No auto-execution running or completed' };
+    return progress;
+  }
+
+  throw new Error('Usage: execute prepare|run|log|stats|auto|auto-status [--raw|--codex|--opencode|--dry-run|--push]');
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

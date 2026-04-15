@@ -68,11 +68,79 @@ export interface AutoRunResult {
   deferredTasks: DeferredTask[];  // 需要 Claude Code 处理的任务
 }
 
+// ==================== Progress File ====================
+
+interface AutoProgress {
+  status: 'running' | 'completed' | 'failed' | 'idle';
+  startedAt: string;
+  updatedAt: string;
+  currentWave: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  deferred: number;
+  remaining: number;
+  currentTasks: { taskId: string; agent: string; status: string; startedAt: string }[];
+  recentLog: string[];  // 最近 20 条日志
+}
+
+let _progressState: AutoProgress | null = null;
+let _projectDir = '';
+
+function progressPath(projectDir: string): string {
+  return path.join(projectDir, '.ham-autocode', 'dispatch', 'auto-progress.json');
+}
+
+function initProgress(projectDir: string, remaining: number): void {
+  _projectDir = projectDir;
+  const dir = path.join(projectDir, '.ham-autocode', 'dispatch');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  _progressState = {
+    status: 'running',
+    startedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    currentWave: 0,
+    completed: 0, failed: 0, skipped: 0, deferred: 0,
+    remaining,
+    currentTasks: [],
+    recentLog: [],
+  };
+  flushProgress();
+}
+
+function updateProgress(patch: Partial<AutoProgress>): void {
+  if (!_progressState) return;
+  Object.assign(_progressState, patch, { updatedAt: new Date().toISOString() });
+  flushProgress();
+}
+
+function flushProgress(): void {
+  if (!_progressState || !_projectDir) return;
+  try {
+    fs.writeFileSync(progressPath(_projectDir), JSON.stringify(_progressState, null, 2), 'utf-8');
+  } catch { /* best effort */ }
+}
+
+/** 读取进度文件（供 auto-status 命令使用） */
+export function readProgress(projectDir: string): AutoProgress | null {
+  const p = progressPath(projectDir);
+  if (!fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf-8'));
+  } catch { return null; }
+}
+
 // ==================== Helpers ====================
 
 function log(msg: string): void {
   const time = new Date().toISOString().slice(11, 19);
   process.stdout.write(`[auto ${time}] ${msg}\n`);
+  // 同步写入进度文件的 recentLog
+  if (_progressState) {
+    _progressState.recentLog.push(`[${time}] ${msg}`);
+    if (_progressState.recentLog.length > 20) _progressState.recentLog.shift();
+    flushProgress();
+  }
 }
 
 /** 获取 DAG 的 next-wave（直接调用 dag 模块） */
@@ -346,6 +414,7 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
   const status = dagStatus(projectDir);
   log(`Starting auto-execution...`);
   log(`DAG: ${status.remaining} remaining, ${status.done} done, ${status.total} total`);
+  initProgress(projectDir, status.remaining);
 
   const allDeferredTasks: DeferredTask[] = [];
 
@@ -387,6 +456,7 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     if (wave.length === 0) break;
 
     waveNum++;
+    updateProgress({ currentWave: waveNum, currentTasks: wave.map(w => ({ taskId: w.id, agent: 'pending', status: 'queued', startedAt: '' })) });
     log(`\n=== Wave ${waveNum}: ${wave.length} tasks [${wave.map(t => t.id).join(', ')}] ===`);
 
     // Wave 级别 agent-teams 判断:
@@ -463,6 +533,12 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     totalCompleted += ok;
     totalFailed += failed;
     totalSkipped += skipped;
+    updateProgress({
+      completed: totalCompleted, failed: totalFailed, skipped: totalSkipped,
+      deferred: allDeferredTasks.length,
+      remaining: status.remaining - totalCompleted - totalFailed - totalSkipped - allDeferredTasks.length,
+      currentTasks: [],
+    });
 
     // Git commit
     const commitHash = commitWave(projectDir, waveNum, results);
@@ -505,6 +581,7 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     .map(([a, s]) => `${a}: ${s.count} tasks (avg ${Math.round(s.totalMs / s.count / 1000)}s)`)
     .join(' | ');
 
+  updateProgress({ status: totalFailed > 0 ? 'failed' : 'completed', remaining: 0, currentTasks: [] });
   log(`\n=== Complete ===`);
   log(`Total: ${totalTasks} tasks, ${totalCompleted} ok, ${totalFailed} failed, ${totalSkipped} skipped`);
   log(`Time: ${Math.round(totalTimeMs / 1000)}s | ${agentSummary}`);
