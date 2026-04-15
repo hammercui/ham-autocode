@@ -38,6 +38,28 @@ User → Skills (10) → CLI Dispatcher → Command Modules → Core Engine
 | `core/state/` | Atomic JSON, pipeline, task-graph, config, validator, lock | ~400 |
 | `core/types/` | Domain types (pipeline, task, config, engine) | ~280 |
 
+## Three-Layer Framework
+
+```
+gstack (strategic thinking)  →  GSD (workflow stability)  →  Superpowers (execution discipline)
+  CEO/Eng/Design review           Phase-driven dev              TDD, code review
+  QA, research, ship              Spec enforcement              Brainstorming, debugging
+  Office hours                    Verification gates            Verification before completion
+```
+
+ham-autocode sits at the center, orchestrating all three frameworks via skills.
+
+## DAG + Project Management
+
+| PM Method | Module | CLI |
+|-----------|--------|-----|
+| WBS → DAG | `parser.ts` | `dag init [PLAN.md]` |
+| Critical Path (CPM) | `critical-path.ts` | `dag critical-path` |
+| PERT 3-Point Estimation | `estimation.ts` | `dag estimate` |
+| Earned Value (EVM) | `earned-value.ts` | `dag evm` |
+| Gantt Chart | `gantt.ts` | `dag gantt` |
+| DAG Runtime Edit | `merge.ts`, `cmd-dag.ts` | `dag add/remove/move/re-init --merge` |
+
 ## Routing Targets
 
 | Target | Model | When |

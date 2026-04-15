@@ -30,6 +30,34 @@
 | L3 | 项目级 `tsc --noEmit` | 仅警告（项目可能有预存错误） |
 | L4 | AI 自审：opencode 审查 diff vs spec | 警告 + 经验自动追加到 CLAUDE.md |
 
+### 项目管理引擎 (DAG + PM 方法论)
+
+内置基于 WBS 分解和经典项目管理理论的管理引擎：
+
+| 能力 | 模块 | 说明 |
+|------|------|------|
+| WBS 解析 | `parser.ts` | 解析 PLAN.md/WBS.md（3 种格式：标题/复选框/表格）→ 任务 DAG |
+| 拓扑排序 | `graph.ts` | Kahn 算法、环检测、依赖解析 |
+| 波次调度 | `scheduler.ts` | 基于依赖就绪状态的并行波次生成 |
+| 关键路径 (CPM) | `critical-path.ts` | 前推/后推、浮动时间计算、瓶颈检测 |
+| PERT 估算 | `estimation.ts` | 三点估算（乐观/最可能/悲观）|
+| 挣值分析 (EVM) | `earned-value.ts` | PV/EV/AC/SPI/CPI/EAC — 项目健康一目了然 |
+| 甘特图 | `gantt.ts` | ASCII 甘特图，关键路径高亮 |
+| DAG 可视化 | `visualize.ts` | ASCII 依赖树 + 状态图标 |
+| 运行时 DAG 编辑 | `merge.ts` | PLAN.md 变更与现有 DAG 的 diff 合并 (v3.9) |
+
+## 三层框架
+
+**gstack 思考 → GSD 稳定 → Superpowers 执行**
+
+| 框架 | 作者 | 角色 | 提供什么 |
+|------|------|------|---------|
+| [gstack](https://github.com/garrytan/gstack) | Garry Tan | 战略思考 | CEO/设计师/工程经理审查、QA、调研、设计系统 |
+| [GSD](https://github.com/gsd-build/get-shit-done) | TACHES | 工作流稳定 | 阶段驱动开发、spec 强制、验证体系 |
+| [Superpowers](https://github.com/obra/superpowers) | Jesse Vincent | 执行纪律 | TDD、头脑风暴、代码审查、调试方法论 |
+
+ham-autocode 编排三者：gstack 定方向，GSD 搭结构，Superpowers 保质量。
+
 ## 设计理念
 
 基于 OpenAI、Anthropic、Stripe、Hashimoto 的行业共识：

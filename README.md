@@ -30,6 +30,34 @@ Every task output passes through layered verification. Error messages include fi
 | L3 | Project-level `tsc --noEmit` | Warning only (project may have pre-existing errors) |
 | L4 | AI self-review: opencode reviews diff vs spec | Warning + auto-append lesson to CLAUDE.md |
 
+### Project Management Engine (DAG + PM Methods)
+
+Built-in project management based on WBS decomposition and classical PM theory:
+
+| Capability | Module | What it does |
+|-----------|--------|-------------|
+| WBS Parser | `parser.ts` | Parse PLAN.md/WBS.md (3 formats: markdown headers, checkboxes, tables) → task DAG |
+| Topo Sort | `graph.ts` | Kahn's algorithm, cycle detection, dependency resolution |
+| Wave Scheduling | `scheduler.ts` | Parallel wave generation based on dependency readiness |
+| Critical Path (CPM) | `critical-path.ts` | Forward/backward pass, slack calculation, bottleneck detection |
+| PERT Estimation | `estimation.ts` | Three-point estimation (optimistic/likely/pessimistic) per task |
+| Earned Value (EVM) | `earned-value.ts` | PV/EV/AC/SPI/CPI/EAC — project health at a glance |
+| Gantt Chart | `gantt.ts` | ASCII Gantt with critical path highlighted |
+| DAG Visualization | `visualize.ts` | ASCII dependency tree with status icons |
+| Runtime DAG Edit | `merge.ts` | Diff-merge PLAN.md changes with live state (v3.9) |
+
+## Three-Layer Framework
+
+**gstack thinks → GSD stabilizes → Superpowers executes**
+
+| Framework | Author | Role | What it provides |
+|-----------|--------|------|-----------------|
+| [gstack](https://github.com/garrytan/gstack) | Garry Tan | Strategic thinking | CEO/Designer/Eng review, QA, research, design system |
+| [GSD](https://github.com/gsd-build/get-shit-done) | TACHES | Workflow stability | Phase-driven development, spec enforcement, verification |
+| [Superpowers](https://github.com/obra/superpowers) | Jesse Vincent | Execution discipline | TDD, brainstorming, code review, debugging methodology |
+
+ham-autocode orchestrates all three: gstack for direction, GSD for structure, Superpowers for quality.
+
 ## Design Philosophy
 
 Based on industry consensus from OpenAI, Anthropic, Stripe, and Hashimoto:
