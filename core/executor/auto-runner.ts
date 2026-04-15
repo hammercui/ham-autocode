@@ -14,7 +14,7 @@ import { execSync, spawn } from 'child_process';
 import { readTask, readAllTasks } from '../state/task-graph.js';
 import { buildMinimalContext } from './context-template.js';
 import { appendAgentExec } from '../trace/logger.js';
-import { verifyTaskOutput, preflightCheck } from './quality-gate.js';
+import { verifyTaskOutput, preflightCheck, verifyProjectTsc } from './quality-gate.js';
 import { getAvailableAgent, recordSuccess, recordFailure } from './agent-status.js';
 import { loadConfig } from '../state/config.js';
 import type { TaskState, RoutingTarget } from '../types.js';
@@ -587,6 +587,13 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
       etaSeconds: etaSec,
       eta: etaStr,
     });
+
+    // L3: 项目级 tsc 检查（commit 前）
+    const tscResult = verifyProjectTsc(projectDir);
+    if (!tscResult.passed) {
+      log(`⚠ L3 tsc failed: ${tscResult.errors.slice(0, 3).join(' | ')}`);
+      // tsc 失败不阻塞 commit（可能是项目已有错误），但记录警告
+    }
 
     // Git commit
     const commitHash = commitWave(projectDir, waveNum, results);
