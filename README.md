@@ -18,6 +18,18 @@ The **Harness** layer that turns AI coding agents from "can run" into "runs reli
 | Persistent Memory | Cross-session continuity via CHECKPOINT.md, DAG state, git log. CLAUDE.md as living feedback loop | DAG state, review-gate → CLAUDE.md |
 | Structured Execution | DAG → wave scheduling → quality gates (L0-L4) → auto-commit. Runtime DAG editing (v3.9) | auto-runner, quality-gate, review-gate |
 
+### Quality Gates (L0-L4)
+
+Every task output passes through layered verification. Error messages include fix instructions (OpenAI linter pattern).
+
+| Level | Check | On Failure |
+|-------|-------|------------|
+| L0 | File exists + non-empty | `Create the file and implement spec requirements` |
+| L1 | TypeScript single-file syntax | `TS error code guide: TS2304/2339/2345/2307` |
+| L2 | spec.interface export verification | `Add export declaration matching spec.interface` |
+| L3 | Project-level `tsc --noEmit` | Warning only (project may have pre-existing errors) |
+| L4 | AI self-review: opencode reviews diff vs spec | Warning + auto-append lesson to CLAUDE.md |
+
 ## Design Philosophy
 
 Based on industry consensus from OpenAI, Anthropic, Stripe, and Hashimoto:

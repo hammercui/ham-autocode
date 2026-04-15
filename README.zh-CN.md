@@ -18,6 +18,18 @@
 | 持久化记忆 | 跨会话连续性：CHECKPOINT.md + DAG 状态 + git log。CLAUDE.md 活反馈循环 | DAG state, review-gate → CLAUDE.md |
 | 结构化执行 | DAG → 波次调度 → 质量门禁(L0-L4) → 自动提交。运行时 DAG 编辑(v3.9) | auto-runner, quality-gate, review-gate |
 
+### 质量门禁 (L0-L4)
+
+每个任务产出经过分层验证。错误消息包含修复指令（OpenAI Linter 模式）。
+
+| 层级 | 检查内容 | 失败时的修复指令 |
+|------|---------|----------------|
+| L0 | 文件存在 + 非空 | `创建文件并实现 spec 要求的功能` |
+| L1 | TypeScript 单文件语法 | `TS 错误码对照：TS2304/2339/2345/2307` |
+| L2 | spec.interface export 验证 | `添加与 spec.interface 一致的 export 声明` |
+| L3 | 项目级 `tsc --noEmit` | 仅警告（项目可能有预存错误） |
+| L4 | AI 自审：opencode 审查 diff vs spec | 警告 + 经验自动追加到 CLAUDE.md |
+
 ## 设计理念
 
 基于 OpenAI、Anthropic、Stripe、Hashimoto 的行业共识：
