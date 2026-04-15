@@ -238,4 +238,35 @@ export function writeReviewFeedback(projectDir: string, result: ReviewResult, ta
   try {
     fs.appendFileSync(path.join(logDir, 'review-feedback.jsonl'), JSON.stringify(entry) + '\n');
   } catch { /* best-effort */ }
+
+  // 活反馈循环：将 FAIL 经验追加到 CLAUDE.md（参见 Harness Engineering: AGENTS.md 模式）
+  appendToClaudeMd(projectDir, result, task);
+}
+
+/**
+ * 将 L4 review FAIL 自动追加到项目 CLAUDE.md。
+ * 每次 Agent 犯错 → CLAUDE.md 更新 → 下次 Agent 读到 → 永不再犯。
+ * 这是 Hashimoto 的 AGENTS.md 模式在 ham-autocode 中的实现。
+ */
+function appendToClaudeMd(projectDir: string, result: ReviewResult, task: TaskState): void {
+  const claudeMdPath = path.join(projectDir, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMdPath)) return; // 项目没有 CLAUDE.md 则跳过
+
+  const marker = '## Agent 经验教训（自动生成）';
+  const entry = `- **${task.name}**: ${result.reason} (${new Date().toISOString().slice(0, 10)})`;
+
+  try {
+    let content = fs.readFileSync(claudeMdPath, 'utf-8');
+
+    // 检查是否已有经验教训区块
+    if (!content.includes(marker)) {
+      content += `\n\n${marker}\n\n${entry}\n`;
+    } else {
+      // 追加到区块末尾（去重：同名任务不重复记录）
+      if (content.includes(task.name)) return;
+      content = content.replace(marker, `${marker}\n\n${entry}`);
+    }
+
+    fs.writeFileSync(claudeMdPath, content, 'utf-8');
+  } catch { /* best-effort */ }
 }

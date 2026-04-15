@@ -42,6 +42,18 @@ export interface MinimalContext {
 }
 
 /**
+ * 上下文利用率 40% 阈值（参见 Harness Engineering: Smart Zone / Dumb Zone）
+ * 超过此阈值 LLM 输出质量下降：幻觉、循环、格式错误。
+ */
+const CONTEXT_BUDGET: Record<string, number> = {
+  opencode: 6000,     // glm-4.7: ~16K window → 40% ≈ 6K
+  codexfake: 12000,   // gpt-5.3-codex: ~32K → 40% ≈ 12K
+  'claude-code': 40000, // Opus 4.6: ~200K → 但实际 subagent 保守用
+  'claude-app': 20000,
+  'agent-teams': 8000,
+};
+
+/**
  * Generate context bundle for a routing target.
  * Each target gets the right depth of context — no more, no less.
  */
@@ -50,19 +62,29 @@ export function buildMinimalContext(
   task: TaskState,
   target: RoutingTarget
 ): MinimalContext {
+  let result: MinimalContext;
   switch (target) {
     case 'opencode':
-      return buildOpenCodeContext(projectDir, task);
+      result = buildOpenCodeContext(projectDir, task); break;
     case 'codexfake':
-      return buildCodexContext(projectDir, task);
+      result = buildCodexContext(projectDir, task); break;
     case 'claude-app':
-      return buildClaudeAppContext(projectDir, task);
+      result = buildClaudeAppContext(projectDir, task); break;
     case 'agent-teams':
-      return buildTeamContext(projectDir, task);
+      result = buildTeamContext(projectDir, task); break;
     case 'claude-code':
     default:
-      return buildClaudeCodeContext(projectDir, task);
+      result = buildClaudeCodeContext(projectDir, task); break;
   }
+
+  // 上下文利用率检查（40% Smart Zone 阈值）
+  const budget = CONTEXT_BUDGET[target] || 12000;
+  if (result.estimatedTokens > budget) {
+    const pct = Math.round((result.estimatedTokens / budget) * 100);
+    result.instruction += `\n\n⚠️ Context budget warning: ${result.estimatedTokens} tokens (${pct}% of ${budget} budget). 超出 Smart Zone，输出质量可能下降。`;
+  }
+
+  return result;
 }
 
 // ==================== 共享工具函数 ====================

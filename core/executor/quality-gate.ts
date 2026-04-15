@@ -35,18 +35,19 @@ export function verifyTaskOutput(projectDir: string, task: TaskState): QualityRe
     return { taskId: task.id, passed: true, checks: [{ name: 'no-files', passed: true, message: '任务未声明文件，跳过验证' }] };
   }
 
-  // L0: 文件存在性
+  // L0: 文件存在性（含修复指令）
   for (const f of files) {
     const fullPath = path.resolve(projectDir, f);
     const exists = fs.existsSync(fullPath);
     checks.push({
       name: `file-exists:${f}`,
       passed: exists,
-      message: exists ? '文件已创建' : '文件不存在',
+      message: exists ? '文件已创建'
+        : `文件不存在: ${f}。修复方法: 创建该文件并实现 spec 要求的功能。检查路径拼写是否正确，目录是否需要先创建。`,
     });
   }
 
-  // L0: 文件非空
+  // L0: 文件非空（含修复指令）
   for (const f of files) {
     const fullPath = path.resolve(projectDir, f);
     if (!fs.existsSync(fullPath)) continue;
@@ -55,7 +56,8 @@ export function verifyTaskOutput(projectDir: string, task: TaskState): QualityRe
     checks.push({
       name: `non-empty:${f}`,
       passed: nonEmpty,
-      message: nonEmpty ? `${stat.size} bytes` : '文件为空',
+      message: nonEmpty ? `${stat.size} bytes`
+        : `文件为空: ${f}。修复方法: 文件已创建但内容为空，需要实现 spec 中描述的功能代码。`,
     });
   }
 
@@ -71,7 +73,8 @@ export function verifyTaskOutput(projectDir: string, task: TaskState): QualityRe
         checks.push({
           name: `ts-syntax:${f}`,
           passed: result.passed,
-          message: result.passed ? 'TypeScript 语法正常' : result.error,
+          message: result.passed ? 'TypeScript 语法正常'
+            : `TypeScript 编译错误:\n${result.error}\n修复方法: 根据上述错误信息修正类型定义、导入路径或语法问题。常见原因: 缺少 import、类型不匹配、变量未定义。`,
         });
       }
     }
@@ -107,7 +110,8 @@ export function verifyProjectTsc(projectDir: string): { passed: boolean; errors:
     const output = ((err.stdout || '') + (err.stderr || '')).trim();
     // 只取前 5 个错误，避免输出爆炸
     const errors = output.split('\n').filter(l => l.includes('error TS')).slice(0, 5);
-    return { passed: false, errors: errors.length > 0 ? errors : [output.slice(0, 500)] };
+    const fixHint = '修复方法: 检查上述 error TS 编号，常见问题: 缺少类型声明(TS2304)、属性不存在(TS2339)、参数类型不匹配(TS2345)、模块未找到(TS2307)。';
+    return { passed: false, errors: errors.length > 0 ? [...errors, fixHint] : [output.slice(0, 500)] };
   }
 }
 
@@ -187,7 +191,8 @@ function verifySpecKeywords(projectDir: string, task: TaskState): CheckResult[] 
       checks.push({
         name: `spec-export:${name}@${f}`,
         passed: found,
-        message: found ? `找到 "${name}"` : `未找到 spec 声明的 "${name}"`,
+        message: found ? `找到 "${name}"`
+          : `未找到 spec 声明的 "${name}" 在 ${f} 中。修复方法: 在文件中添加 export 声明，确保函数/接口名与 spec.interface 一致。`,
       });
     }
   }
