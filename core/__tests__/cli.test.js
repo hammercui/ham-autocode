@@ -14,10 +14,6 @@ assert.ok(config.validation);
 const dagStatus = dispatch(['dag', 'status'], projectDir);
 assert.strictEqual(typeof dagStatus.total, 'number');
 
-const budget = dispatch(['context', 'budget'], projectDir);
-assert.strictEqual(budget.level, 'ok');
-assert.strictEqual(typeof budget.consumed, 'number');
-
 const gates = dispatch(['validate', 'detect'], projectDir);
 assert.ok(Array.isArray(gates));
 

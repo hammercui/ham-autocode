@@ -15,7 +15,6 @@ const suites = [
   'dag/graph.test.js',
   'dag/mutations.test.js',
   'routing/scorer.test.js',
-  'context/budget.test.js',
   'cli.test.js',
 ];
 

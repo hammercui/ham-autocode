@@ -7,8 +7,8 @@ import { nextWave } from '../dag/scheduler.js';
 import { routeTask, routeAllTasks, shouldUseAgentTeams } from '../routing/router.js';
 import { scoreTask } from '../routing/scorer.js';
 import { AgentTeamsAdapter } from '../executor/agent-teams.js';
-import { markUnavailable, markAvailable, quotaStatus } from '../routing/quota.js';
-import type { RoutingTarget } from '../types.js';
+import { quotaStatus } from '../routing/quota.js';
+// RoutingTarget 已在精简后不再直接使用
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function handleRoute(args: string[], projectDir: string): any {
@@ -57,16 +57,5 @@ export function handleTeams(args: string[], projectDir: string): any {
 export function handleQuota(args: string[], projectDir: string): any {
   const sub = args[1];
   if (sub === 'status') return quotaStatus(projectDir);
-  if (sub === 'mark-unavailable') {
-    const target = args[2] as RoutingTarget;
-    const reason = args.slice(3).join(' ');
-    if (!target || !reason) throw new Error('Usage: quota mark-unavailable <target> <reason>');
-    return markUnavailable(projectDir, target, reason);
-  }
-  if (sub === 'mark-available') {
-    const target = args[2] as RoutingTarget;
-    if (!target) throw new Error('Usage: quota mark-available <target>');
-    return markAvailable(projectDir, target);
-  }
-  throw new Error('Unknown quota subcommand. Use: status, mark-unavailable, mark-available');
+  throw new Error('Unknown quota subcommand. Available: status');
 }

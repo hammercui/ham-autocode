@@ -5,7 +5,6 @@ import { loadConfig } from '../state/config.js';
 import { readPipeline } from '../state/pipeline.js';
 import { readTask, readAllTasks } from '../state/task-graph.js';
 import { dagStats } from '../dag/scheduler.js';
-import { ContextBudget } from '../context/budget.js';
 import { queryTrace } from '../trace/logger.js';
 import { generateSessionReport } from '../trace/report.js';
 import { autoCommitTask, rollbackAutoCommit, generateCommitMessage } from '../commit/auto-commit.js';
@@ -25,11 +24,9 @@ function generateSessionContext(projectDir: string): string {
   if (!pipeline) return '';
   const tasks = readAllTasks(projectDir);
   const dag = tasks.length > 0 ? dagStats(tasks) : null;
-  const budget = new ContextBudget(projectDir).status();
   return [
     `ham-autocode: ${pipeline.project} [${pipeline.status}]`,
     dag ? `Progress: ${dag.done}/${dag.total} (${dag.progress}%)` : '',
-    `Budget: ${budget.level}`,
     pipeline.current_task ? `Current: ${pipeline.current_task}` : '',
   ].filter(Boolean).join(' | ');
 }
