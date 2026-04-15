@@ -126,13 +126,48 @@ export function queryAgentExec(
   return entries.slice(-limit);
 }
 
+/** 清除 agent-exec.jsonl 历史数据 */
+export function resetAgentExecLog(projectDir: string): { cleared: boolean } {
+  const logFile = path.join(projectDir, '.ham-autocode', 'logs', AGENT_LOG_FILE);
+  try {
+    if (fs.existsSync(logFile)) {
+      fs.unlinkSync(logFile);
+      return { cleared: true };
+    }
+  } catch { /* best-effort */ }
+  return { cleared: false };
+}
+
+/** 解析 --since 参数为毫秒时间戳（如 "1h", "24h", "7d"） */
+function parseSince(since: string): number {
+  const m = since.match(/^(\d+)(s|m|h|d)$/);
+  if (!m) return 0;
+  const n = parseInt(m[1], 10);
+  const unit = m[2];
+  const ms = unit === 's' ? n * 1000
+    : unit === 'm' ? n * 60000
+    : unit === 'h' ? n * 3600000
+    : n * 86400000;
+  return Date.now() - ms;
+}
+
 /** 生成 agent 执行统计摘要 */
-export function agentExecStats(projectDir: string): {
+export function agentExecStats(projectDir: string, options?: { since?: string }): {
   total: number;
+  filtered: boolean;
   byAgent: Record<string, { count: number; okCount: number; avgDurationSec: number; totalTokensIn: number; totalTokensOut: number }>;
   recentErrors: AgentExecEntry[];
 } {
-  const entries = queryAgentExec(projectDir, { limit: 999999 });
+  let entries = queryAgentExec(projectDir, { limit: 999999 });
+
+  // B2/I3: --since 时间窗口过滤
+  const filtered = !!options?.since;
+  if (options?.since) {
+    const cutoff = parseSince(options.since);
+    if (cutoff > 0) {
+      entries = entries.filter(e => new Date(e.time).getTime() >= cutoff);
+    }
+  }
   const byAgent: Record<string, { count: number; okCount: number; totalDuration: number; totalTokensIn: number; totalTokensOut: number }> = {};
 
   for (const e of entries) {
@@ -160,5 +195,5 @@ export function agentExecStats(projectDir: string): {
 
   const recentErrors = entries.filter(e => e.result === 'error').slice(-5);
 
-  return { total: entries.length, byAgent: formatted, recentErrors };
+  return { total: entries.length, filtered, byAgent: formatted, recentErrors };
 }

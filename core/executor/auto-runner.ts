@@ -83,6 +83,10 @@ interface AutoProgress {
   remaining: number;
   currentTasks: { taskId: string; agent: string; status: string; startedAt: string }[];
   recentLog: string[];  // 最近 20 条日志
+  /** I5: ETA — 基于已完成任务平均耗时估算 */
+  avgTaskDurationSec: number;
+  etaSeconds: number;
+  eta: string;
 }
 
 let _progressState: AutoProgress | null = null;
@@ -105,6 +109,7 @@ function initProgress(projectDir: string, remaining: number): void {
     remaining,
     currentTasks: [],
     recentLog: [],
+    avgTaskDurationSec: 0, etaSeconds: 0, eta: 'calculating...',
   };
   flushProgress();
 }
@@ -271,6 +276,13 @@ async function executeTask(
 
     log(`${task.id} → ${agentName} ... spawned`);
     const startTime = Date.now();
+
+    // B3: 实时更新 currentTasks — spawn 后立即标记 agent 和 status
+    if (_progressState) {
+      const ct = _progressState.currentTasks.find(t => t.taskId === task.id);
+      if (ct) { ct.agent = agentName; ct.status = 'running'; ct.startedAt = new Date().toISOString(); }
+      flushProgress();
+    }
 
     try {
       // 构建 shell 命令 — 全部通过 opencode CLI 执行
@@ -556,11 +568,23 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     totalCompleted += ok;
     totalFailed += failed;
     totalSkipped += skipped;
+    // I5: 计算 ETA
+    const elapsedMs = Date.now() - startTime;
+    const avgMs = totalCompleted > 0 ? elapsedMs / totalCompleted : 0;
+    const remainingCount = Math.max(0, status.remaining - totalCompleted - totalFailed - totalSkipped - allDeferredTasks.length);
+    const etaSec = totalCompleted > 0 ? Math.round(remainingCount * avgMs / 1000) : 0;
+    const etaStr = etaSec > 0
+      ? (etaSec >= 60 ? `~${Math.round(etaSec / 60)} min remaining` : `~${etaSec}s remaining`)
+      : (remainingCount === 0 ? 'done' : 'calculating...');
+
     updateProgress({
       completed: totalCompleted, failed: totalFailed, skipped: totalSkipped,
       deferred: allDeferredTasks.length,
-      remaining: status.remaining - totalCompleted - totalFailed - totalSkipped - allDeferredTasks.length,
+      remaining: remainingCount,
       currentTasks: [],
+      avgTaskDurationSec: Math.round(avgMs / 1000),
+      etaSeconds: etaSec,
+      eta: etaStr,
     });
 
     // Git commit
@@ -572,6 +596,13 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     log(`Wave ${waveNum}: ${ok}/${results.length} ok${failed ? `, ${failed} failed` : ''}${skipped ? `, ${skipped} skipped` : ''}`);
 
     waves.push({ wave: waveNum, tasks: results, commitHash: commitHash || undefined });
+
+    // I4: 波次有失败时等待 30s 再继续（让 agent cooldown 恢复）
+    if (failed > 0 || skipped > 0) {
+      const waitSec = 30;
+      log(`Wave had failures — waiting ${waitSec}s before next wave...`);
+      await new Promise(r => setTimeout(r, waitSec * 1000));
+    }
 
     // 全部 skip → 连续 skip 计数，达到 2 次退出（agent 不可用）
     if (ok === 0 && results.length > 0) {

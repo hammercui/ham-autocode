@@ -13,7 +13,7 @@ import { AgentTeamsAdapter } from '../executor/agent-teams.js';
 import { OpenCodeAdapter } from '../executor/opencode.js';
 import { buildMinimalContext } from '../executor/context-template.js';
 import { buildDispatchCommand, checkAgentAvailable } from '../executor/dispatcher.js';
-import { appendAgentExec, agentExecStats } from '../trace/logger.js';
+import { appendAgentExec, agentExecStats, resetAgentExecLog } from '../trace/logger.js';
 import { runAuto, readProgress } from '../executor/auto-runner.js';
 import type { RoutingTarget } from '../types.js';
 
@@ -119,7 +119,12 @@ export function handleExecute(args: string[], projectDir: string): any {
   }
 
   if (sub === 'stats') {
-    return agentExecStats(projectDir);
+    // B2: --reset 清除历史脏数据
+    if (args.includes('--reset')) return resetAgentExecLog(projectDir);
+    // I3: --since 时间窗口过滤 (如 --since 1h, --since 24h, --since 7d)
+    const sinceIdx = args.indexOf('--since');
+    const since = sinceIdx >= 0 ? args[sinceIdx + 1] : undefined;
+    return agentExecStats(projectDir, { since });
   }
 
   if (sub === 'auto') {

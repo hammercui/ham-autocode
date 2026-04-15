@@ -25,6 +25,7 @@ const SURGICAL_CHANGES_RULE = [
   '- Only touch what the task requires. Do not "improve" adjacent code or formatting.',
   '- Match existing style, even if you would do it differently.',
   '- Clean up only orphans YOUR changes created. Do not remove pre-existing dead code.',
+  '- Do not create test files unless explicitly listed in "Files to modify".',
 ].join('\n');
 
 export interface MinimalContext {
