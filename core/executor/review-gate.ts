@@ -103,12 +103,20 @@ function parseVerdict(output: string): { verdict: 'PASS' | 'FAIL'; reason: strin
     }
   }
 
-  // 没有明确的 PASS/FAIL — 尝试从内容推断
+  // 没有明确的 PASS/FAIL — 尝试从内容推断（含中文短语）
   const lower = output.toLowerCase();
-  if (lower.includes('looks good') || lower.includes('no issues') || lower.includes('implementation is correct')) {
+  const passPatterns = [
+    'looks good', 'no issues', 'implementation is correct', 'no problems',
+    '未发现', '没有问题', '符合规格', '符合要求', '实现正确', '完全符合',
+  ];
+  const failPatterns = [
+    'bug', 'missing', 'incorrect',
+    '缺少', '缺失', '错误', '不符', '遗漏',
+  ];
+  if (passPatterns.some(p => lower.includes(p) || output.includes(p))) {
     return { verdict: 'PASS', reason: 'Inferred PASS from review content' };
   }
-  if (lower.includes('bug') || lower.includes('missing') || lower.includes('incorrect')) {
+  if (failPatterns.some(p => lower.includes(p) || output.includes(p))) {
     return { verdict: 'FAIL', reason: 'Inferred FAIL from review content: ' + output.slice(0, 200) };
   }
 

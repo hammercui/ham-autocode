@@ -7,6 +7,7 @@ import { nextWave, dagStats } from '../dag/scheduler.js';
 import { initTasksFromPlan } from '../dag/parser.js';
 import { wouldCycle, getDirectDependents, getTransitiveDependents } from '../dag/graph.js';
 import { mergeWithPlan } from '../dag/merge.js';
+import { routeTask } from '../routing/router.js';
 import { visualizeDAG } from '../dag/visualize.js';
 import { analyzeCriticalPath } from '../dag/critical-path.js';
 import { estimatePERT } from '../dag/estimation.js';
@@ -175,9 +176,19 @@ function dagAdd(args: string[], projectDir: string) {
     execution: { sessionId: null, startedAt: null, completedAt: null, error: null, errorType: null },
   };
 
+  // 调用路由器评分，而非硬编码 claude-code
+  try {
+    const allTasks = readAllTasks(projectDir);
+    const route = routeTask(task, allTasks, projectDir);
+    task.scores = route.scores || task.scores;
+    task.routing = { target: route.target, reason: `runtime-added: ${route.reason}`, needsConfirmation: route.needsConfirmation, confirmed: false };
+  } catch {
+    // 路由器评分失败时保留默认值（claude-code）
+  }
+
   writeTask(projectDir, task);
-  appendLog(projectDir, `dag add: ${id} "${name}"${afterId ? ` after ${afterId}` : ''}`);
-  return { added: id, name, blockedBy: task.blockedBy, files };
+  appendLog(projectDir, `dag add: ${id} "${name}" → ${task.routing.target}${afterId ? ` after ${afterId}` : ''}`);
+  return { added: id, name, blockedBy: task.blockedBy, files, routing: task.routing.target };
 }
 
 // ── dag remove <task-id> [--cascade|--reparent|--force] ──

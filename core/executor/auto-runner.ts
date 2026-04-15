@@ -657,11 +657,12 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
       eta: etaStr,
     });
 
-    // L3: 项目级 tsc 检查（commit 前）
+    // L3: 项目级 tsc 检查（警告模式 — 不阻塞 commit）
+    // 原因：项目可能在 wave 执行前就有已知 tsc 错误，不应因此阻塞所有 wave。
+    // 如需严格模式，使用 --tsc-strict 选项（未来版本）。
     const tscResult = verifyProjectTsc(projectDir);
     if (!tscResult.passed) {
-      log(`⚠ L3 tsc failed: ${tscResult.errors.slice(0, 3).join(' | ')}`);
-      // tsc 失败不阻塞 commit（可能是项目已有错误），但记录警告
+      log(`⚠ L3 tsc warning (${tscResult.errors.length} errors): ${tscResult.errors.slice(0, 3).join(' | ')}`);
     }
 
     // Git commit

@@ -206,8 +206,10 @@ export function preflightCheck(_projectDir: string, tasks: TaskState[]): { ready
     const issues: string[] = [];
 
     // 基础完整性检查
+    const isRuntimeAdded = task.routing?.reason?.startsWith('runtime-added');
     if (!task.spec?.description) issues.push('spec.description 为空');
-    if (!task.spec?.interface) issues.push('spec.interface 为空 — bundle 质量可能不足');
+    // runtime-added 任务（dag add）通常没有 interface，不发 warning
+    if (!task.spec?.interface && !isRuntimeAdded) issues.push('spec.interface 为空 — bundle 质量可能不足');
     if (!task.files?.length) issues.push('未声明 files');
 
     // codexfake 路由的中高复杂度任务 — spec 质量强化检查
