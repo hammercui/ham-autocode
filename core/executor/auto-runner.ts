@@ -10,7 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { execSync, execFileSync } from 'child_process';
+import { execSync } from 'child_process';
 import { readTask, readAllTasks } from '../state/task-graph.js';
 import { buildMinimalContext } from './context-template.js';
 import { appendAgentExec } from '../trace/logger.js';
@@ -202,9 +202,10 @@ async function executeTask(
         cmdArgs = ['run', '--dangerously-skip-permissions'];
       }
 
-      // 执行: stdin 传入 bundle
+      // 执行: 用 shell 模式确保 PATH 解析正确，stdin 传入 bundle
       const bundleContent = fs.readFileSync(bundlePath, 'utf-8');
-      execFileSync(cmd, cmdArgs, {
+      const fullCommand = [cmd, ...cmdArgs].join(' ');
+      execSync(fullCommand, {
         cwd: projectDir,
         input: bundleContent,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -362,21 +363,25 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     return { totalTasks: status.remaining, completed: 0, failed: 0, skipped: 0, deferred: 0, totalTimeMs: 0, waves: [], deferredTasks: [] };
   }
 
-  // 主循环
+  // 主循环（max 20 waves 防止无限循环）
+  const MAX_WAVES = 20;
+  let consecutiveSkipWaves = 0;
   let waveNum = 0;
-  while (true) {
+  while (waveNum < MAX_WAVES) {
     const wave = getNextWave(projectDir);
     if (wave.length === 0) break;
 
     waveNum++;
     log(`\n=== Wave ${waveNum}: ${wave.length} tasks [${wave.map(t => t.id).join(', ')}] ===`);
 
-    // Wave 级别: 检查是否整波适合 agent-teams (≥3 任务且全部高隔离)
+    // Wave 级别 agent-teams 判断:
+    // 只有当任务路由 target 是 claude-code 且 wave ≥ 3 时才考虑 agent-teams
+    // 如果任务已路由到 codex/opencode，不拦截，让 auto 直接执行
     if (!options.agent && wave.length >= 3) {
       const waveTasks = wave.map(w => readTask(projectDir, w.id)).filter((t): t is TaskState => t !== null);
+      const allClaudeCode = waveTasks.every(t => (t.routing?.target || 'codex') === 'claude-code');
       const allHighIsolation = waveTasks.every(t => (t.scores?.isolationScore ?? 0) >= 70);
-      if (allHighIsolation) {
-        // 整波 defer 给 agent-teams
+      if (allClaudeCode && allHighIsolation) {
         for (const task of waveTasks) {
           const minimal = buildMinimalContext(projectDir, task, 'agent-teams');
           allDeferredTasks.push({
@@ -388,9 +393,9 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
             bundle: minimal.instruction,
           });
         }
-        log(`Wave ${waveNum}: ${wave.length} tasks → agent-teams (all isolation ≥ 70, parallel in Claude Code)`);
+        log(`Wave ${waveNum}: ${wave.length} tasks → agent-teams (all claude-code + isolation ≥ 70)`);
         waves.push({ wave: waveNum, tasks: [] });
-        continue; // agent-teams 不阻塞后续 wave，继续循环
+        break; // deferred 任务需要 Claude Code 处理，退出循环
       }
     }
 
@@ -453,6 +458,17 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     log(`Wave ${waveNum}: ${ok}/${results.length} ok${failed ? `, ${failed} failed` : ''}${skipped ? `, ${skipped} skipped` : ''}`);
 
     waves.push({ wave: waveNum, tasks: results, commitHash: commitHash || undefined });
+
+    // 全部 skip → 连续 skip 计数，达到 2 次退出（agent 不可用）
+    if (ok === 0 && results.length > 0) {
+      consecutiveSkipWaves++;
+      if (consecutiveSkipWaves >= 2) {
+        log('All agents unavailable for 2 consecutive waves. Stopping.');
+        break;
+      }
+    } else {
+      consecutiveSkipWaves = 0;
+    }
   }
 
   // 最终汇总
