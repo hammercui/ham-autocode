@@ -1,7 +1,7 @@
 /**
- * Codex adapter -- capable engineer for tasks with clear requirements.
+ * Codexfake adapter — opencode + GPT model for tasks with clear requirements.
  * Generates explicit task specifications: file paths, interfaces, expected behavior.
- * Codex does not support skills -- receives plain task specifications.
+ * Replaces the deprecated codex CLI — dispatched via opencode --model.
  */
 
 import { BaseAdapter } from './adapter.js';
@@ -14,7 +14,7 @@ interface CodexResult extends ParsedResult {
 
 export class CodexAdapter extends BaseAdapter {
   constructor() {
-    super('codex');
+    super('codexfake');
   }
 
   generateInstruction(task: TaskState, _context?: ExecutionContext): string {

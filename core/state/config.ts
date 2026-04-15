@@ -7,7 +7,11 @@ export const DEFAULTS: HarnessConfig = {
   schemaVersion: 2,
   context: { advisoryThreshold: 30, compressThreshold: 50, criticalThreshold: 70 },
   validation: { mode: 'strict', maxAttempts: 2, gates: ['lint', 'typecheck', 'test'], onFinalFail: 'block' },
-  routing: { confirmThreshold: 90, codexMinSpecScore: 80, codexMinIsolationScore: 70, defaultTarget: 'claude-code' },
+  routing: {
+    confirmThreshold: 90, codexMinSpecScore: 80, codexMinIsolationScore: 70, defaultTarget: 'claude-code',
+    opencodeGptModel: 'gpt-5.3-codex',
+    opencodeGptProviders: ['github-copilot', 'openai'],
+  },
   recovery: { lowRiskStrategy: 'checkpoint', highRiskThreshold: 70, highRiskStrategy: 'worktree' },
 };
 

@@ -28,6 +28,10 @@ export interface RoutingConfig {
   codexMinSpecScore: number;
   codexMinIsolationScore: number;
   defaultTarget: RoutingTarget;
+  /** opencode 模型配置 — codex 路由目标实际通过 opencode CLI + 此模型执行 */
+  opencodeGptModel: string;
+  /** 模型供应商列表，按优先级排序。可选: 'github-copilot', 'openai' */
+  opencodeGptProviders: string[];
 }
 
 export interface RecoveryConfig {

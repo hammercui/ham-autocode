@@ -16,12 +16,13 @@ import { buildMinimalContext } from './context-template.js';
 import { appendAgentExec } from '../trace/logger.js';
 import { verifyTaskOutput, preflightCheck } from './quality-gate.js';
 import { getAvailableAgent, recordSuccess, recordFailure } from './agent-status.js';
+import { loadConfig } from '../state/config.js';
 import type { TaskState, RoutingTarget } from '../types.js';
 
 // ==================== Types ====================
 
 export interface AutoRunOptions {
-  agent?: 'codex' | 'opencode';
+  agent?: 'codexfake' | 'opencode';
   timeout?: number;         // ms, 默认 600000 (10 min)
   concurrency?: number;     // 最大并行数，默认无限制
   dryRun?: boolean;
@@ -180,6 +181,18 @@ function dagStatus(projectDir: string): { done: number; remaining: number; total
   }
 }
 
+/** 解析 codex 路由目标使用的 GPT 模型标识 */
+function resolveGptModelForAuto(projectDir: string): string {
+  try {
+    const config = loadConfig(projectDir).routing;
+    const provider = config.opencodeGptProviders?.[0] || 'github-copilot';
+    const model = config.opencodeGptModel || 'gpt-5.3-codex';
+    return `${provider}/${model}`;
+  } catch {
+    return 'github-copilot/gpt-5.3-codex';
+  }
+}
+
 /** 写 bundle 到临时文件 */
 function writeBundleFile(taskId: string, instruction: string): string {
   const tmpFile = path.join(os.tmpdir(), `ham-bundle-${taskId}.txt`);
@@ -212,7 +225,7 @@ function checkFiles(projectDir: string, files: string[]): { created: number; mod
 function shouldDefer(projectDir: string, task: TaskState, options: AutoRunOptions): DeferredTask | null {
   if (options.agent) return null;
 
-  const target = task.routing?.target || 'codex';
+  const target = task.routing?.target || 'codexfake';
   const complexity = task.scores?.complexityScore ?? 50;
 
   // 只有路由到 claude-code/agent-teams 的才 defer
@@ -239,10 +252,10 @@ async function executeTask(
   const timeout = options.timeout || 600000;
 
   // 确定 agent
-  const routedTarget: RoutingTarget = options.agent || task.routing?.target || 'codex';
-  const fallbackChain = routedTarget === 'codex'
-    ? ['codex', 'opencode']
-    : ['opencode', 'codex'];
+  const routedTarget: RoutingTarget = options.agent || task.routing?.target || 'codexfake';
+  const fallbackChain = routedTarget === 'codexfake'
+    ? ['codexfake', 'opencode']
+    : ['opencode', 'codexfake'];
 
   for (let attempt = 0; attempt < fallbackChain.length; attempt++) {
     const agentName = options.agent
@@ -260,13 +273,16 @@ async function executeTask(
     const startTime = Date.now();
 
     try {
-      // 构建 shell 命令 — Windows 需要 shell:true 来解析 .cmd 脚本
-      // 用 < file 重定向传 prompt（codex/opencode 都从 stdin 读取）
+      // 构建 shell 命令 — 全部通过 opencode CLI 执行
+      // codex 路由目标使用 opencode + GPT 模型，opencode 路由目标使用默认模型
+      // 用 < file 重定向传 prompt（opencode 从 stdin 读取）
+      const bundlePathUnix = bundlePath.replace(/\\/g, '/');
       let shellCmd: string;
-      if (agentName === 'codex') {
-        shellCmd = `codex exec --full-auto < "${bundlePath.replace(/\\/g, '/')}"`;
+      if (agentName === 'codexfake') {
+        const gptModel = resolveGptModelForAuto(projectDir);
+        shellCmd = `opencode run --dangerously-skip-permissions --model "${gptModel}" < "${bundlePathUnix}"`;
       } else {
-        shellCmd = `opencode run --dangerously-skip-permissions < "${bundlePath.replace(/\\/g, '/')}"`;
+        shellCmd = `opencode run --dangerously-skip-permissions < "${bundlePathUnix}"`;
       }
 
       // spawn + shell:true 实现真正的异步并行
@@ -471,7 +487,7 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     // 如果任务已路由到 codex/opencode，不拦截，让 auto 直接执行
     if (!options.agent && wave.length >= 3) {
       const waveTasks = wave.map(w => readTask(projectDir, w.id)).filter((t): t is TaskState => t !== null);
-      const allClaudeCode = waveTasks.every(t => (t.routing?.target || 'codex') === 'claude-code');
+      const allClaudeCode = waveTasks.every(t => (t.routing?.target || 'codexfake') === 'claude-code');
       const allHighIsolation = waveTasks.every(t => (t.scores?.isolationScore ?? 0) >= 70);
       if (allClaudeCode && allHighIsolation) {
         for (const task of waveTasks) {

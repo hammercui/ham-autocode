@@ -6,7 +6,7 @@
  *
  * Token budgets (per target):
  * - opencode:    ~1-1.5K tokens (task + conventions + file summaries)
- * - codex:       ~2-2.5K tokens (task + conventions + file contents/summaries + entities + patterns)
+ * - codexfake:   ~2-2.5K tokens (task + conventions + file contents/summaries + entities + patterns)
  * - claude-app:  ~1K tokens (task summary + conventions)
  * - claude-code: ~3-5K tokens (task + brain index + entities + patterns)
  * - agent-teams: ~2K tokens per teammate (task + architecture + file summaries)
@@ -44,7 +44,7 @@ export function buildMinimalContext(
   switch (target) {
     case 'opencode':
       return buildOpenCodeContext(projectDir, task);
-    case 'codex':
+    case 'codexfake':
       return buildCodexContext(projectDir, task);
     case 'claude-app':
       return buildClaudeAppContext(projectDir, task);

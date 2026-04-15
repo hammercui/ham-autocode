@@ -49,9 +49,11 @@ const FAILURE_THRESHOLD = 2;
 /** Auto-recover after this many milliseconds (default: 30 minutes) */
 const COOLDOWN_MS = 30 * 60 * 1000;
 
-/** Default fallback chain */
+/** Default fallback chain
+ * codex(opencode+gpt) → opencode(default model) → claude-code
+ */
 const DEFAULT_FALLBACKS: FallbackChain[] = [
-  { from: 'codex', to: 'opencode' },
+  { from: 'codexfake', to: 'opencode' },  // codexfake(opencode+gpt) 失败 → opencode(default model)
   { from: 'opencode', to: 'claude-code' },
   { from: 'claude-app', to: 'claude-code' },
   { from: 'agent-teams', to: 'claude-code' },

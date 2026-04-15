@@ -30,7 +30,7 @@ export function handleExecute(args: string[], projectDir: string): any {
     const target: RoutingTarget = task.routing?.target || 'claude-code';
     const adapters: Record<RoutingTarget, { generateInstruction(t: typeof task): string }> = {
       'claude-code': new ClaudeCodeAdapter(),
-      'codex': new CodexAdapter(),
+      'codexfake': new CodexAdapter(),
       'claude-app': new ClaudeAppAdapter(),
       'agent-teams': new AgentTeamsAdapter(),
       'opencode': new OpenCodeAdapter(),
@@ -48,13 +48,13 @@ export function handleExecute(args: string[], projectDir: string): any {
 
   if (sub === 'run') {
     const taskId = args.find((a, i) => i >= 2 && !a.startsWith('--'));
-    if (!taskId) throw new Error('Usage: execute run <task-id> [--codex|--opencode]');
+    if (!taskId) throw new Error('Usage: execute run <task-id> [--codexfake|--opencode]');
     const task = readTask(projectDir, taskId);
     if (!task) throw new Error(`Task ${taskId} not found`);
 
     // 确定 target：CLI flag > task routing
     let target: RoutingTarget = task.routing?.target || 'claude-code';
-    if (args.includes('--codex')) target = 'codex';
+    if (args.includes('--codexfake')) target = 'codexfake';
     if (args.includes('--opencode')) target = 'opencode';
 
     // 检查 agent 可用性
@@ -124,7 +124,7 @@ export function handleExecute(args: string[], projectDir: string): any {
 
   if (sub === 'auto') {
     // 全自动执行: execute auto [--agent codex|opencode] [--timeout N] [--dry-run] [--push] [--concurrency N]
-    const agent = args.includes('--agent') ? args[args.indexOf('--agent') + 1] as 'codex' | 'opencode' : undefined;
+    const agent = args.includes('--agent') ? args[args.indexOf('--agent') + 1] as 'codexfake' | 'opencode' : undefined;
     const timeoutIdx = args.indexOf('--timeout');
     const timeout = timeoutIdx >= 0 ? parseInt(args[timeoutIdx + 1], 10) : undefined;
     const concurrencyIdx = args.indexOf('--concurrency');
@@ -142,7 +142,7 @@ export function handleExecute(args: string[], projectDir: string): any {
     return progress;
   }
 
-  throw new Error('Usage: execute prepare|run|log|stats|auto|auto-status [--raw|--codex|--opencode|--dry-run|--push]');
+  throw new Error('Usage: execute prepare|run|log|stats|auto|auto-status [--raw|--codexfake|--opencode|--dry-run|--push]');
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

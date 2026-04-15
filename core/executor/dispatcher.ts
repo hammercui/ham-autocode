@@ -1,9 +1,11 @@
 /**
- * Agent Dispatcher — 封装 codex/opencode CLI 调用参数。
+ * Agent Dispatcher — 封装 opencode CLI 调用参数。
+ * codex 路由目标实际通过 opencode --model 执行（codex CLI 已弃用）。
  * 不管理进程生命周期（由调用方决定同步/异步），只生成正确的 shell 命令。
  */
 
 import type { RoutingTarget } from '../types.js';
+import { loadConfig } from '../state/config.js';
 
 export interface DispatchCommand {
   /** 可直接在 shell 中执行的完整命令 */
@@ -21,24 +23,27 @@ export interface DispatchCommand {
 export function buildDispatchCommand(
   target: RoutingTarget,
   instruction: string,
-  options?: { model?: string; cwd?: string }
+  options?: { model?: string; cwd?: string; projectDir?: string }
 ): DispatchCommand {
   // 转义 instruction 中的单引号，用于 shell
   const escaped = instruction.replace(/'/g, "'\\''");
 
   switch (target) {
-    case 'codex':
+    case 'codexfake': {
+      // codexfake 路由目标 → opencode CLI + GPT 模型（替代已弃用的 codex CLI）
+      const gptModel = options?.model || resolveGptModel(options?.projectDir);
       return {
-        command: `codex exec --full-auto '${escaped}'`,
-        agent: 'codex',
+        command: `opencode run --dangerously-skip-permissions --format json --model "${gptModel}" '${escaped}'`,
+        agent: 'opencode',
+        model: gptModel,
       };
+    }
 
     case 'opencode': {
-      // 使用 opencode 自身配置的默认模型（用户在 opencode 中配置，如 zhipu glm-5.1）
+      // 简单任务 — 使用 opencode 默认模型（glm-4.7 等，在 opencode 自身配置）
       // 仅当调用方显式指定 model 时才覆盖
       const modelFlag = options?.model ? ` --model "${options.model}"` : '';
       return {
-        // --format json: 输出 JSONL 事件流，可用 parseOpenCodeOutput 提取 token 统计
         command: `opencode run --dangerously-skip-permissions --format json${modelFlag} '${escaped}'`,
         agent: 'opencode',
         model: options?.model,
@@ -71,27 +76,35 @@ export function buildDispatchCommand(
   }
 }
 
+/**
+ * 解析 codex 路由目标使用的 GPT 模型标识（provider/model 格式）。
+ * 优先读取 harness.json 配置，回退到默认值。
+ */
+function resolveGptModel(projectDir?: string): string {
+  try {
+    const config = loadConfig(projectDir || '.').routing;
+    const provider = config.opencodeGptProviders?.[0] || 'github-copilot';
+    const model = config.opencodeGptModel || 'gpt-5.3-codex';
+    return `${provider}/${model}`;
+  } catch {
+    return 'github-copilot/gpt-5.3-codex';
+  }
+}
+
 /** 检查 agent CLI 是否可用 */
 export function checkAgentAvailable(target: RoutingTarget): { available: boolean; error?: string } {
   if (target === 'claude-code' || target === 'claude-app' || target === 'agent-teams') {
     return { available: true }; // 这些不需要外部 CLI
   }
 
+  // codex 和 opencode 路由目标都通过 opencode CLI 执行
   try {
     const { execSync } = require('child_process');
-    if (target === 'codex') {
-      execSync('codex --version', { stdio: 'pipe', timeout: 5000 });
-      return { available: true };
-    }
-    if (target === 'opencode') {
-      execSync('opencode --version', { stdio: 'pipe', timeout: 5000 });
-      return { available: true };
-    }
+    execSync('opencode --version', { stdio: 'pipe', timeout: 5000 });
+    return { available: true };
   } catch {
-    return { available: false, error: `${target} CLI not found in PATH` };
+    return { available: false, error: 'opencode CLI not found in PATH' };
   }
-
-  return { available: false, error: `Unknown target: ${target}` };
 }
 
 /** OpenCode step_finish 事件中的 token 结构 */

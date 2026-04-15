@@ -66,7 +66,7 @@ export function analyzeHistory(projectDir: string): LearningInsights {
 
   // Routing accuracy: group tasks by routing target, check success rate
   const routingAccuracy: Record<string, RoutingStats> = {};
-  for (const target of ['codex', 'claude-code', 'claude-app', 'agent-teams'] as RoutingTarget[]) {
+  for (const target of ['codexfake', 'claude-code', 'claude-app', 'agent-teams'] as RoutingTarget[]) {
     const routed = tasks.filter(t => t.routing?.target === target);
     const succeeded = routed.filter(t => t.status === 'done');
     routingAccuracy[target] = {
@@ -102,7 +102,7 @@ export function analyzeHistory(projectDir: string): LearningInsights {
   // Threshold suggestions based on routing accuracy
   const suggestions: LearningInsights['thresholdSuggestions'] = {};
 
-  const codexStats = routingAccuracy['codex'];
+  const codexStats = routingAccuracy['codexfake'];
   if (codexStats && codexStats.routed >= 3) {
     if (codexStats.rate > 90) {
       // Codex is very reliable -> can lower the bar

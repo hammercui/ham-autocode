@@ -11,12 +11,12 @@ export interface TraceEntry {
   phase?: string;
 }
 
-/** Agent 执行记录 — 追踪 codex/opencode 等外部 agent 的任务执行 */
+/** Agent 执行记录 — 追踪 codexfake/opencode 等外部 agent 的任务执行 */
 export interface AgentExecEntry {
   time: string;
   taskId: string;
   taskName: string;
-  agent: string;        // 'codex' | 'opencode' | 'claude-code' | 'agent-teams'
+  agent: string;        // 'codexfake' | 'opencode' | 'claude-code' | 'agent-teams'
   model?: string;       // agent 使用的模型（如果已知）
   result: 'ok' | 'error';
   duration_ms: number;

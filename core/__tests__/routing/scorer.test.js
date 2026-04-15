@@ -36,7 +36,7 @@ const codexTask = {
   spec: { description: 'a long description over twenty chars', interface: 'IFoo', acceptance: 'must pass', completeness: 90 },
 };
 const routing = routeTask(codexTask, [codexTask], '.');
-assert.strictEqual(routing.target, 'codex');
+assert.strictEqual(routing.target, 'codexfake');
 assert.strictEqual(routing.needsConfirmation, false);
 
 // Complex task → claude-code with confirmation

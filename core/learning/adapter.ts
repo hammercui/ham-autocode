@@ -53,8 +53,8 @@ export function suggestAdaptations(projectDir: string): AdaptationResult {
       field: 'routing.codexMinSpecScore',
       oldValue: config.routing.codexMinSpecScore,
       newValue: suggestions.codexMinSpecScore,
-      reason: insights.routingAccuracy?.['codex']?.rate !== undefined
-        ? `Codex success rate: ${insights.routingAccuracy['codex'].rate}%`
+      reason: insights.routingAccuracy?.['codexfake']?.rate !== undefined
+        ? `Codexfake success rate: ${insights.routingAccuracy['codexfake'].rate}%`
         : 'Based on routing history',
     });
   }

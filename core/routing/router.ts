@@ -53,7 +53,7 @@ export function routeTask(task: TaskState & { type?: string }, allTasks: TaskSta
   const scores: TaskScores = scoreTask(task, allTasks);
   const taskType = inferTaskType(task);
 
-  let target: RoutingTarget = config.defaultTarget || 'codex';
+  let target: RoutingTarget = config.defaultTarget || 'codexfake';
   let reason = 'default';
   let needsConfirmation = false;
 
@@ -63,11 +63,11 @@ export function routeTask(task: TaskState & { type?: string }, allTasks: TaskSta
     target = 'opencode';
     reason = `simple task (complexity:${scores.complexityScore}, files:${(task.files || []).length}) → opencode`;
   }
-  // Rule 1: High spec + high isolation → codex (clear requirements, isolated scope)
+  // Rule 1: High spec + high isolation → codex (opencode + gpt-5.3-codex)
   else if (scores.specScore >= config.codexMinSpecScore &&
       scores.isolationScore >= config.codexMinIsolationScore) {
-    target = 'codex';
-    reason = `specScore(${scores.specScore}) >= ${config.codexMinSpecScore} AND isolationScore(${scores.isolationScore}) >= ${config.codexMinIsolationScore}`;
+    target = 'codexfake';
+    reason = `specScore(${scores.specScore}) >= ${config.codexMinSpecScore} AND isolationScore(${scores.isolationScore}) >= ${config.codexMinIsolationScore} → opencode+gpt`;
   }
   // Rule 2: Doc/config/hotfix → claude-app (another account, lightweight)
   else if (['doc', 'config', 'hotfix'].includes(taskType)) {
@@ -79,10 +79,10 @@ export function routeTask(task: TaskState & { type?: string }, allTasks: TaskSta
     target = 'claude-code';
     reason = `high complexity (${scores.complexityScore}) → claude-code (Opus)`;
   }
-  // Rule 4: Default → codex (medium complexity, let codex handle)
+  // Rule 4: Default → codex (opencode + gpt model, medium complexity)
   else {
-    target = 'codex';
-    reason = `default → codex (spec:${scores.specScore} complexity:${scores.complexityScore} isolation:${scores.isolationScore})`;
+    target = 'codexfake';
+    reason = `default → opencode+gpt (spec:${scores.specScore} complexity:${scores.complexityScore} isolation:${scores.isolationScore})`;
   }
 
   // v3.2: Quota-aware fallback — check if target is available
