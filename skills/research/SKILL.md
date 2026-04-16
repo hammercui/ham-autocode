@@ -1,12 +1,11 @@
 ---
 name: research
 description: |
-  Research competitors and market landscape for the target project.
-  Uses /research (gstack tavily), agent-browser, and /crawl to gather
-  competitive intelligence. Generates structured analysis report.
+  Wrapper over gstack /research + /crawl + agent-browser.
+  Adds ham-autocode data persistence layer (competitor.ts) for structured storage.
   Use when: "research competitors", "competitive analysis", "market landscape",
   "who are our competitors", or during Phase 1 strategic planning.
-version: 3.0.0
+version: 4.0.0
 allowed-tools:
   - Read
   - Write

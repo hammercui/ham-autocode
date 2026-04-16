@@ -1,9 +1,10 @@
 ---
 name: ship
 description: |
-  Review, QA, and ship workflow. Validation gates, code review, QA, then PR.
+  Wrapper over gstack /ship + /review + /qa + /gsd:verify-work.
+  Adds ham-autocode validation gates before community skill handoff.
   Use when: "review and ship", "QA and deploy", "code is ready".
-version: 3.3.0
+version: 4.0.0
 allowed-tools:
   - Read
   - Write

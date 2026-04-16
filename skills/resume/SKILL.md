@@ -1,9 +1,10 @@
 ---
 name: resume
 description: |
-  Resume a paused pipeline. Reads state, displays context, continues execution.
+  Extends /gsd:resume-work with ham-autocode DAG/pipeline state restoration.
+  Reads state, displays context, continues execution.
   Use when: "resume", "continue", "pick up", "where was I".
-version: 3.3.0
+version: 4.0.0
 benefits-from:
   - status
 allowed-tools:

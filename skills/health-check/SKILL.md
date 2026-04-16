@@ -1,13 +1,12 @@
 ---
 name: health-check
 description: |
-  Run automated health assessment on the target project.
-  Checks: git status, TypeScript compilation (multi-tsconfig),
-  test execution, dependency audit, and lint.
-  Outputs composite score 0-100 with per-check breakdown.
+  Prefer gstack /health for general code quality checks.
+  This skill adds ham-autocode specific checks as supplement:
+  drift detection, uncommitted analysis, ESM/CJS compatibility.
   Use when: "health check", "project health", "is the project healthy",
   "compilation status", "run all checks", or at the start of any new session.
-version: 3.2.0
+version: 4.0.0
 allowed-tools:
   - Read
   - Write

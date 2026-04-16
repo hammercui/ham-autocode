@@ -1,10 +1,10 @@
 ---
 name: status
 description: |
-  Display pipeline progress or pause the pipeline.
+  Extends /gsd:progress with ham-autocode DAG/pipeline state.
   Shows phase, DAG stats, budget, blockers, recent activity.
   Use when: "status", "progress", "where are we", "pause", "stop", "break".
-version: 3.4.0
+version: 4.0.0
 allowed-tools:
   - Read
   - Write
