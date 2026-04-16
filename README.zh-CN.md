@@ -150,17 +150,18 @@ ham-cli <命令>     # 或: node dist/index.js <命令>
 
 ## 实测数据
 
-在真实项目上验证（ham-video — 53 个任务，4 个里程碑）：
+在真实项目上验证（ham-video — 60 个任务，5 个里程碑）：
 
 | 指标 | 数值 |
 |------|------|
 | 单元测试 | 8/8 通过 |
-| 累计完成任务 | 53（opencode 15/15, codexfake 7/7, full-auto 6/10）|
-| full-auto 成功率 | 60% → 80% (v3.9.3) → 目标 90% (v4.0) |
+| 累计完成任务 | 60（opencode 22/22, codexfake 8/8, full-auto 13/14）|
+| full-auto 成功率 | 60% (v3.9.2) → 86% (v4.0 一轮) → **100% (v4.0 二轮)** |
+| L4 FAIL 自动重试 | 2/3 次重试成功 (67%) — v4.0 新功能 |
 | Token 成本/任务 | 35,549 tokens，opencode 免费 (glm-4.7) |
-| Opus spec 生成 | ~$0.032/任务（9 个 spec 约 27K tokens）|
-| 成本节省 vs 纯 Opus | 82% |
-| L4 review | 发现真实 bug（缺少 await、eval.ts 3 个缺陷）|
+| Opus spec 生成 | ~$0.032/任务 |
+| 成本节省 vs 纯 Opus | 82-91% |
+| L4 review | 发现真实 bug：硬编码冲突、超范围修改、缺少文件 |
 | 失败诊断 (v4.0) | 5 类分类 → diagnosis.jsonl |
 | CI | GitHub Actions，Node 18 + 22 矩阵 |
 

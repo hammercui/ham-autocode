@@ -1,8 +1,45 @@
 # ham-autocode Progress Checkpoint
 
-> Updated: 2026-04-16 Session 6 | v3.9.2 full-auto 实战
+> Updated: 2026-04-16 Session 7 | v4.0 Skill-First 优化 + 实战验证
 
-## Current Version: v3.9.2
+## Current Version: v4.0
+
+### Session 7 交付清单
+
+**项目审查与核心定义**
+- 核心目标重新定义：协同多个 AI agent 不间断完成整个软件项目
+- Harness 是手段不是目的，Skill-First 原则建立
+- 7 层架构确认为不可变骨架
+
+**Skill-First 优化 (5 项代码变更)**
+- spec-generator: 历史 FAIL 注入 + CLAUDE.md 经验注入 + TDD testFile 要求
+- diagnosis.ts: 新增失败诊断引擎（5 类分类 + 修复建议）
+- auto-runner: L4 FAIL 触发 1 次修复重试 + 诊断集成
+- 5 个 skill 文档标注社区 skill 关系
+
+**实战 bug 修复 (4 项)**
+- L0 门禁: 删除任务检测只匹配 task.name 开头（不再误判"重构"）
+- findPlanFile: 项目根 PLAN.md 优先于 .planning/PLAN.md
+- phase-loop: 启动时清零 auto-progress.json
+- spec-generator: acceptance 要求强化
+
+**ham-video v0.5 实战验证**
+- 一轮: 6/7 成功 (86%)，task-001 因 L0 误判 skip
+- 二轮: 7/7 成功 (100%)，L4 重试 2/3 成功
+- 产出 +429 行有效代码（Setup Wizard 增强 + 教程 + 错误分类）
+
+**文档全面更新**
+- README 重写: 7 层架构为核心 + Skill 映射表 + 实测数据更新
+- ARCHITECTURE.md 重写: v4.0 完整 7 层展开 + 数据流图
+- OPTIMIZATION-REPORT-v4.0.md + ROADMAP-v4.0.md
+- 记忆: Skill-First 原则 + 7 层不可变 + 核心目标定义
+
+### 实测数据（ham-video 累计 60 tasks）
+- v3.9.2 full-auto: 6/10 (60%)
+- v4.0 round 1: 6/7 (86%) — L0 误判 1 个
+- v4.0 round 2: 7/7 (100%) — L4 重试 2/3 成功
+- L4 重试成功率: 67%
+- 成本节省: 82-91% vs 纯 Opus
 
 ### Session 6 交付清单
 

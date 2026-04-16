@@ -151,19 +151,20 @@ ham-cli <command>     # or: node dist/index.js <command>
 
 ## Verified Evidence
 
-Tested on real projects (ham-video — 53 tasks across 4 milestones):
+Tested on real projects (ham-video — 60 tasks across 5 milestones):
 
-| Metric                    | Value                                                  |
-| ------------------------- | ------------------------------------------------------ |
-| Unit test suites          | 8/8 passing                                            |
-| Total tasks completed     | 53 (opencode 15/15, codexfake 7/7, full-auto 6/10)     |
-| full-auto success rate    | 60% → 80% (v3.9.3) → targeting 90% (v4.0)              |
-| Token cost per task       | 35,549 tokens via opencode (free, glm-4.7)             |
-| Opus spec generation      | ~$0.032/task (~27K tokens for 9 specs)                 |
-| Cost savings vs pure Opus | 82%                                                    |
-| L4 review                 | Caught real bugs (missing await, 3 defects in eval.ts) |
-| Failure diagnosis (v4.0)  | 5-category classification → diagnosis.jsonl            |
-| CI                        | GitHub Actions, Node 18 + 22 matrix                    |
+| Metric | Value |
+|--------|-------|
+| Unit test suites | 8/8 passing |
+| Total tasks completed | 60 (opencode 22/22, codexfake 8/8, full-auto 13/14) |
+| full-auto success rate | 60% (v3.9.2) → 86% (v4.0 round 1) → **100% (v4.0 round 2)** |
+| L4 FAIL auto-retry | 2/3 retries succeeded (67%) — v4.0 feature |
+| Token cost per task | 35,549 tokens via opencode (free, glm-4.7) |
+| Opus spec generation | ~$0.032/task |
+| Cost savings vs pure Opus | 82-91% |
+| L4 review | Caught real bugs: hardcoded steps, out-of-scope changes, missing files |
+| Failure diagnosis (v4.0) | 5-category classification → diagnosis.jsonl |
+| CI | GitHub Actions, Node 18 + 22 matrix |
 
 ## Configuration
 
