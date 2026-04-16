@@ -178,6 +178,16 @@ function dagComplete(projectDir: string, taskId: string): void {
   } catch { /* best effort */ }
 }
 
+/** 跳过 DAG 任务 (P0-#3: 自动 skip 重复失败任务) */
+function dagSkip(projectDir: string, taskId: string): void {
+  try {
+    execSync(
+      `node "${path.join(__dirname, '..', 'index.js')}" dag skip ${taskId}`,
+      { cwd: projectDir, env: { ...process.env, HAM_PROJECT_DIR: projectDir }, stdio: 'pipe', timeout: 10000 }
+    );
+  } catch { /* best effort */ }
+}
+
 /** 获取 DAG 状态 */
 function dagStatus(projectDir: string): { done: number; remaining: number; total: number } {
   try {
@@ -555,8 +565,31 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
   const MAX_WAVES = 20;
   let consecutiveSkipWaves = 0;
   let waveNum = 0;
+  // P0-#3: 追踪每个任务的连续失败次数和最后错误，重复失败 2 次自动 skip
+  const taskFailHistory = new Map<string, { count: number; lastError: string }>();
+
   while (waveNum < MAX_WAVES) {
-    const wave = getNextWave(projectDir);
+    let wave = getNextWave(projectDir);
+    if (wave.length === 0) break;
+
+    // P0-#3: 过滤掉已连续失败 2 次且错误相同的任务 → 自动 skip
+    const autoSkipped: string[] = [];
+    wave = wave.filter(w => {
+      const hist = taskFailHistory.get(w.id);
+      if (hist && hist.count >= 2) {
+        autoSkipped.push(w.id);
+        return false;
+      }
+      return true;
+    });
+    if (autoSkipped.length > 0) {
+      for (const id of autoSkipped) {
+        const hist = taskFailHistory.get(id)!;
+        dagSkip(projectDir, id);
+        log(`${id} → auto-skipped (failed ${hist.count}x: ${hist.lastError.slice(0, 80)})`);
+        totalSkipped++;
+      }
+    }
     if (wave.length === 0) break;
 
     waveNum++;
@@ -637,6 +670,16 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     totalCompleted += ok;
     totalFailed += failed;
     totalSkipped += skipped;
+
+    // P0-#3: 记录 skip 任务到 failHistory（下一波检测重复失败）
+    for (const r of results.filter(r => r.result === 'skip')) {
+      const hist = taskFailHistory.get(r.taskId) || { count: 0, lastError: '' };
+      const errMsg = r.error || 'all agents failed';
+      hist.count++;
+      hist.lastError = errMsg;
+      taskFailHistory.set(r.taskId, hist);
+    }
+
     // I5: 计算 ETA — 用各任务实际耗时平均值（非墙钟时间，避免并行偏低）
     const allOkResults = waves.flatMap(w => w.tasks).filter(t => t.result === 'ok');
     const totalTaskMs = allOkResults.reduce((sum, t) => sum + t.durationMs, 0);

@@ -35,30 +35,47 @@ export function verifyTaskOutput(projectDir: string, task: TaskState): QualityRe
     return { taskId: task.id, passed: true, checks: [{ name: 'no-files', passed: true, message: '任务未声明文件，跳过验证' }] };
   }
 
+  // 检测是否为"删除文件"任务 — 语义反转：文件不存在 = 通过
+  const desc = (task.spec?.description || '').toLowerCase();
+  const isDeleteTask = /删除|清理|移除|remove|delete|clean\s*up/.test(desc);
+
   // L0: 文件存在性（含修复指令）
   for (const f of files) {
     const fullPath = path.resolve(projectDir, f);
     const exists = fs.existsSync(fullPath);
-    checks.push({
-      name: `file-exists:${f}`,
-      passed: exists,
-      message: exists ? '文件已创建'
-        : `文件不存在: ${f}。修复方法: 创建该文件并实现 spec 要求的功能。检查路径拼写是否正确，目录是否需要先创建。`,
-    });
+
+    if (isDeleteTask) {
+      // 删除任务：文件不存在 = 成功
+      checks.push({
+        name: `file-deleted:${f}`,
+        passed: !exists,
+        message: !exists ? '文件已删除'
+          : `文件仍存在: ${f}。修复方法: 删除该文件，并确认无其他文件引用它。`,
+      });
+    } else {
+      checks.push({
+        name: `file-exists:${f}`,
+        passed: exists,
+        message: exists ? '文件已创建'
+          : `文件不存在: ${f}。修复方法: 创建该文件并实现 spec 要求的功能。检查路径拼写是否正确，目录是否需要先创建。`,
+      });
+    }
   }
 
-  // L0: 文件非空（含修复指令）
-  for (const f of files) {
-    const fullPath = path.resolve(projectDir, f);
-    if (!fs.existsSync(fullPath)) continue;
-    const stat = fs.statSync(fullPath);
-    const nonEmpty = stat.size > 0;
-    checks.push({
-      name: `non-empty:${f}`,
-      passed: nonEmpty,
-      message: nonEmpty ? `${stat.size} bytes`
-        : `文件为空: ${f}。修复方法: 文件已创建但内容为空，需要实现 spec 中描述的功能代码。`,
-    });
+  // L0: 文件非空（删除任务跳过此检查）
+  if (!isDeleteTask) {
+    for (const f of files) {
+      const fullPath = path.resolve(projectDir, f);
+      if (!fs.existsSync(fullPath)) continue;
+      const stat = fs.statSync(fullPath);
+      const nonEmpty = stat.size > 0;
+      checks.push({
+        name: `non-empty:${f}`,
+        passed: nonEmpty,
+        message: nonEmpty ? `${stat.size} bytes`
+          : `文件为空: ${f}。修复方法: 文件已创建但内容为空，需要实现 spec 中描述的功能代码。`,
+      });
+    }
   }
 
   // L1: TypeScript 单文件语法检查（只对 .ts/.tsx 文件）

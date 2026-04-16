@@ -7,23 +7,14 @@
 
 ## P0 — 阻塞自治循环的问题
 
-### 1. L0 质量门禁不支持"删除文件"任务
-- **现象**: task-002（清理 TabBar.tsx）无限重试，L0 检查"文件存在"对删除任务语义反转
-- **修复**: 如果 spec.description 含"删除/清理/remove/delete"且 task.files 中的文件不存在 → 视为通过
-- **文件**: `core/executor/quality-gate.ts` verifyTaskOutput()
-- **复杂度**: 低 (~10 行)
+### 1. ~~L0 质量门禁不支持"删除文件"任务~~ ✅ v3.9.3 已修复
+- spec.description 含删除/清理/remove/delete → L0 反转：文件不存在=通过
 
-### 2. spec-generator 不了解项目文件结构
-- **现象**: Opus 为 task-005 生成的 spec 把 files 指向 orchestrator.ts，但实际代码应写在 evaluation/engine.ts
-- **修复**: spec-generator.ts 的 prompt 中加入 `ls -R` 或文件树摘要，让 Opus 知道项目有哪些文件
-- **文件**: `core/executor/spec-generator.ts` buildSpecPrompt()
-- **复杂度**: 低 (~20 行)
+### 2. ~~spec-generator 不了解项目文件结构~~ ✅ v3.9.3 已修复
+- buildSpecPrompt 加入递归文件树（深度 3，最多 100 行）
 
-### 3. 任务连续失败时 wave 间无限重试
-- **现象**: task-002 和 task-010 在 wave 2/3/4 反复失败同一个错误，浪费时间
-- **修复**: 如果同一任务连续失败 2 次且错误信息相同 → 自动 skip 并记录原因
-- **文件**: `core/executor/auto-runner.ts` wave 循环内
-- **复杂度**: 中 (~30 行)
+### 3. ~~任务连续失败时 wave 间无限重试~~ ✅ v3.9.3 已修复
+- taskFailHistory 追踪每任务连续失败次数，≥2 次自动 dagSkip
 
 ---
 

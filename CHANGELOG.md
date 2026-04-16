@@ -21,11 +21,13 @@ All notable changes to ham-autocode will be documented in this file.
 
 - phase-loop 启动时清理 dag init 遗留的 default phase 旧任务
 
-### Known Issues (v3.9.3 计划修复)
+## [3.9.3] - 2026-04-16
 
-- L0 门禁不支持"删除文件"任务 → 无限重试
-- spec-generator 不含项目文件树 → Opus spec files 指向错误
-- 同一错误连续失败不自动 skip → 浪费执行时间
+### Fixed — full-auto 实战 P0 修复 (成功率 60%→80%+)
+
+- **P0-#1**: L0 门禁支持"删除文件"任务 — spec.description 含删除/清理/remove/delete 时，文件不存在=通过
+- **P0-#2**: spec-generator 含项目文件树 — buildSpecPrompt 加入递归文件树（深度 3，最多 100 行），Opus 不再猜错文件路径
+- **P0-#3**: 同一错误连续失败自动 skip — taskFailHistory 追踪连续失败次数，≥2 次自动 dagSkip，不再无限重试
 
 ## [3.9.1] - 2026-04-15
 

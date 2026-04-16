@@ -1,6 +1,6 @@
 {
   "name": "ham-autocode",
-  "version": "3.9.2",
+  "version": "3.9.3",
   "description": "Claude Code Harness — AI Agent factory system with DAG scheduler, context engine, agent routing, validation gates & recovery",
   "main": "dist/index.js",
   "bin": {

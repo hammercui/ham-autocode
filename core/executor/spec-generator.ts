@@ -63,13 +63,11 @@ export function generateSpec(
 
 /** 构造给 Opus 的 spec 生成 prompt */
 function buildSpecPrompt(projectDir: string, taskName: string, phaseContext: string): string {
-  // 收集项目基本信息
+  // 收集项目文件树（深度 3，最多 100 行），让 Opus 知道文件在哪
   let projectFiles = '';
   try {
-    const srcDir = fs.readdirSync(projectDir, { withFileTypes: true })
-      .filter(d => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'node_modules' && d.name !== 'dist')
-      .map(d => d.name);
-    projectFiles = `项目目录: ${srcDir.join(', ')}`;
+    const tree = buildFileTree(projectDir, 3);
+    projectFiles = `项目文件树:\n${tree}`;
   } catch { /* ignore */ }
 
   return `你是一个 spec 工程师。为以下任务生成详细的实现规格。
@@ -124,4 +122,42 @@ function parseSpecOutput(output: string, taskName: string): GeneratedSpec {
       complexity: 50,
     };
   }
+}
+
+/** 构建文件树字符串（限深度 + 限行数），排除 node_modules/dist/.git 等 */
+function buildFileTree(dir: string, maxDepth: number, prefix = '', depth = 0): string {
+  if (depth >= maxDepth) return '';
+  const IGNORE = new Set(['node_modules', 'dist', 'dist-electron', '.git', '.ham-autocode', '.planning', '__pycache__', 'coverage', '.next']);
+  const MAX_LINES = 100;
+
+  const lines: string[] = [];
+
+  function walk(d: string, pre: string, dep: number): void {
+    if (dep >= maxDepth || lines.length >= MAX_LINES) return;
+    try {
+      const entries = fs.readdirSync(d, { withFileTypes: true })
+        .filter(e => !IGNORE.has(e.name) && !e.name.startsWith('.'))
+        .sort((a, b) => {
+          // 目录优先
+          if (a.isDirectory() && !b.isDirectory()) return -1;
+          if (!a.isDirectory() && b.isDirectory()) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
+      for (let i = 0; i < entries.length && lines.length < MAX_LINES; i++) {
+        const e = entries[i];
+        const isLast = i === entries.length - 1;
+        const connector = isLast ? '└── ' : '├── ';
+        const childPre = isLast ? '    ' : '│   ';
+        lines.push(`${pre}${connector}${e.name}${e.isDirectory() ? '/' : ''}`);
+        if (e.isDirectory()) {
+          walk(path.join(d, e.name), pre + childPre, dep + 1);
+        }
+      }
+    } catch { /* permission denied etc. */ }
+  }
+
+  walk(dir, prefix, depth);
+  if (lines.length >= MAX_LINES) lines.push('... (truncated)');
+  return lines.join('\n');
 }
