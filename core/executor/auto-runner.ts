@@ -20,6 +20,7 @@ import type { ReviewResult } from './review-gate.js';
 import { getAvailableAgent, recordSuccess, recordFailure } from './agent-status.js';
 import { loadConfig } from '../state/config.js';
 import { parseOpenCodeOutput } from './dispatcher.js';
+import { diagnoseFailure, saveDiagnosis } from './diagnosis.js';
 import type { TaskState, RoutingTarget } from '../types.js';
 
 // ==================== Types ====================
@@ -277,6 +278,9 @@ async function executeTask(
     ? ['codexfake', 'opencode']
     : ['opencode', 'codexfake'];
 
+  // T5: L4 FAIL 重试标记（限 1 次）
+  let hasRetried = false;
+
   for (let attempt = 0; attempt < fallbackChain.length; attempt++) {
     const agentName = options.agent
       ? options.agent  // 强制指定时不 fallback
@@ -365,7 +369,27 @@ async function executeTask(
           if (review.verdict === 'FAIL') {
             log(`${task.id} ⚠ L4 review FAIL: ${review.reason}`);
             writeReviewFeedback(projectDir, review, task);
-            // review FAIL 不阻塞（记录警告，仍然 commit），但记入结果供人工复查
+
+            // T5: L4 FAIL 触发一次修复重试（限 1 次，不递归）
+            if (!hasRetried) {
+              hasRetried = true;
+              log(`${task.id} → L4 retry with review feedback...`);
+              const retryResult = await retryWithReviewFeedback(
+                projectDir, task, agentName, review.reason, options,
+              );
+              if (retryResult) {
+                // 重试成功: 重新跑 quality gate
+                const retryQuality = verifyTaskOutput(projectDir, task);
+                if (retryQuality.passed) {
+                  log(`${task.id} ✓ L4 retry succeeded`);
+                  review = { taskId: task.id, passed: true, verdict: 'PASS', reason: 'fixed after retry', durationMs: retryResult.durationMs };
+                } else {
+                  log(`${task.id} ⚠ L4 retry: quality gate still failed`);
+                }
+              } else {
+                log(`${task.id} ⚠ L4 retry failed, keeping original result`);
+              }
+            }
           } else if (review.verdict === 'ERROR') {
             log(`${task.id} ⚠ L4 review error: ${review.reason}`);
           } else {
@@ -586,7 +610,15 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
       for (const id of autoSkipped) {
         const hist = taskFailHistory.get(id)!;
         dagSkip(projectDir, id);
-        log(`${id} → auto-skipped (failed ${hist.count}x: ${hist.lastError.slice(0, 80)})`);
+        // T4: 结构化诊断 — 任务 skip 前记录为什么失败
+        const task = readTask(projectDir, id);
+        if (task) {
+          const diagnosis = diagnoseFailure(task, hist.count, hist.lastError);
+          saveDiagnosis(projectDir, diagnosis);
+          log(`${id} → auto-skipped (${hist.count}x, diagnosis: ${diagnosis.category}) ${diagnosis.suggestedAction.slice(0, 60)}`);
+        } else {
+          log(`${id} → auto-skipped (failed ${hist.count}x: ${hist.lastError.slice(0, 80)})`);
+        }
         totalSkipped++;
       }
     }
@@ -782,4 +814,69 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
   }
 
   return { totalTasks, completed: totalCompleted, failed: totalFailed, skipped: totalSkipped, deferred: allDeferredTasks.length, totalTimeMs, waves, deferredTasks: allDeferredTasks };
+}
+
+// ─── T5: L4 FAIL 修复重试 ───────────────────────────────────────────
+
+/**
+ * L4 review FAIL 后，将 review feedback 注入上下文重新执行一次。
+ * Skill-First: 闭环机制 — review 发现问题 → 注入 context → agent 修复。
+ * 限制: 仅 1 次重试，用同一 agent，超时 5 分钟。
+ */
+async function retryWithReviewFeedback(
+  projectDir: string,
+  task: TaskState,
+  agentName: string,
+  reviewFeedback: string,
+  options: AutoRunOptions,
+): Promise<{ durationMs: number } | null> {
+  const target = agentName as RoutingTarget;
+  const minimal = buildMinimalContext(projectDir, task, target);
+
+  // 在原始 bundle 后追加 review feedback
+  const retryInstruction = `${minimal.instruction}
+
+## ⚠ L4 Review 发现以下问题，请修复：
+${reviewFeedback}
+
+请根据上述反馈修复代码。只修改有问题的部分，不要重写整个文件。`;
+
+  const bundlePath = writeBundleFile(`${task.id}-retry`, retryInstruction);
+  const bundlePathUnix = bundlePath.replace(/\\/g, '/');
+  const retryTimeout = Math.min(options.timeout || 600000, 300000); // 最多 5 分钟
+
+  let shellCmd: string;
+  if (agentName === 'codexfake') {
+    const gptModel = resolveGptModelForAuto(projectDir);
+    shellCmd = `opencode run --dangerously-skip-permissions --format json --model "${gptModel}" < "${bundlePathUnix}"`;
+  } else {
+    shellCmd = `opencode run --dangerously-skip-permissions --format json < "${bundlePathUnix}"`;
+  }
+
+  const startTime = Date.now();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(shellCmd, [], {
+        cwd: projectDir,
+        shell: true,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      const timer = setTimeout(() => {
+        child.kill('SIGTERM');
+        reject(new Error(`retry timeout after ${retryTimeout}ms`));
+      }, retryTimeout);
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        if (code === 0) resolve();
+        else reject(new Error(`retry exit code ${code}`));
+      });
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+    return { durationMs: Date.now() - startTime };
+  } catch {
+    return null;
+  }
 }

@@ -70,6 +70,18 @@ function buildSpecPrompt(projectDir: string, taskName: string, phaseContext: str
     projectFiles = `项目文件树:\n${tree}`;
   } catch { /* ignore */ }
 
+  // T1: 历史失败经验注入 — 读取 review-feedback.jsonl 最近 FAIL 记录
+  const failLessons = loadRecentFailLessons(projectDir, 5);
+  const failSection = failLessons.length > 0
+    ? `\n## 历史失败教训（务必避免重犯）\n${failLessons.map((f, i) => `${i + 1}. ${f}`).join('\n')}\n`
+    : '';
+
+  // T3: 项目 CLAUDE.md 经验注入
+  const claudeMdLessons = loadClaudeMdLessons(projectDir);
+  const claudeMdSection = claudeMdLessons
+    ? `\n## 项目经验（来自 CLAUDE.md）\n${claudeMdLessons}\n`
+    : '';
+
   return `你是一个 spec 工程师。为以下任务生成详细的实现规格。
 
 ## 任务名称
@@ -81,7 +93,7 @@ ${phaseContext}
 ## 项目信息
 ${projectFiles}
 工作目录: ${projectDir}
-
+${failSection}${claudeMdSection}
 ## 输出要求
 输出严格的 JSON 格式（不要 markdown 代码块包裹），包含以下字段:
 {
@@ -89,7 +101,9 @@ ${projectFiles}
   "interface": "需要 export 的函数/接口签名（TypeScript 格式）",
   "acceptance": "验收标准（至少 3 条，用分号分隔）",
   "files": ["需要创建或修改的文件路径（相对项目根目录）"],
-  "complexity": 数字(1-100，基于文件数量、逻辑复杂度、依赖关系综合评估)
+  "complexity": 数字(1-100，基于文件数量、逻辑复杂度、依赖关系综合评估),
+  "testFile": "测试文件路径（complexity >= 50 时必填，如 src/__tests__/xxx.test.ts）",
+  "testCases": ["测试用例描述（complexity >= 50 时至少 2 条）"]
 }
 
 只输出 JSON，不要其他内容。`;
@@ -160,4 +174,54 @@ function buildFileTree(dir: string, maxDepth: number, prefix = '', depth = 0): s
   walk(dir, prefix, depth);
   if (lines.length >= MAX_LINES) lines.push('... (truncated)');
   return lines.join('\n');
+}
+
+/**
+ * T1: 读取 review-feedback.jsonl 最近 N 条 FAIL 记录，提取教训摘要。
+ * Skill-First: 利用 review-gate 已产出的数据闭环回 spec 生成。
+ */
+function loadRecentFailLessons(projectDir: string, maxCount: number): string[] {
+  const feedbackPath = path.join(projectDir, '.ham-autocode', 'logs', 'review-feedback.jsonl');
+  if (!fs.existsSync(feedbackPath)) return [];
+
+  try {
+    const lines = fs.readFileSync(feedbackPath, 'utf-8').trim().split('\n').filter(Boolean);
+    const fails: string[] = [];
+    // 从尾部往前读，只取 FAIL
+    for (let i = lines.length - 1; i >= 0 && fails.length < maxCount; i--) {
+      try {
+        const entry = JSON.parse(lines[i]);
+        if (entry.verdict === 'FAIL' && entry.summary) {
+          fails.push(`[${entry.taskId || 'unknown'}] ${entry.summary}`);
+        }
+      } catch { /* skip malformed line */ }
+    }
+    return fails;
+  } catch { return []; }
+}
+
+/**
+ * T3: 读取目标项目 CLAUDE.md 的"经验教训"段落。
+ * 闭环: review-gate FAIL → 追加 CLAUDE.md → spec-generator 读取 → agent 规避。
+ */
+function loadClaudeMdLessons(projectDir: string): string {
+  const claudeMdPath = path.join(projectDir, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMdPath)) return '';
+
+  try {
+    const content = fs.readFileSync(claudeMdPath, 'utf-8');
+    // 提取 "经验教训" / "Lessons" / "已知问题" 段落
+    const patterns = [
+      /## (?:经验教训|Lessons Learned|已知问题|Known Issues|L4 Review Findings)[\s\S]*?(?=\n## |\n# |$)/gi,
+    ];
+    const sections: string[] = [];
+    for (const pat of patterns) {
+      const matches = content.match(pat);
+      if (matches) sections.push(...matches);
+    }
+    if (sections.length === 0) return '';
+    // 截取最多 500 字符，避免 prompt 膨胀
+    const combined = sections.join('\n').trim();
+    return combined.length > 500 ? combined.slice(0, 500) + '...' : combined;
+  } catch { return ''; }
 }
