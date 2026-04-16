@@ -174,10 +174,10 @@ export function parsePlanToTasks(planContent: string, milestone?: string, phase?
 
 export function findPlanFile(projectDir: string): string | null {
   const candidates = [
-    // GSD standard location (highest priority)
-    path.join(projectDir, '.planning', 'PLAN.md'),
-    // Project root
+    // Project root (highest priority — user's explicit intent)
     path.join(projectDir, 'PLAN.md'),
+    // GSD standard location
+    path.join(projectDir, '.planning', 'PLAN.md'),
     path.join(projectDir, 'WBS.md'),
     // docs/ directory
     path.join(projectDir, 'docs', 'PLAN.md'),

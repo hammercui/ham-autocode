@@ -36,8 +36,12 @@ export function verifyTaskOutput(projectDir: string, task: TaskState): QualityRe
   }
 
   // 检测是否为"删除文件"任务 — 语义反转：文件不存在 = 通过
-  const desc = (task.spec?.description || '').toLowerCase();
-  const isDeleteTask = /删除|清理|移除|remove|delete|clean\s*up/.test(desc);
+  // 注意：只检查 task.name（短标题），不检查 description（太长容易误触发）
+  // "重构"、"清理死代码" 等常见 task name 不应误判为删除任务
+  // 只有明确的删除/移除动作才进入删除模式
+  const taskName = (task.name || '').toLowerCase();
+  const isDeleteTask = /^(删除|移除|remove|delete)/.test(taskName)
+    || /删除文件|移除文件|remove\s+file|delete\s+file/.test(taskName);
 
   // L0: 文件存在性（含修复指令）
   for (const f of files) {

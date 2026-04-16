@@ -99,7 +99,7 @@ ${failSection}${claudeMdSection}
 {
   "description": "详细的实现描述（至少 100 字）：做什么、为什么、怎么做、边界条件",
   "interface": "需要 export 的函数/接口签名（TypeScript 格式）",
-  "acceptance": "验收标准（至少 3 条，用分号分隔）",
+  "acceptance": "验收标准（必须 3 条以上，用分号分隔。每条须可验证，如'函数 X 返回 Y'、'文件 Z 包含 export W'）",
   "files": ["需要创建或修改的文件路径（相对项目根目录）"],
   "complexity": 数字(1-100，基于文件数量、逻辑复杂度、依赖关系综合评估),
   "testFile": "测试文件路径（complexity >= 50 时必填，如 src/__tests__/xxx.test.ts）",

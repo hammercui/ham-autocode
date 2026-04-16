@@ -165,6 +165,19 @@ export async function runFullAuto(
   options: FullAutoOptions,
 ): Promise<FullAutoResult> {
   const startTime = Date.now();
+
+  // P2-#5: 清零 progress 文件，避免监控看到上一轮旧数据
+  const progressFile = path.join(projectDir, '.ham-autocode', 'dispatch', 'auto-progress.json');
+  try {
+    const dir = path.dirname(progressFile);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(progressFile, JSON.stringify({
+      status: 'starting', startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      currentWave: 0, completed: 0, failed: 0, skipped: 0, deferred: 0, remaining: 0,
+      currentTasks: [], recentLog: ['[full-auto] Initializing...'],
+    }, null, 2), 'utf-8');
+  } catch { /* best effort */ }
+
   const phases = parsePlanPhases(projectDir);
   const results: PhaseResult[] = [];
 
