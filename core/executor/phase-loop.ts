@@ -175,6 +175,15 @@ export async function runFullAuto(
 
   log(`Found ${phases.length} phases in PLAN.md`);
 
+  // 清理 dag init 遗留的 default phase 任务（full-auto 用 Opus 重新生成 spec）
+  const staleDefaults = readAllTasks(projectDir).filter(
+    t => t.phase === 'default' && (t.status === 'pending' || t.status === 'failed' || t.status === 'blocked')
+  );
+  if (staleDefaults.length > 0) {
+    log(`Cleaning ${staleDefaults.length} stale default-phase tasks (will regenerate with Opus specs)`);
+    for (const t of staleDefaults) deleteTask(projectDir, t.id);
+  }
+
   const maxPhases = options.maxPhases || phases.length;
 
   for (let pi = 0; pi < Math.min(phases.length, maxPhases); pi++) {

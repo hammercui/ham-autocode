@@ -16,7 +16,7 @@ import { handleHealth, handleResearch } from './commands/cmd-health.js';
 import { handleTraceCmd, handleSession, handleCommit, handleRules, handleSpec, handleToken } from './commands/cmd-misc.js';
 
 function usage(): string {
-  return `ham-autocode v3.9
+  return `ham-autocode v3.9.2
 
 Commands:
   config show|validate          pipeline init|status|log|pause|resume

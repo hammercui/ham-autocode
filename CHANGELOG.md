@@ -2,6 +2,31 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [3.9.2] - 2026-04-16
+
+### Added — execute full-auto (24h 自治执行循环)
+
+- **spec-generator.ts**: 调用 claude -p (Opus) 为每个任务自动生成详细 spec
+- **phase-loop.ts**: 全自动 phase 循环 — PLAN.md → Opus spec → routeTask → 波次执行 → phase 推进
+- **execute full-auto** CLI 命令: 支持 --agent/--timeout/--push/--max-phases/--dry-run
+
+### Added — ham-video v0.4 实战验证
+
+- 3 phases / 10 tasks 自治执行
+- 6/10 完成 (60%)，4 skipped（门禁误判 + tsconfig 跨目录）
+- Opus spec 成本 ~$0.32 vs 手动 Opus ~$1.80（节省 82%）
+- Phase 自动推进、CPM/PERT 分析、fallback 机制均验证有效
+
+### Fixed — 实战反馈修复
+
+- phase-loop 启动时清理 dag init 遗留的 default phase 旧任务
+
+### Known Issues (v3.9.3 计划修复)
+
+- L0 门禁不支持"删除文件"任务 → 无限重试
+- spec-generator 不含项目文件树 → Opus spec files 指向错误
+- 同一错误连续失败不自动 skip → 浪费执行时间
+
 ## [3.9.1] - 2026-04-15
 
 ### Changed — Harness Engineering 四大支柱对齐
