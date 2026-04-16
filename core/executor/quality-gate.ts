@@ -197,21 +197,42 @@ function verifySpecKeywords(projectDir: string, task: TaskState): CheckResult[] 
 
   if (exportNames.length === 0) return [];
 
-  const checks: CheckResult[] = [];
-  for (const f of task.files || []) {
-    const fullPath = path.resolve(projectDir, f);
-    if (!fs.existsSync(fullPath)) continue;
-
-    const content = fs.readFileSync(fullPath, 'utf-8');
-    for (const name of exportNames) {
-      const found = content.includes(name);
-      checks.push({
-        name: `spec-export:${name}@${f}`,
-        passed: found,
-        message: found ? `找到 "${name}"`
-          : `未找到 spec 声明的 "${name}" 在 ${f} 中。修复方法: 在文件中添加 export 声明，确保函数/接口名与 spec.interface 一致。`,
-      });
+  // 搜索范围: task.files + git diff 变更的文件（agent 可能写到 spec 未声明的文件中）
+  const searchFiles = [...(task.files || [])];
+  try {
+    const diffOutput = execSync('git diff --name-only HEAD~1', {
+      cwd: projectDir, stdio: 'pipe', timeout: 5000,
+    }).toString().trim();
+    if (diffOutput) {
+      for (const f of diffOutput.split('\n')) {
+        if (f.endsWith('.ts') || f.endsWith('.tsx')) {
+          if (!searchFiles.includes(f)) searchFiles.push(f);
+        }
+      }
     }
+  } catch { /* no git or no commits */ }
+
+  const checks: CheckResult[] = [];
+  // 对每个 export 名称，只要在任意搜索文件中找到就算通过
+  for (const name of exportNames) {
+    let found = false;
+    let foundIn = '';
+    for (const f of searchFiles) {
+      const fullPath = path.resolve(projectDir, f);
+      if (!fs.existsSync(fullPath)) continue;
+      const content = fs.readFileSync(fullPath, 'utf-8');
+      if (content.includes(name)) {
+        found = true;
+        foundIn = f;
+        break;
+      }
+    }
+    checks.push({
+      name: `spec-export:${name}`,
+      passed: found,
+      message: found ? `找到 "${name}" 在 ${foundIn}`
+        : `未找到 spec 声明的 "${name}"。修复方法: 在产出文件中添加 export 声明，确保函数/接口名与 spec.interface 一致。`,
+    });
   }
 
   return checks;

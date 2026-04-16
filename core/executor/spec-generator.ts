@@ -45,7 +45,7 @@ export function generateSpec(
 
     const output = execSync(`claude -p < "${tmpFile.replace(/\\/g, '/')}"`, {
       cwd: projectDir,
-      timeout: 120000,
+      timeout: 180000, // 3min — claude -p 有时较慢
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true as unknown as string,
     }).toString().trim();

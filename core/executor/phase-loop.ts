@@ -285,7 +285,7 @@ export async function runFullAuto(
         if (success) {
           // 标记完成
           try {
-            execSync(`node "${path.join(projectDir, '..')}/ham-autocode/dist/index.js" dag complete ${deferred.taskId}`, {
+            execSync(`node "${path.join(__dirname, '..', 'index.js')}" dag complete ${deferred.taskId}`, {
               cwd: projectDir,
               timeout: 10000,
               stdio: 'pipe',

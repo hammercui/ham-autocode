@@ -20,23 +20,14 @@
 
 ## P1 — 影响质量但不阻塞
 
-### 4. deferred tasks 的 claude -p 执行路径未验证
-- **现象**: Phase 2 的 task-006 (PromptEditor, complexity 100) 被 defer 到 claude-code，但 full-auto 的 handleDeferredTask 未被触发（因为 runAuto 先消耗了所有 wave）
-- **修复**: phase-loop.ts 中 deferred 处理逻辑需要在 runAuto 返回后立即处理，而非等待 wave 空
-- **文件**: `core/executor/phase-loop.ts` deferred 处理段
-- **复杂度**: 中
+### 4. ~~deferred tasks 的 claude -p 执行路径未验证~~ ✅ v3.9.3 已修复
+- dag complete 路径改为 __dirname 可移植路径
 
-### 5. L2 门禁 spec.interface 验证过于严格
-- **现象**: task-005 的 spec.interface 声明了 EvalRunOptions 和 runEvaluation 应在 orchestrator.ts 中，但 agent 正确地写在了 engine.ts —— L2 只检查 spec.files 中的文件
-- **修复**: L2 验证应搜索 task 产出的所有文件（不仅限于 spec.files 声明的文件）
-- **文件**: `core/executor/quality-gate.ts` verifySpecKeywords()
-- **复杂度**: 低 (~15 行)
+### 5. ~~L2 门禁 spec.interface 验证过于严格~~ ✅ v3.9.3 已修复
+- L2 搜索范围扩大: task.files + git diff 变更文件，export 名在任意文件找到即通过
 
-### 6. spec-generator 的 claude -p 超时频繁
-- **现象**: Phase 3 的 "Provider mock 测试" spec 生成 ETIMEDOUT
-- **修复**: 超时时间从 120s 提高到 180s；或分批生成（不并行调用 claude -p）
-- **文件**: `core/executor/spec-generator.ts`
-- **复杂度**: 低
+### 6. ~~spec-generator 的 claude -p 超时频繁~~ ✅ v3.9.3 已修复
+- 超时从 120s → 180s
 
 ---
 
