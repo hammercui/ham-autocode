@@ -92,6 +92,36 @@ App tracks progress and makes key decisions.
 2. `/land-and-deploy` - Merge + deploy + verify
 3. `/canary` - Post-deploy monitoring
 
+## PLAN.md 格式（full-auto 必须遵守）
+
+`execute full-auto` 自动解析 PLAN.md，格式不对就解析不到。
+
+**Phase 标题必须含数字编号：**
+```
+## Phase 1: 代码质量修复     ✅
+## 阶段 2: 功能补全          ✅
+## 第一批要做的事            ✗ 没数字
+```
+
+**任务格式（4 种任一）：**
+```
+### 1. 任务名称              ✅ 子标题
+- [ ] **T1: 任务名称**       ✅ 复选框
+| 1.1 | 任务名称 | ... |     ✅ 表格
+1. 任务名称                  ✅ 编号列表
+```
+
+**每个任务建议附带：**
+- 一句话描述（做什么）
+- `Files:` 涉及的文件路径
+
+**执行命令：**
+```bash
+ham-cli execute full-auto              # 跑完所有 phase
+ham-cli execute full-auto --push       # 完成后 git push
+ham-cli execute full-auto --max-phases 1  # 只跑第一个 phase
+```
+
 ## Rules
 
 - NEVER skip the planning phase
