@@ -22,30 +22,52 @@ ham-cli execute full-auto --push       # 完成后自动 git push
 ham-cli execute full-auto --dry-run    # 预览模式，不实际执行
 ```
 
-### 核心能力
+架构借鉴 Harness Engineering 实践（OpenAI、Anthropic、Stripe、Hashimoto），作为方法论运用而非目标本身。项目遵循 **Skill-First 原则**：优先使用社区 skill（gstack、GSD、Superpowers），自建模块只覆盖它们不提供的能力——多 agent 分发、DAG 调度、适配自治执行的质量门禁。
 
-| 能力 | 做什么 | 核心收益 |
-|------|--------|---------|
-| **任务拆分与路由** | PLAN.md → DAG → 按复杂度路由到 5 个 agent 目标 | 对的 agent 做对的事 |
-| **自治执行循环** | Opus spec → 分发 → 执行 → 质量门禁 → 提交 → 下一波 | 零人工干预 |
-| **质量保障** | L0-L4 门禁 + 失败诊断 + L4 重试 + fallback 链 | 产出可信赖 |
-| **Spec 反馈闭环** (v4.0) | Review 失败 → 注入下次 spec → agent 不再犯同样错误 | 自我改进精度 |
+## 7 层架构
 
-### 5 目标路由
+| 层 | 解决什么问题 | 核心模块 |
+|----|-------------|---------|
+| **上下文引擎** | 给对的 agent 对的上下文 — 按目标裁剪模板，40% Smart Zone 预算 | `context-template.ts` `summary-cache.ts` |
+| **DAG 编排** | 任务依赖调度 — 拓扑排序、波次并行、关键路径、运行时编辑 | `parser.ts` `graph.ts` `scheduler.ts` `critical-path.ts` `merge.ts` |
+| **验证门禁** | 分层质量保障 — L0-L4 门禁、失败诊断、L4 自动重试 (v4.0) | `quality-gate.ts` `review-gate.ts` `diagnosis.ts` |
+| **恢复引擎** | 故障容错 — git checkpoint、worktree 隔离、fallback 链 | `recovery/checkpoint.ts` `recovery/worktree.ts` |
+| **Agent 路由** | 成本最优分发 — 5 目标评分、额度追踪、静态规则 | `router.ts` `scorer.ts` `quota.ts` |
+| **Spec 引擎** | Spec 质量决定成功率 — Opus 生成、反馈闭环、TDD 要求 (v4.0) | `spec-generator.ts` `spec/reader.ts` `spec/enricher.ts` |
+| **知识沉淀** | 跨会话学习 — 项目脑、代码实体索引、任务后自动学习 | `project-brain.ts` `code-entities.ts` `auto-learn.ts` |
 
-| 目标 | 模型 | 成本 | 适用场景 |
-|------|------|------|---------|
-| opencode | glm-4.7 | 免费 | 简单任务：complexity ≤ 40, files ≤ 5 |
-| codexfake | gpt-5.3-codex | 低 | 中等复杂度：specScore ≥ 80, isolationScore ≥ 70 |
-| claude-app | Sonnet | 中 | 文档/配置/hotfix 任务 |
-| claude-code | Opus 4.6 | 高 | 复杂架构任务（默认 fallback） |
-| agent-teams | Opus x N | 高 | 并行波次 ≥ 3 个隔离任务 |
+### 第 1 层：上下文引擎
 
-Fallback 链：codexfake → opencode → claude-code。静态规则，无 ML。
+Agent 需要恰到好处的上下文——太少会遗漏需求，太多会失去焦点。上下文引擎按目标裁剪每个 bundle：
 
-### 质量门禁 (L0-L4)
+| 目标 | 上下文大小 | 包含内容 |
+|------|-----------|---------|
+| opencode | ~1K tokens | 任务 spec + 文件路径 |
+| codexfake | ~2K tokens | + 阅读清单 + 依赖产出 |
+| claude-code | ~3-5K tokens | + 项目脑 + 惯例 + 实体搜索 |
 
-每个任务产出经过分层验证。错误消息包含可操作的修复指令（OpenAI Linter 模式）。
+预算：40% Smart Zone 阈值——上下文超过窗口 40% 后产出质量下降。
+
+### 第 2 层：DAG 编排
+
+PLAN.md 被解析为有向无环图，任务按依赖关系分波次并行执行：
+
+```
+dag init PLAN.md   →   Wave 1: [A, B]   →   Wave 2: [C, D]   →   Wave 3: [E]
+                       (并行)                (并行)                (依赖 C+D)
+```
+
+| 能力 | 说明 |
+|------|------|
+| WBS 解析 | 解析 PLAN.md（标题/复选框/表格）→ 任务 DAG |
+| 波次调度 | 基于依赖就绪的并行波次生成 |
+| 关键路径 (CPM) | 前推/后推、浮动时间、瓶颈检测 |
+| 运行时编辑 | 执行中 `dag add/remove/move/re-init --merge` |
+| PM 报告 | PERT 估算、挣值分析、ASCII 甘特图 |
+
+### 第 3 层：验证门禁
+
+每个任务产出经过分层验证。错误消息包含可操作的修复指令。
 
 | 层级 | 检查内容 | 失败时 |
 |------|---------|--------|
@@ -53,23 +75,52 @@ Fallback 链：codexfake → opencode → claude-code。静态规则，无 ML。
 | L1 | TypeScript 单文件语法 | `TS 错误码对照：TS2304/2339/2345/2307` |
 | L2 | spec.interface export 验证（搜索所有产出文件） | `添加与 spec.interface 一致的 export 声明` |
 | L3 | 项目级 `tsc --noEmit` | 仅警告（项目可能有预存错误） |
-| L4 | AI 自审：diff vs spec → **FAIL 自动重试** (v4.0) | 警告 + 修复重试 + 经验追加到 CLAUDE.md |
+| L4 | AI 自审：diff vs spec → **FAIL 自动重试** (v4.0) | 修复重试 + 经验追加到 CLAUDE.md |
 
-**v4.0 新增：** 结构化失败诊断（5 类分类 → `diagnosis.jsonl`），L4 FAIL 注入 review feedback 重试一次。
+**v4.0：** 结构化失败诊断将每次 skip 分为 5 类（`spec-issue`、`agent-limitation`、`env-issue`、`dep-missing`、`unknown`），附修复建议 → `diagnosis.jsonl`。
 
-### 项目管理引擎
+### 第 4 层：恢复引擎
 
-内置 DAG 调度器 + 经典 PM 方法论，用于进度跟踪：
+| 策略 | 触发条件 | 做什么 |
+|------|---------|--------|
+| Checkpoint | complexity < 70 | 执行前打 git tag，失败时回滚 |
+| Worktree | complexity >= 70 | git worktree 隔离，失败时丢弃 |
+| Fallback 链 | Agent 失败 | codexfake → opencode → claude-code |
+| 自动跳过 | 同一错误 2 次 | 停止重试，诊断，继续下一个 |
 
-| 能力 | 模块 | 说明 |
-|------|------|------|
-| WBS 解析 | `parser.ts` | 解析 PLAN.md（标题/复选框/表格）→ 任务 DAG |
-| 拓扑排序 | `graph.ts` | Kahn 算法、环检测、依赖解析 |
-| 波次调度 | `scheduler.ts` | 基于依赖就绪的并行波次生成 |
-| 关键路径 (CPM) | `critical-path.ts` | 前推/后推、浮动时间、瓶颈检测 |
-| PERT / EVM / 甘特图 | `estimation.ts` `earned-value.ts` `gantt.ts` | 三点估算、挣值分析、ASCII 甘特图 |
-| DAG 可视化 | `visualize.ts` | ASCII 依赖树 + 状态图标 |
-| 运行时 DAG 编辑 | `merge.ts` | PLAN.md 变更与现有 DAG 的 diff 合并 |
+### 第 5 层：Agent 路由
+
+5 个目标，静态规则，无 ML。成本优化是第一驱动力。
+
+| 目标 | 模型 | 成本 | 适用场景 |
+|------|------|------|---------|
+| opencode | glm-4.7 | 免费 | 简单：complexity ≤ 40, files ≤ 5 |
+| codexfake | gpt-5.3-codex | 低 | 中等：specScore ≥ 80, isolationScore ≥ 70 |
+| claude-app | Sonnet | 中 | 文档/配置/hotfix |
+| claude-code | Opus 4.6 | 高 | 复杂架构（默认 fallback） |
+| agent-teams | Opus x N | 高 | 并行波次 ≥ 3 个隔离任务 |
+
+### 第 6 层：Spec 引擎
+
+"当规格正确时，实现自然可靠。" Opus 写详细 spec，免费 agent 执行。
+
+| 能力 | 说明 |
+|------|------|
+| Opus 生成 | `claude -p` 生成 JSON spec（description, interface, acceptance, files, complexity） |
+| 项目文件树 | spec prompt 包含文件树（深度 3, 最多 100 行）— Opus 不再猜错路径 |
+| 反馈闭环 (v4.0) | review-feedback.jsonl FAIL 记录注入下次 spec — 同类错误不再重犯 |
+| CLAUDE.md 闭环 (v4.0) | 项目 CLAUDE.md 经验教训注入 spec prompt — 跨会话学习 |
+| TDD 要求 (v4.0) | complexity ≥ 50 时要求输出 testFile + testCases |
+
+### 第 7 层：知识沉淀
+
+跨会话连续性，无 ML 复杂度：
+
+| 模块 | 存储什么 | 如何使用 |
+|------|---------|---------|
+| 项目脑 | 痛点、已验证模式、架构连接 | 通过 `getBrainContext()` 注入 agent 上下文 |
+| 代码实体 | 每个文件的函数/类/接口索引 | `searchEntities()` 发现相关代码 |
+| 自动学习 | 每次 `dag complete` 后触发 | 增量更新 brain + 实体索引 |
 
 ## 三层框架
 
@@ -81,18 +132,7 @@ Fallback 链：codexfake → opencode → claude-code。静态规则，无 ML。
 | [GSD](https://github.com/gsd-build/get-shit-done) | 工作流稳定 | 阶段驱动开发、spec 强制、验证体系 |
 | [Superpowers](https://github.com/obra/superpowers) | 执行纪律 | TDD、头脑风暴、代码审查、调试方法论 |
 
-ham-autocode 编排三者，并遵循 **Skill-First 原则**：优先使用社区 skill，自建模块只覆盖社区 skill 不提供的能力——多 agent 分发、DAG 调度、适配自治执行的质量门禁。
-
-## 设计理念
-
-借鉴 Harness Engineering 实践（OpenAI、Anthropic、Stripe、Hashimoto），作为方法论运用而非目标本身：
-
-- **经济约束驱动架构** — Opus 昂贵 → 拆分任务给免费 agent → 编排层保持精简
-- **基础设施 > 模型智能** — 同模型、好 harness = 质变级提升
-- **静态规则 > ML 自适应** — 路由用确定性评分，不用学习阈值
-- **错误消息即教学** — 质量门禁失败时告诉 agent 怎么修
-- **反馈闭环** — L4 FAIL → CLAUDE.md + review-feedback.jsonl → 下次 spec 读取两者 (v4.0)
-- **Skill-First** — 优先使用社区 skill，自建只做包装和增强
+ham-autocode 编排三者：gstack 定方向，GSD 搭结构，Superpowers 保质量。
 
 ## 安装
 
@@ -160,12 +200,6 @@ ham-cli <命令>     # 或: node dist/index.js <命令>
 | L4 review | 发现真实 bug（缺少 await、eval.ts 3 个缺陷）|
 | 失败诊断 (v4.0) | 5 类分类 → diagnosis.jsonl |
 | CI | GitHub Actions，Node 18 + 22 矩阵 |
-
-## 编译与测试
-
-```bash
-npm ci && npm run build && npm test
-```
 
 ## 配置
 
