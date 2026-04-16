@@ -230,23 +230,84 @@ ham-cli quota status             # 路由配额状态
 **Q：支持 Windows 吗？**
 支持。Hooks 使用 bash（Git Bash）。核心引擎纯 Node.js，跨平台。
 
-**Q：Codex 额度用完了怎么办？**
-自动降级。连续 2 次 agent_error 后，Codex 任务自动转给 OpenCode（免费）。也可以手动标记：
+**Q：Agent 执行失败怎么办？**
+自动 fallback。opencode 失败自动降级到 codexfake，连续失败 2 次自动 skip（v3.9.3）。也可以手动指定 agent：
 ```bash
-ham-cli quota mark-unavailable codex "额度用完"
+ham-cli execute auto --agent opencode
 ```
 
-**Q：如何查看项目学到了什么？**
+**Q：如何查看项目理解？**
 ```bash
-ham-cli learn brain       # 项目理解（架构/约定/痛点）
-ham-cli learn status      # 学习统计
+ham-cli learn brain       # 项目架构/约定/模块关系
+ham-cli learn detail all  # 完整记忆
 ham-cli learn entities    # 代码实体索引
-ham-cli learn patterns    # 任务类型统计
+ham-cli learn status      # 学习统计
 ```
 
 ---
 
-## 十、版本历史
+## 十、PLAN.md 编写规范（full-auto 必读）
+
+`execute full-auto` 从 PLAN.md 自动解析 phase 和任务。格式要求：
+
+### Phase 标题格式（必须包含数字编号）
+
+```markdown
+## Phase 1: 代码质量修复          ✅ 能解析
+## 阶段 2: 功能补全               ✅ 能解析
+## Phase 3.1: 子阶段              ✅ 能解析
+## 第一批要做的事                  ✗ 没有数字，解析不到
+```
+
+### 任务格式（4 种任一即可）
+
+```markdown
+### 1. 修复 tsconfig 兼容问题           ✅ 子标题格式
+- [ ] **T1: 修复 tsconfig**              ✅ 复选框格式
+| 1.1 | 修复 tsconfig | ... |            ✅ 表格格式
+1. 修复 tsconfig 兼容问题               ✅ 编号列表格式
+- 修复 tsconfig                          ✗ 无编号无复选框，提取不到
+```
+
+### 推荐模板
+
+```markdown
+## Phase 1: 代码质量修复
+
+### 1. 修复 tsconfig.electron.json ESM 兼容问题
+- 修改 tsconfig.electron.json module 选项
+- Files: app/tsconfig.electron.json
+
+### 2. 清理死代码
+- 删除不再使用的 TabBar.tsx
+- Files: app/src/renderer/components/TabBar.tsx
+
+## Phase 2: 功能补全
+
+### 1. Evaluation engine 接入真实执行
+- engine.ts 中 TODO 标记需要替换为真实 Orchestrator 调用
+- Files: app/src/evaluation/engine.ts
+```
+
+### 运行 full-auto
+
+```bash
+# 标准用法
+ham-cli execute full-auto
+
+# 只跑前 2 个 phase
+ham-cli execute full-auto --max-phases 2
+
+# 完成后自动 push
+ham-cli execute full-auto --push
+
+# 试运行（只解析，不执行）
+ham-cli execute full-auto --dry-run
+```
+
+---
+
+## 十一、版本历史
 
 | 版本 | 主题 |
 |------|------|
@@ -260,3 +321,8 @@ ham-cli learn patterns    # 任务类型统计
 | v3.2 | 实战驱动健康检查 |
 | v3.3 | Token 优化（-40~60%） |
 | v3.4 | 记忆 ROI 修复 + LSP 优先 |
+| v3.5 | Memory 渐进披露 + CI + 文档 |
+| v3.9 | DAG 变更管理（运行时编辑） |
+| v3.9.1 | CE 精简 + Harness Engineering 四大支柱对齐 |
+| v3.9.2 | execute full-auto（24h 自治循环） |
+| v3.9.3 | full-auto 实战修复（成功率 60%→90%） |

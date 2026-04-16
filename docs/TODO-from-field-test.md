@@ -44,10 +44,8 @@
 - **修复**: 已在 v3.9.1 修复（full-auto 启动时清理 default phase 旧任务）
 - **状态**: ✅ 已修复
 
-### 9. PLAN.md phase 格式标准化文档
-- **现象**: full-auto 支持 4 种任务格式但用户不知道最佳写法
-- **修复**: 在 GUIDE.md 中增加 PLAN.md 编写规范和示例
-- **复杂度**: 文档工作
+### 9. ~~PLAN.md phase 格式标准化文档~~ ✅ v3.9.3 已完成
+- GUIDE.md 新增第十章：PLAN.md 编写规范 + 4 种格式示例 + full-auto 用法
 
 ---
 
