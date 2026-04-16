@@ -134,6 +134,47 @@ dag init PLAN.md   →   Wave 1: [A, B]   →   Wave 2: [C, D]   →   Wave 3: [
 
 ham-autocode 编排三者：gstack 定方向，GSD 搭结构，Superpowers 保质量。
 
+### Skill 映射表
+
+项目全生命周期中，每个环节用到哪个框架的哪个 skill：
+
+| 阶段 | 步骤 | Skill | 框架 | ham-autocode 角色 |
+|------|------|-------|------|-------------------|
+| **1. 构思** | 想法验证 | `/office-hours` | gstack | —（直接使用） |
+| | 战略审查 | `/plan-ceo-review` | gstack | — |
+| | 设计审查 | `/plan-design-review` | gstack | — |
+| **2. 需求** | 项目初始化 | `/gsd:new-project` | GSD | — |
+| | 里程碑创建 | `/gsd:new-milestone` | GSD | — |
+| | 路线图生成 | GSD Roadmapper | GSD | — |
+| **3. 规划** | 阶段讨论 | `/gsd:discuss-phase --auto` | GSD | — |
+| | 阶段计划 | `/gsd:plan-phase` | GSD | — |
+| | 架构锁定 | `/plan-eng-review` | gstack | — |
+| | 头脑风暴 | `brainstorming` | Superpowers | — |
+| **4. 执行** | 自治循环 | `execute full-auto` | **ham-autocode** | 核心：spec 生成 → 路由 → 执行 → 门禁 → 提交 |
+| | Spec 生成 | `spec-generator.ts` | **ham-autocode** | 第 6 层：Opus 写 spec |
+| | 任务路由 | `router.ts` | **ham-autocode** | 第 5 层：5 目标分发 |
+| | 质量门禁 | `quality-gate.ts` | **ham-autocode** | 第 3 层：L0-L4 验证 |
+| | 失败诊断 | `diagnosis.ts` | **ham-autocode** | 第 3 层：5 类分类 |
+| | TDD 纪律 | `test-driven-development` | Superpowers | 理念：spec 要求 testFile (v4.0) |
+| | 并行分发 | `dispatching-parallel-agents` | Superpowers | 理念：波次并行 |
+| **5. 审查** | UAT 验证 | `/gsd:verify-work` | GSD | `skills/ship/` 包装 |
+| | 代码审查 | `/review` | gstack | `skills/ship/` 包装 |
+| | QA + 自动修复 | `/qa` | gstack | `skills/ship/` 包装 |
+| | L4 AI 自审 | `review-gate.ts` | **ham-autocode** | 第 3 层：opencode 审查 diff vs spec |
+| | 完成前验证 | `verification-before-completion` | Superpowers | 理念：证据先于断言 |
+| **6. 发布** | 创建 PR | `/ship` | gstack | `skills/ship/` 包装 |
+| | 部署 + 验证 | `/land-and-deploy` | gstack | — |
+| | 部署后监控 | `/canary` | gstack | — |
+| | 文档更新 | `/document-release` | gstack | — |
+| **支撑** | 调试失败 | `/investigate` | gstack | 可用但尚未自动集成 |
+| | 系统化调试 | `systematic-debugging` | Superpowers | 可手动使用 |
+| | 进度查询 | `/gsd:progress` | GSD | `skills/status/` 扩展 |
+| | 暂停/恢复 | `/gsd:pause-work` `/gsd:resume-work` | GSD | `skills/resume/` 扩展 |
+| | 项目健康 | `/health` | gstack | `skills/health-check/` 补充 |
+| | 回顾总结 | `/retro` | gstack | 可用于定期回顾 |
+
+**图例：** 标记为 **ham-autocode** 的是自建核心能力（7 层架构）。其余全部是社区 skill，直接使用或包装。
+
 ## 安装
 
 **要求：** Node.js >= 18，Claude Code
