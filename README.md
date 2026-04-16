@@ -2,21 +2,46 @@
 
 [![CI](https://github.com/hammercui/ham-autocode/actions/workflows/ci.yml/badge.svg)](https://github.com/hammercui/ham-autocode/actions/workflows/ci.yml)
 
-> Claude Code Plugin for fully autonomous project development.
-> Harness Architecture aligned with [Harness Engineering Four Pillars](docs/Harness%20Engineering%20深度解析：AI%20Agent%20时代的工程范式革命%201.md): Context Architecture, Agent Specialization, Persistent Memory, Structured Execution.
+> Coordinate multiple AI agents to autonomously complete entire software projects — saving 82% token cost.
 
-**v3.9.1** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Guide](docs/GUIDE.md) | [Examples](examples/) | [中文文档](README.zh-CN.md)
+**v4.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Guide](docs/GUIDE.md) | [Roadmap](docs/ROADMAP-v4.0.md) | [中文文档](README.zh-CN.md)
 
 ## What is it?
 
-The **Harness** layer that turns AI coding agents from "can run" into "runs reliably":
+Claude Code (Opus) is powerful but expensive and quota-limited. ham-autocode solves this by **splitting tasks and routing them to free/low-cost agents** while maintaining quality:
 
-| Pillar | What it solves | Key Modules |
-|--------|---------------|-------------|
-| Context Architecture | Right context for right agent — no more, no less. 40% Smart Zone budget control | context-template, summary-cache |
-| Agent Specialization | 5-target routing: opencode (free) / codexfake (mid) / claude-code (complex) / claude-app / agent-teams | router, scorer |
-| Persistent Memory | Cross-session continuity via CHECKPOINT.md, DAG state, git log. CLAUDE.md as living feedback loop | DAG state, review-gate → CLAUDE.md |
-| Structured Execution | DAG → wave scheduling → quality gates (L0-L4) → auto-commit. Runtime DAG editing (v3.9) | auto-runner, quality-gate, review-gate |
+```
+PLAN.md → DAG → Opus writes spec → Route to agent → Execute → Quality gate → Commit → Next wave
+```
+
+One command runs the full loop unattended:
+
+```bash
+ham-cli execute full-auto              # Run all phases autonomously
+ham-cli execute full-auto --push       # Auto git push when done
+ham-cli execute full-auto --dry-run    # Preview without executing
+```
+
+### Core Capabilities
+
+| Capability | What it does | Key Benefit |
+|-----------|-------------|-------------|
+| **Task Splitting & Routing** | PLAN.md → DAG → route by complexity to 5 agent targets | Right agent for right task |
+| **Autonomous Execution Loop** | Opus spec → dispatch → execute → quality gate → commit → next wave | Zero human intervention |
+| **Quality Assurance** | L0-L4 gates + failure diagnosis + L4 retry + fallback chain | Output you can trust |
+| **Spec Feedback Loop** (v4.0) | Review failures → inject into next spec → agent avoids same mistakes | Self-improving accuracy |
+
+### 5-Target Routing
+
+| Target | Model | Cost | When |
+|--------|-------|------|------|
+| opencode | glm-4.7 | Free | Simple tasks: complexity ≤ 40, files ≤ 5 |
+| codexfake | gpt-5.3-codex | Low | Mid-complexity: specScore ≥ 80, isolationScore ≥ 70 |
+| claude-app | Sonnet | Medium | Doc/config/hotfix tasks |
+| claude-code | Opus 4.6 | High | Complex architecture (default fallback) |
+| agent-teams | Opus x N | High | Parallel wave ≥ 3 isolated tasks |
+
+Fallback chain: codexfake → opencode → claude-code. Static rules, no ML.
 
 ### Quality Gates (L0-L4)
 
@@ -24,49 +49,50 @@ Every task output passes through layered verification. Error messages include fi
 
 | Level | Check | On Failure |
 |-------|-------|------------|
-| L0 | File exists + non-empty | `Create the file and implement spec requirements` |
+| L0 | File exists + non-empty (supports delete/refactor tasks) | `Create the file and implement spec requirements` |
 | L1 | TypeScript single-file syntax | `TS error code guide: TS2304/2339/2345/2307` |
-| L2 | spec.interface export verification | `Add export declaration matching spec.interface` |
+| L2 | spec.interface export verification (searches all output files) | `Add export declaration matching spec.interface` |
 | L3 | Project-level `tsc --noEmit` | Warning only (project may have pre-existing errors) |
-| L4 | AI self-review: opencode reviews diff vs spec | Warning + auto-append lesson to CLAUDE.md |
+| L4 | AI self-review: diff vs spec → **auto-retry on FAIL** (v4.0) | Warning + fix retry + lesson appended to CLAUDE.md |
 
-### Project Management Engine (DAG + PM Methods)
+**v4.0 additions:** Structured failure diagnosis (5 categories → `diagnosis.jsonl`), L4 FAIL triggers one fix retry with review feedback injected.
 
-Built-in project management based on WBS decomposition and classical PM theory:
+### Project Management Engine
+
+Built-in DAG scheduler with classical PM methods for progress tracking:
 
 | Capability | Module | What it does |
 |-----------|--------|-------------|
-| WBS Parser | `parser.ts` | Parse PLAN.md/WBS.md (3 formats: markdown headers, checkboxes, tables) → task DAG |
+| WBS Parser | `parser.ts` | Parse PLAN.md (headers, checkboxes, tables) → task DAG |
 | Topo Sort | `graph.ts` | Kahn's algorithm, cycle detection, dependency resolution |
 | Wave Scheduling | `scheduler.ts` | Parallel wave generation based on dependency readiness |
-| Critical Path (CPM) | `critical-path.ts` | Forward/backward pass, slack calculation, bottleneck detection |
-| PERT Estimation | `estimation.ts` | Three-point estimation (optimistic/likely/pessimistic) per task |
-| Earned Value (EVM) | `earned-value.ts` | PV/EV/AC/SPI/CPI/EAC — project health at a glance |
-| Gantt Chart | `gantt.ts` | ASCII Gantt with critical path highlighted |
+| Critical Path (CPM) | `critical-path.ts` | Forward/backward pass, slack, bottleneck detection |
+| PERT / EVM / Gantt | `estimation.ts` `earned-value.ts` `gantt.ts` | Estimation, earned value metrics, ASCII Gantt chart |
 | DAG Visualization | `visualize.ts` | ASCII dependency tree with status icons |
-| Runtime DAG Edit | `merge.ts` | Diff-merge PLAN.md changes with live state (v3.9) |
+| Runtime DAG Edit | `merge.ts` | Diff-merge PLAN.md changes with live state |
 
 ## Three-Layer Framework
 
 **gstack thinks → GSD stabilizes → Superpowers executes**
 
-| Framework | Author | Role | What it provides |
-|-----------|--------|------|-----------------|
-| [gstack](https://github.com/garrytan/gstack) | Garry Tan | Strategic thinking | CEO/Designer/Eng review, QA, research, design system |
-| [GSD](https://github.com/gsd-build/get-shit-done) | TACHES | Workflow stability | Phase-driven development, spec enforcement, verification |
-| [Superpowers](https://github.com/obra/superpowers) | Jesse Vincent | Execution discipline | TDD, brainstorming, code review, debugging methodology |
+| Framework | Role | What it provides |
+|-----------|------|-----------------|
+| [gstack](https://github.com/garrytan/gstack) | Strategic thinking | CEO/Eng/Design review, QA, research, ship, deploy |
+| [GSD](https://github.com/gsd-build/get-shit-done) | Workflow stability | Phase-driven development, spec enforcement, verification |
+| [Superpowers](https://github.com/obra/superpowers) | Execution discipline | TDD, brainstorming, code review, debugging methodology |
 
-ham-autocode orchestrates all three: gstack for direction, GSD for structure, Superpowers for quality.
+ham-autocode orchestrates all three, and follows the **Skill-First principle**: community skills are preferred over self-built code. Self-built modules only cover what community skills don't: multi-agent dispatch, DAG scheduling, and quality gates adapted for autonomous execution.
 
 ## Design Philosophy
 
-Based on industry consensus from OpenAI, Anthropic, Stripe, and Hashimoto:
+Informed by Harness Engineering practices (OpenAI, Anthropic, Stripe, Hashimoto) — used as methodology, not as goal:
 
-- **Infrastructure > Intelligence** — Same model, better harness = dramatically better results
+- **Economic constraint drives architecture** — Opus is expensive → split tasks to free agents → orchestrator stays lean
+- **Infrastructure > intelligence** — Same model, better harness = dramatically better results
 - **Static rules > ML adaptation** — Routing uses deterministic scoring, not learned thresholds
-- **Simplify, don't complexify** — v3.9.1 deleted 1,760 lines of over-engineered "learning" code
-- **Error messages teach** — Quality gate failures include fix instructions (OpenAI linter pattern)
-- **CLAUDE.md as feedback loop** — L4 review failures auto-append to CLAUDE.md (Hashimoto AGENTS.md pattern)
+- **Error messages teach** — Quality gate failures include actionable fix instructions
+- **Feedback loops close** — L4 FAIL → CLAUDE.md + review-feedback.jsonl → next spec reads both (v4.0)
+- **Skill-First** — Community skills preferred; self-built only wraps or extends them
 
 ## Install
 
@@ -75,6 +101,10 @@ Based on industry consensus from OpenAI, Anthropic, Stripe, and Hashimoto:
 ```bash
 git clone https://github.com/hammercui/ham-autocode.git
 cd ham-autocode && npm ci && npm run build
+```
+
+Register as Claude Code plugin:
+```bash
 claude --plugin-dir ./ham-autocode
 ```
 
@@ -82,11 +112,16 @@ Verify: `/ham-autocode:status`
 
 ## Quick Start
 
-```
-/ham-autocode:auto        # Full autonomous pipeline
+```bash
+# Full autonomous execution (core usage)
+ham-cli execute full-auto
+ham-cli execute full-auto --push --max-phases 3
+
+# Skills
+/ham-autocode:auto        # Full pipeline with phase detection
 /ham-autocode:detect      # Scan existing project state
 /ham-autocode:parallel    # Agent Teams + DAG routing
-/ham-autocode:ship        # Review + QA + release
+/ham-autocode:ship        # Review + QA + release (wraps gstack /ship)
 ```
 
 See [GUIDE.md](docs/GUIDE.md) for a 10-minute onboarding tutorial.
@@ -94,32 +129,37 @@ See [GUIDE.md](docs/GUIDE.md) for a 10-minute onboarding tutorial.
 ## CLI Commands
 
 ```bash
-node dist/index.js <command>
+ham-cli <command>     # or: node dist/index.js <command>
 ```
 
 | Category | Commands |
 |----------|----------|
-| DAG | `dag init\|status\|next-wave\|complete\|fail\|visualize\|critical-path\|estimate\|evm\|gantt` |
-| DAG Edit (v3.9) | `dag add\|remove\|add-dep\|remove-dep\|re-init --merge\|scope-cut\|impact\|move` |
+| Execute | `execute auto\|full-auto\|prepare\|run\|auto-status\|stats` |
+| DAG | `dag init\|status\|next-wave\|complete\|fail\|skip\|visualize\|critical-path\|estimate\|evm\|gantt` |
+| DAG Edit | `dag add\|remove\|add-dep\|remove-dep\|re-init --merge\|scope-cut\|impact\|move` |
 | Route | `route <id>\|batch\|confirm` |
-| Execute | `execute prepare\|run\|auto\|auto-status\|stats` |
 | Context | `context summary <file>` |
 | Learn | `learn brain\|detail\|scan\|entities\|status` |
-| Health | `health check\|drift\|uncommitted\|esm-cjs` |
+| Health | `health check\|quick\|drift\|uncommitted\|esm-cjs` |
 | Validate | `validate detect\|gates` |
+| Commit | `commit auto\|message\|rollback` |
+| Pipeline | `pipeline status\|resume\|log` |
 
 ## Verified Evidence
 
-Tested on real projects (ham-video — 43 tasks across 3 milestones):
+Tested on real projects (ham-video — 53 tasks across 4 milestones):
 
-- **8/8 unit test suites passing**
-- **43 tasks completed**: opencode 15/15 (100%), codexfake 7/7 (100%)
-- **Average task time**: 91s (opencode), 80s (codexfake)
-- **Token cost**: 35,549 tokens/task via opencode (free, glm-4.7)
-- **Orchestrator overhead**: ~7,400 tokens / 37 tasks (93% savings)
-- **L4 review**: Caught real bug (missing await) in ham-video v0.3
-- **DAG Change Management**: Runtime task insertion/removal/reorder during execution
-- **CI**: GitHub Actions with Node 18 + 22 matrix
+| Metric | Value |
+|--------|-------|
+| Unit test suites | 8/8 passing |
+| Total tasks completed | 53 (opencode 15/15, codexfake 7/7, full-auto 6/10) |
+| full-auto success rate | 60% → 80% (v3.9.3 P0 fixes) → targeting 90% (v4.0) |
+| Token cost per task | 35,549 tokens via opencode (free, glm-4.7) |
+| Opus spec generation | ~$0.032/task (~27K tokens for 9 specs) |
+| Cost savings vs pure Opus | 82% |
+| L4 review | Caught real bugs (missing await, 3 defects in eval.ts) |
+| Failure diagnosis (v4.0) | 5-category classification → diagnosis.jsonl |
+| CI | GitHub Actions, Node 18 + 22 matrix |
 
 ## Build & Test
 
@@ -133,9 +173,15 @@ Zero-config by default. Override in `.ham-autocode/harness.json`:
 
 ```json
 {
-  "routing": { "codexMinSpecScore": 80, "codexMinIsolationScore": 70 },
+  "routing": {
+    "codexMinSpecScore": 80,
+    "codexMinIsolationScore": 70,
+    "opencodeGptModel": "github-copilot/gpt-5.3-codex",
+    "opencodeGptProviders": ["copilot"]
+  },
   "validation": { "mode": "strict", "maxAttempts": 2 },
-  "recovery": { "highRiskThreshold": 70 }
+  "recovery": { "highRiskThreshold": 70 },
+  "autoCommit": true
 }
 ```
 
