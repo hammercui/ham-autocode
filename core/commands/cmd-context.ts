@@ -22,14 +22,12 @@ export function handleContext(args: string[], projectDir: string): any {
       return { error: 'No tasks found. Run in a project with .planning/ tasks.' };
     }
     const breakdowns = tasks.map(t => ({ id: t.id, name: t.name, ...breakdownClaudeCodeContext(projectDir, t) }));
-    const totals = { spec: 0, brain: 0, entities: 0, dependencies: 0, hints: 0 };
+    const totals = { spec: 0, brain: 0, dependencies: 0 };
     let grand = 0;
     for (const b of breakdowns) {
       totals.spec += b.sections.spec;
       totals.brain += b.sections.brain;
-      totals.entities += b.sections.entities;
       totals.dependencies += b.sections.dependencies;
-      totals.hints += b.sections.hints;
       grand += b.total;
     }
     const pct = (n: number) => grand === 0 ? '0%' : `${Math.round((n / grand) * 100)}%`;
@@ -40,13 +38,7 @@ export function handleContext(args: string[], projectDir: string): any {
       breakdown: {
         spec: { tokens: totals.spec, pct: pct(totals.spec) },
         brain: { tokens: totals.brain, pct: pct(totals.brain), slimmable: true },
-        entities: { tokens: totals.entities, pct: pct(totals.entities), slimmable: true },
         dependencies: { tokens: totals.dependencies, pct: pct(totals.dependencies) },
-        hints: { tokens: totals.hints, pct: pct(totals.hints) },
-      },
-      slimmableTotal: {
-        tokens: totals.brain + totals.entities,
-        pct: pct(totals.brain + totals.entities),
       },
       perTask: breakdowns,
     };

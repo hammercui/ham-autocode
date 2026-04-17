@@ -4,7 +4,6 @@
  */
 import { autoLearnStatus } from '../learning/auto-learn.js';
 import { readBrain, evolveFromScan, getBrainDetail } from '../learning/project-brain.js';
-import { indexProjectEntities } from '../learning/code-entities.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function handleLearn(args: string[], projectDir: string): any {
@@ -17,6 +16,5 @@ export function handleLearn(args: string[], projectDir: string): any {
     return getBrainDetail(projectDir, topic);
   }
   if (sub === 'scan') { evolveFromScan(projectDir); return readBrain(projectDir); }
-  if (sub === 'entities') return indexProjectEntities(projectDir);
-  throw new Error(`Unknown learn subcommand: ${sub}. Available: status|brain|detail|scan|entities`);
+  throw new Error(`Unknown learn subcommand: ${sub}. Available: status|brain|detail|scan`);
 }

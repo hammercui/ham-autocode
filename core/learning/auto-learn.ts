@@ -5,7 +5,6 @@
  */
 
 import { evolveFromTask, readBrain, saveBrain } from './project-brain.js';
-import { incrementalIndexFiles } from './code-entities.js';
 import { readTask } from '../state/task-graph.js';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
 import path from 'path';
@@ -45,11 +44,6 @@ export function onTaskComplete(projectDir: string, taskId: string, success: bool
     // Brain 演化：从任务文件中学习项目架构（~10ms）
     if (task) {
       evolveFromTask(projectDir, task);
-    }
-
-    // Entity 增量索引：仅索引当前任务涉及的文件
-    if (task?.files && task.files.length > 0) {
-      incrementalIndexFiles(projectDir, task.files);
     }
 
     // 消费 PostToolUse 观察日志 → 文件共现关系

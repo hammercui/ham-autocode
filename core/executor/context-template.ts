@@ -13,7 +13,6 @@
  */
 
 import { readBrain, getBrainContext as getBrainContextFn } from '../learning/project-brain.js';
-import { searchEntities, readEntityIndex } from '../learning/code-entities.js';
 import { summarizeFile } from '../context/summary-cache.js';
 import { readTask } from '../state/task-graph.js';
 import type { TaskState, RoutingTarget } from '../types.js';
@@ -115,20 +114,6 @@ function getRelatedModules(projectDir: string, task: TaskState): string {
   return related.map(m => `- ${m.path}: ${m.role}`).join('\n');
 }
 
-/** 获取相关代码实体（接口签名） */
-function getRelatedEntities(projectDir: string, task: TaskState, max: number): string {
-  const entityIndex = readEntityIndex(projectDir);
-  if (!entityIndex) return '';
-  // 从任务名和文件路径提取关键词
-  const nameWords = (task.name || '').split(/[\s\-_/]+/).filter(w => w.length > 2);
-  const fileWords = (task.files || []).flatMap(f => f.split(/[\s\-_/.]+/).filter(w => w.length > 2));
-  const keywords = [...new Set([...nameWords, ...fileWords])].join(' ');
-  if (!keywords) return '';
-  const entities = searchEntities(projectDir, keywords);
-  if (entities.length === 0) return '';
-  return entities.slice(0, max).map(e => `- ${e.type} ${e.name} @ ${e.file}:${e.line}`).join('\n');
-}
-
 /** 获取任务相关文件的阅读清单（路径 + 简短说明，不含文件内容） */
 function getReadingList(projectDir: string, task: TaskState): string {
   const taskFiles = new Set(task.files || []);
@@ -179,11 +164,6 @@ function getDependencyOutputs(projectDir: string, task: TaskState): string {
     }
   }
   return outputs.length > 0 ? outputs.join('\n') : '';
-}
-
-/** pattern hints 已在 v3.9.1 中移除（无实际价值）*/
-function getHints(_projectDir: string, _taskName: string): string {
-  return '';
 }
 
 // ==================== Per-Target Builders ====================
@@ -240,22 +220,10 @@ function buildCodexContext(projectDir: string, task: TaskState): MinimalContext 
     lines.push('', '## Read these files', summaries);
   }
 
-  // 相关代码实体（接口签名，max 8）
-  const entities = getRelatedEntities(projectDir, task, 8);
-  if (entities) {
-    lines.push('', '## Related Interfaces', entities);
-  }
-
   // 依赖任务产出
   const deps = getDependencyOutputs(projectDir, task);
   if (deps) {
     lines.push('', '## Dependencies (completed)', deps);
-  }
-
-  // 经验提示
-  const hints = getHints(projectDir, task.name);
-  if (hints) {
-    lines.push('', `Hints: ${hints}`);
   }
 
   lines.push('', SURGICAL_CHANGES_RULE);
@@ -292,9 +260,7 @@ export interface ContextBreakdown {
   sections: {
     spec: number;         // task 描述、interface、acceptance、files
     brain: number;        // learning/project-brain 注入
-    entities: number;     // learning/code-entities 注入
     dependencies: number; // 依赖任务产出
-    hints: number;        // rules/pattern hints
   };
 }
 export function breakdownClaudeCodeContext(projectDir: string, task: TaskState): ContextBreakdown {
@@ -308,16 +274,12 @@ export function breakdownClaudeCodeContext(projectDir: string, task: TaskState):
   ].filter(Boolean).join('\n');
 
   const brain = getBrainContextFn(projectDir, task.name) || '';
-  const entities = getRelatedEntities(projectDir, task, 10);
   const deps = getDependencyOutputs(projectDir, task) || '';
-  const hints = getHints(projectDir, task.name) || '';
 
   const sections = {
     spec: tk(specLines),
     brain: tk(brain),
-    entities: tk(entities),
     dependencies: tk(deps),
-    hints: tk(hints),
   };
   return { total: Object.values(sections).reduce((a, b) => a + b, 0), sections };
 }
@@ -338,22 +300,10 @@ function buildClaudeCodeContext(projectDir: string, task: TaskState): MinimalCon
     lines.push('', brainIndex);
   }
 
-  // Related entities (max 10)
-  const entities = getRelatedEntities(projectDir, task, 10);
-  if (entities) {
-    lines.push('', '## Related Code', entities);
-  }
-
   // 依赖产出
   const deps = getDependencyOutputs(projectDir, task);
   if (deps) {
     lines.push('', '## Dependencies (completed)', deps);
-  }
-
-  // Pattern hints
-  const hints = getHints(projectDir, task.name);
-  if (hints) {
-    lines.push('', 'Hints: ' + hints);
   }
 
   const text = lines.filter(Boolean).join('\n');
