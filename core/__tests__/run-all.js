@@ -18,6 +18,7 @@ const suites = [
   'cli.test.js',
   'spec-lint-test.js',
   'hashline-test.js',
+  'todo-enforcer-test.js',
 ];
 
 let passed = 0;

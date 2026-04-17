@@ -22,6 +22,7 @@ import { loadConfig } from '../state/config.js';
 import { parseOpenCodeOutput } from './dispatcher.js';
 import { diagnoseFailure, saveDiagnosis } from './diagnosis.js';
 import { snapshot as hashSnapshot, verify as hashVerify } from '../quality/hashline.js';
+import { enforceTodos } from '../quality/todo-enforcer.js';
 import type { TaskState, RoutingTarget } from '../types.js';
 import { AUTO_PROGRESS_JSON, STATE_DISPATCH } from '../paths.js';
 
@@ -384,6 +385,26 @@ async function executeTask(
 
       // 质量门禁
       const quality = verifyTaskOutput(projectDir, task);
+
+      // v4.1 L2.5: Todo 强制执行 — 声明的文件必须被实质修改
+      const todoResult = enforceTodos(projectDir, task.files || []);
+      if (!todoResult.ok) {
+        log(`${task.id} ✗ L2.5 Todo: ${todoResult.reason}`);
+        recordFailure(projectDir, agentName);
+        appendAgentExec(projectDir, {
+          time: new Date().toISOString(),
+          taskId: task.id, taskName: task.name, agent: agentName,
+          result: 'error', duration_ms: durationMs,
+          filesCreated: created, filesModified: modified,
+          error: `L2.5 Todo incomplete: ${todoResult.reason}`,
+        });
+        return {
+          taskId: task.id, taskName: task.name, agent: agentName,
+          result: 'error', durationMs, filesCreated: created, filesModified: modified,
+          error: `L2.5 Todo: ${todoResult.missing.length} missing, ${todoResult.empty.length} empty, ${todoResult.trivial.length} trivial`,
+          qualityPassed: false,
+        };
+      }
 
       if (quality.passed) {
         // L4: opencode 自审（默认启用，--no-review 可跳过）
