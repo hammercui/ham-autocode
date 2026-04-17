@@ -17,8 +17,6 @@ import { findPlanFile } from '../dag/parser.js';
 import { readAllTasks, writeTask, nextTaskId, deleteTask } from '../state/task-graph.js';
 import { appendLog } from '../state/pipeline.js';
 import { routeTask } from '../routing/router.js';
-import { analyzeCriticalPath } from '../dag/critical-path.js';
-import { estimatePERT } from '../dag/estimation.js';
 import type { TaskState } from '../types.js';
 
 // ─── Types ──────────────────────────────────────────────────
@@ -270,18 +268,7 @@ export async function runFullAuto(
       log(`  ${id}: "${taskName}" → ${task.routing.target} (complexity: ${spec.complexity})`);
     }
 
-    // ── Step 2: PM 分析 ──
-    const allTasks = readAllTasks(projectDir);
-    try {
-      const cpm = analyzeCriticalPath(allTasks);
-      if (cpm.criticalPath.length > 0) {
-        log(`Critical path: ${cpm.criticalPath.join(' → ')} (duration: ${cpm.criticalPathDuration})`);
-      }
-      const pert = estimatePERT(allTasks, projectDir);
-      const totalExpected = pert.reduce((sum, p) => sum + p.expected, 0);
-      log(`PERT estimate: ~${totalExpected} min for this phase`);
-    } catch { /* PM analysis is informational, don't block */ }
-
+    // v4.1: PM 指标（CPM/PERT）已从执行路径移除 — agent 不用，仅人类报告，改走 `ham-cli dag` CLI
     appendLog(projectDir, `full-auto: phase ${phase.name} planned ${newTaskIds.length} tasks`);
 
     // ── Step 3: 执行 ──
