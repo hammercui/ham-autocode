@@ -111,7 +111,44 @@ export function handleSpec(args: string[], projectDir: string): any {
     if (!task) throw new Error(`Task ${args[2]} not found`);
     return syncSpec(projectDir, args[2], task);
   }
-  throw new Error(`Unknown spec subcommand: ${sub}`);
+  if (sub === 'analyze') {
+    // v4.1: measure spec bloat per field
+    const all = readAllTasks(projectDir);
+    if (all.length === 0) return { error: 'No tasks found' };
+    const tk = (s: string) => Math.ceil((s || '').length / 4);
+    const rows = all.map(t => {
+      const desc = tk(t.spec?.description || '');
+      const iface = tk(t.spec?.interface || '');
+      const accept = tk(t.spec?.acceptance || '');
+      const files = tk((t.files || []).join(','));
+      return {
+        id: t.id, name: t.name,
+        description: desc, interface: iface, acceptance: accept, files,
+        total: desc + iface + accept + files,
+      };
+    });
+    const totals = rows.reduce((a, r) => ({
+      description: a.description + r.description,
+      interface: a.interface + r.interface,
+      acceptance: a.acceptance + r.acceptance,
+      files: a.files + r.files,
+      total: a.total + r.total,
+    }), { description: 0, interface: 0, acceptance: 0, files: 0, total: 0 });
+    const pct = (n: number) => totals.total === 0 ? '0%' : `${Math.round((n / totals.total) * 100)}%`;
+    return {
+      taskCount: all.length,
+      avgPerTask: Math.round(totals.total / all.length),
+      breakdown: {
+        description: { avg: Math.round(totals.description / all.length), pct: pct(totals.description) },
+        interface: { avg: Math.round(totals.interface / all.length), pct: pct(totals.interface) },
+        acceptance: { avg: Math.round(totals.acceptance / all.length), pct: pct(totals.acceptance) },
+        files: { avg: Math.round(totals.files / all.length), pct: pct(totals.files) },
+      },
+      totals,
+      perTask: rows,
+    };
+  }
+  throw new Error(`Unknown spec subcommand: ${sub}. Available: detect|enrich|enrich-all|score|sync|analyze`);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

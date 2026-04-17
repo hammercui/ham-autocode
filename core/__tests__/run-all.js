@@ -16,6 +16,7 @@ const suites = [
   'dag/mutations.test.js',
   'routing/scorer.test.js',
   'cli.test.js',
+  'spec-lint-test.js',
 ];
 
 let passed = 0;

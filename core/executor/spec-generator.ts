@@ -9,6 +9,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { SPEC_PROMPT_TMP, REVIEW_FEEDBACK_JSONL } from '../paths.js';
+import { lintSpec, buildLintFeedback } from '../spec/spec-lint.js';
 
 export interface GeneratedSpec {
   description: string;
@@ -30,6 +31,21 @@ const FALLBACK_SPEC = (taskName: string): GeneratedSpec => ({
  * 用 claude -p (Opus) 为单个任务生成详细 spec。
  * 失败时降级为 fallback spec（不阻塞流程）。
  */
+function callClaudeP(projectDir: string, prompt: string): string {
+  const tmpFile = path.join(projectDir, SPEC_PROMPT_TMP);
+  const tmpDir = path.dirname(tmpFile);
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+  fs.writeFileSync(tmpFile, prompt, 'utf-8');
+  const output = execSync(`claude -p < "${tmpFile.replace(/\\/g, '/')}"`, {
+    cwd: projectDir,
+    timeout: 180000,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: true as unknown as string,
+  }).toString().trim();
+  try { fs.unlinkSync(tmpFile); } catch { /* best-effort */ }
+  return output;
+}
+
 export function generateSpec(
   projectDir: string,
   taskName: string,
@@ -38,23 +54,24 @@ export function generateSpec(
   const prompt = buildSpecPrompt(projectDir, taskName, phaseContext);
 
   try {
-    // 写入临时文件避免 shell 转义问题
-    const tmpFile = path.join(projectDir, SPEC_PROMPT_TMP);
-    const tmpDir = path.dirname(tmpFile);
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-    fs.writeFileSync(tmpFile, prompt, 'utf-8');
+    // 第一轮生成
+    const output1 = callClaudeP(projectDir, prompt);
+    const spec1 = parseSpecOutput(output1, taskName);
 
-    const output = execSync(`claude -p < "${tmpFile.replace(/\\/g, '/')}"`, {
-      cwd: projectDir,
-      timeout: 180000, // 3min — claude -p 有时较慢
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true as unknown as string,
-    }).toString().trim();
+    // v4.1: lint 检查，违反规则回炉一次
+    const lint1 = lintSpec(spec1);
+    if (lint1.ok) return spec1;
 
-    // 清理临时文件
-    try { fs.unlinkSync(tmpFile); } catch { /* best-effort */ }
+    const retryPrompt = `${prompt}\n\n${buildLintFeedback(lint1)}`;
+    const output2 = callClaudeP(projectDir, retryPrompt);
+    const spec2 = parseSpecOutput(output2, taskName);
 
-    return parseSpecOutput(output, taskName);
+    // 二次失败也接受（记录到 stderr 供后续 review-feedback 分析），不阻塞流程
+    const lint2 = lintSpec(spec2);
+    if (!lint2.ok) {
+      console.error(`[spec-gen] lint still failing after retry for "${taskName}": ${lint2.violations.map(v => v.rule).join(', ')}`);
+    }
+    return spec2;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message.slice(0, 100) : 'unknown';
     console.error(`[spec-gen] claude -p failed for "${taskName}": ${msg}, using fallback`);
@@ -64,50 +81,44 @@ export function generateSpec(
 
 /** 构造给 Opus 的 spec 生成 prompt */
 function buildSpecPrompt(projectDir: string, taskName: string, phaseContext: string): string {
-  // 收集项目文件树（深度 3，最多 100 行），让 Opus 知道文件在哪
+  // v4.1: 文件树默认不注入 — 90% 任务不需要，只有涉及架构/目录的才注入
   let projectFiles = '';
-  try {
-    const tree = buildFileTree(projectDir, 3);
-    projectFiles = `项目文件树:\n${tree}`;
-  } catch { /* ignore */ }
+  const needsFileTree = /架构|目录|整体|结构|overview|structure|directory/i.test(taskName);
+  if (needsFileTree) {
+    try {
+      const tree = buildFileTree(projectDir, 2); // v4.1: 深度 2 (原 3)
+      projectFiles = `\n项目结构:\n${tree}\n`;
+    } catch { /* ignore */ }
+  }
 
-  // T1: 历史失败经验注入 — 读取 review-feedback.jsonl 最近 FAIL 记录
-  const failLessons = loadRecentFailLessons(projectDir, 5);
+  // v4.1: 失败教训收紧 5 → 2
+  const failLessons = loadRecentFailLessons(projectDir, 2);
   const failSection = failLessons.length > 0
-    ? `\n## 历史失败教训（务必避免重犯）\n${failLessons.map((f, i) => `${i + 1}. ${f}`).join('\n')}\n`
+    ? `\n避免：${failLessons.join('; ')}\n`
     : '';
 
-  // T3: 项目 CLAUDE.md 经验注入
+  // v4.1: CLAUDE.md 经验保留但收紧上限
   const claudeMdLessons = loadClaudeMdLessons(projectDir);
   const claudeMdSection = claudeMdLessons
-    ? `\n## 项目经验（来自 CLAUDE.md）\n${claudeMdLessons}\n`
+    ? `\n项目约定：${claudeMdLessons.slice(0, 200)}\n`
     : '';
 
-  return `你是一个 spec 工程师。为以下任务生成详细的实现规格。
+  // v4.1 核心改动：写作宪法（强约束简洁）
+  return `为任务生成 spec，输出 JSON。
 
-## 任务名称
-${taskName}
+任务：${taskName}
+上下文：${phaseContext}
+目录：${projectDir}${projectFiles}${failSection}${claudeMdSection}
+写作约束（违反会被 lint reject）：
+- description: 一句话 ≤40 字，只说"做什么"，禁止解释"为什么/怎么做"
+- interface: 只写 TS 签名，禁止任何注释
+- acceptance: 恰好 3 条，用分号分隔，每条 ≤20 字，祈使句
+- files: 必填数组，至少 1 项
 
-## Phase 上下文
-${phaseContext}
+输出格式：
+{"description":"...","interface":"...","acceptance":"A;B;C","files":["..."],"complexity":N,"testFile":"...","testCases":["..."]}
 
-## 项目信息
-${projectFiles}
-工作目录: ${projectDir}
-${failSection}${claudeMdSection}
-## 输出要求
-输出严格的 JSON 格式（不要 markdown 代码块包裹），包含以下字段:
-{
-  "description": "详细的实现描述（至少 100 字）：做什么、为什么、怎么做、边界条件",
-  "interface": "需要 export 的函数/接口签名（TypeScript 格式）",
-  "acceptance": "验收标准（必须 3 条以上，用分号分隔。每条须可验证，如'函数 X 返回 Y'、'文件 Z 包含 export W'）",
-  "files": ["需要创建或修改的文件路径（相对项目根目录）"],
-  "complexity": 数字(1-100，基于文件数量、逻辑复杂度、依赖关系综合评估),
-  "testFile": "测试文件路径（complexity >= 50 时必填，如 src/__tests__/xxx.test.ts）",
-  "testCases": ["测试用例描述（complexity >= 50 时至少 2 条）"]
-}
-
-只输出 JSON，不要其他内容。`;
+其中 testFile/testCases 仅当 complexity>=50 时必填。只输出 JSON，无其他。`;
 }
 
 /** 解析 claude -p 输出为 GeneratedSpec */
