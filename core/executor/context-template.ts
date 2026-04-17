@@ -286,6 +286,42 @@ function buildClaudeAppContext(projectDir: string, task: TaskState): MinimalCont
   return { instruction: text, estimatedTokens: Math.ceil(text.length / 4) };
 }
 
+/** 分解 claude-code context 各块 token 贡献（离线瘦身分析用，v4.1） */
+export interface ContextBreakdown {
+  total: number;
+  sections: {
+    spec: number;         // task 描述、interface、acceptance、files
+    brain: number;        // learning/project-brain 注入
+    entities: number;     // learning/code-entities 注入
+    dependencies: number; // 依赖任务产出
+    hints: number;        // rules/pattern hints
+  };
+}
+export function breakdownClaudeCodeContext(projectDir: string, task: TaskState): ContextBreakdown {
+  const tk = (s: string) => Math.ceil(s.length / 4);
+  const specLines = [
+    `# ${task.name}`,
+    task.spec?.description || '',
+    task.spec?.interface ? `Interface: ${task.spec.interface}` : '',
+    task.spec?.acceptance ? `Acceptance: ${task.spec.acceptance}` : '',
+    task.files?.length ? `Files: ${task.files.join(', ')}` : '',
+  ].filter(Boolean).join('\n');
+
+  const brain = getBrainContextFn(projectDir, task.name) || '';
+  const entities = getRelatedEntities(projectDir, task, 10);
+  const deps = getDependencyOutputs(projectDir, task) || '';
+  const hints = getHints(projectDir, task.name) || '';
+
+  const sections = {
+    spec: tk(specLines),
+    brain: tk(brain),
+    entities: tk(entities),
+    dependencies: tk(deps),
+    hints: tk(hints),
+  };
+  return { total: Object.values(sections).reduce((a, b) => a + b, 0), sections };
+}
+
 /** Claude Code: task + compact brain index + related entities (~3-5K tokens) */
 function buildClaudeCodeContext(projectDir: string, task: TaskState): MinimalContext {
   const lines = [
