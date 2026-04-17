@@ -128,11 +128,12 @@ context 平均 553 tokens/task
 - 为 155 行规则包装的引擎，3:1 抽象比过重
 - 行动: 把 engine 拍扁到 `core-rules.ts`
 
-### 🟢 P2 结构性重构
+### 🟢 P2 结构性重构（推迟到 v4.2）
 
-**S6. `core/executor/auto-runner.ts` (882 行单文件)**
-- code smell 本身；每次 Read 都烧 token
-- 行动: 按职责拆成 dispatch / gate-loop / commit 三个 <300 行文件
+**S6. `core/executor/auto-runner.ts` (882 行单文件) — 推迟**
+- 已评估（2026-04-17）：紧密耦合，有模块级状态（_progressState/_projectDir）
+- 前置条件：先给 runAuto 加集成测试 + 设计 RunContext 对象
+- 行动: v4.2 按职责拆成 task-exec / wave-commit / progress / runAuto 四个 <300 行文件
 
 **S7. `core/health/` 4 个检测器（1378 行）**
 - drift / esm-cjs / uncommitted 有重叠嫌疑
