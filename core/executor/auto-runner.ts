@@ -21,6 +21,7 @@ import { getAvailableAgent, recordSuccess, recordFailure } from './agent-status.
 import { loadConfig } from '../state/config.js';
 import { parseOpenCodeOutput } from './dispatcher.js';
 import { diagnoseFailure, saveDiagnosis } from './diagnosis.js';
+import { snapshot as hashSnapshot, verify as hashVerify } from '../quality/hashline.js';
 import type { TaskState, RoutingTarget } from '../types.js';
 import { AUTO_PROGRESS_JSON, STATE_DISPATCH } from '../paths.js';
 
@@ -297,6 +298,9 @@ async function executeTask(
     log(`${task.id} → ${agentName} ... spawned`);
     const startTime = Date.now();
 
+    // v4.1 L0.5: Hashline — capture pre-exec state to detect collateral damage
+    const preSnapshot = hashSnapshot(projectDir, task.files || []);
+
     // B3: 实时更新 currentTasks — spawn 后立即标记 agent 和 status
     if (_progressState) {
       const ct = _progressState.currentTasks.find(t => t.taskId === task.id);
@@ -356,6 +360,27 @@ async function executeTask(
 
       // P0: 从 opencode --format json 输出中解析 token 统计
       const tokenStats = parseOpenCodeOutput(agentStdout);
+
+      // v4.1 L0.5: Hashline — detect collateral damage before expensive L1-L4 gates
+      const hashResult = hashVerify(projectDir, preSnapshot, task.files || []);
+      if (!hashResult.ok) {
+        log(`${task.id} ✗ L0.5 Hashline: ${hashResult.reason}`);
+        log(`${task.id}   collateral: ${hashResult.collateralDamage.slice(0, 5).join(', ')}`);
+        recordFailure(projectDir, agentName);
+        appendAgentExec(projectDir, {
+          time: new Date().toISOString(),
+          taskId: task.id, taskName: task.name, agent: agentName,
+          result: 'error', duration_ms: durationMs,
+          filesCreated: created, filesModified: modified,
+          error: `L0.5 collateral damage: ${hashResult.collateralDamage.slice(0, 3).join(', ')}`,
+        });
+        return {
+          taskId: task.id, taskName: task.name, agent: agentName,
+          result: 'error', durationMs, filesCreated: created, filesModified: modified,
+          error: `L0.5 Hashline: ${hashResult.collateralDamage.length} collateral file(s)`,
+          qualityPassed: false,
+        };
+      }
 
       // 质量门禁
       const quality = verifyTaskOutput(projectDir, task);

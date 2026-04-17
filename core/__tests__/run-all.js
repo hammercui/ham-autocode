@@ -17,6 +17,7 @@ const suites = [
   'routing/scorer.test.js',
   'cli.test.js',
   'spec-lint-test.js',
+  'hashline-test.js',
 ];
 
 let passed = 0;
