@@ -19,6 +19,20 @@
 - **落点**: `core/spec/todo-enforcer.ts`，接入 L2 语义验证
 - **预期**: 减少"假绿"，提升真实成功率
 
+### 3. Spec Prompt 压缩（Opus 侧降本，真正的 token 大头）
+- **问题**: 离线实测（2026-04-17, ham-video 7 任务）spec 占 context 的 **77%**，且这部分由 Opus 生成 — 每次都烧钱
+- **假设**: Opus 生成 spec 时倾向啰嗦（重复 acceptance criteria、过度解释 interface），可压缩 30-50%
+- **方案**:
+  1. **压缩 Opus 生成指令**: PLAN.md → Spec 的 prompt 加"简洁宪法"约束（interface 只写签名不写解释，acceptance 用祈使句不超 3 条，description ≤ 50 字）
+  2. **Spec 长度硬上限**: 生成后若 token > 阈值则回炉重写（类似 context budget warning）
+  3. **模板化**: 常见任务类型（CRUD/helper/config）走固定模板，不让 Opus 自由发挥
+- **落点**:
+  - `core/spec/generator-prompt.ts` — Opus 指令
+  - `core/spec/spec-lint.ts` — 长度/啰嗦检查
+  - `core/spec/templates/` — 任务类型模板库
+- **验证**: 用已有 `ham-cli context analyze` 对比前后 spec tokens 平均值
+- **预期**: Opus spec 成本 **-30%**（v4.1 核心降本项）
+
 ---
 
 ## P1 — 应抄（降本 / DX）
@@ -153,6 +167,6 @@ context 平均 553 tokens/task
 
 | 版本 | 内容 | 预期 |
 |------|------|------|
-| **v4.1** | **瘦身 Step 1+2 (P0/P1)** + 借鉴 P0 (Hashline + Todo 强制) | 成功率保持 100%, 编排 token -25% |
+| **v4.1** | **瘦身已完成** (code-entities + hints + CPM/PERT, -241 行) + **Spec Prompt 压缩**（真正降本） + 借鉴 P0 (Hashline + Todo 强制) | 成功率保持 100%, Opus spec 成本 -30% |
 | v4.2 | 瘦身 Step 2 (P2 重构) + 借鉴 P1 (MCP 按需 + 分层 CONTEXT) | 代码量 -30%, token 再 -15% |
 | v4.3 | 借鉴 P2 (后台 agent 池)（视 v4.1/4.2 压测结果决定） | 并发提升 |
