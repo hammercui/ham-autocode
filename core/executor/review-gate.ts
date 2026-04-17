@@ -12,6 +12,7 @@ import path from 'path';
 import os from 'os';
 import { execSync, spawn } from 'child_process';
 import type { TaskState } from '../types.js';
+import { STATE_LOGS } from '../paths.js';
 
 export interface ReviewResult {
   taskId: string;
@@ -222,7 +223,7 @@ export async function reviewTaskOutput(
 export function writeReviewFeedback(projectDir: string, result: ReviewResult, task: TaskState): void {
   if (result.verdict !== 'FAIL') return;
 
-  const logDir = path.join(projectDir, '.ham-autocode', 'logs');
+  const logDir = path.join(projectDir, STATE_LOGS);
   if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
   const entry = {

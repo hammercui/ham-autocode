@@ -5,6 +5,7 @@
 
 import path from 'path';
 import git from '../utils/git.js';
+import { STATE_WORKTREES } from '../paths.js';
 
 export const WORKTREE_PREFIX = 'ham-wt-';
 
@@ -36,7 +37,7 @@ interface WorktreeStatusResult {
 }
 
 function getWorktreePath(taskId: string, cwd: string): string {
-  return path.join(cwd, '.ham-autocode', 'worktrees', taskId);
+  return path.join(cwd, STATE_WORKTREES, taskId);
 }
 
 /** Create an isolated worktree for a task */

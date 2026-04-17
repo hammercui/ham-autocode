@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import type { TaskState, ParseResult } from '../types.js';
 import { writeTask } from '../state/task-graph.js';
+import { PLAN_MD, WBS_MD } from '../paths.js';
 
 /**
  * Parse a structured plan file into task objects.
@@ -176,13 +177,15 @@ export function findPlanFile(projectDir: string): string | null {
   const candidates = [
     // Project root (highest priority — user's explicit intent)
     path.join(projectDir, 'PLAN.md'),
-    // GSD standard location
-    path.join(projectDir, '.planning', 'PLAN.md'),
     path.join(projectDir, 'WBS.md'),
+    // v4.1: .ham-autocode/docs/plans/
+    path.join(projectDir, PLAN_MD),
+    path.join(projectDir, WBS_MD),
     // docs/ directory
     path.join(projectDir, 'docs', 'PLAN.md'),
     path.join(projectDir, 'docs', 'WBS.md'),
-    // GSD WBS
+    // Legacy GSD .planning/ (pre-v4.1 — migrate command handles this)
+    path.join(projectDir, '.planning', 'PLAN.md'),
     path.join(projectDir, '.planning', 'WBS.md'),
   ];
 

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
+import { CONTEXT_SUMMARIES } from '../paths.js';
 
 export interface FileSummary {
   path: string;
@@ -19,7 +20,7 @@ interface SummaryCache {
 }
 
 function cachePath(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode', 'context', 'summaries.json');
+  return path.join(projectDir, CONTEXT_SUMMARIES);
 }
 
 function fileHash(content: string): string {

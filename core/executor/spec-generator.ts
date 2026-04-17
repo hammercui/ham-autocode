@@ -8,6 +8,7 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { SPEC_PROMPT_TMP, REVIEW_FEEDBACK_JSONL } from '../paths.js';
 
 export interface GeneratedSpec {
   description: string;
@@ -38,7 +39,7 @@ export function generateSpec(
 
   try {
     // 写入临时文件避免 shell 转义问题
-    const tmpFile = path.join(projectDir, '.ham-autocode', '.spec-prompt.tmp');
+    const tmpFile = path.join(projectDir, SPEC_PROMPT_TMP);
     const tmpDir = path.dirname(tmpFile);
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
     fs.writeFileSync(tmpFile, prompt, 'utf-8');
@@ -181,7 +182,7 @@ function buildFileTree(dir: string, maxDepth: number, prefix = '', depth = 0): s
  * Skill-First: 利用 review-gate 已产出的数据闭环回 spec 生成。
  */
 function loadRecentFailLessons(projectDir: string, maxCount: number): string[] {
-  const feedbackPath = path.join(projectDir, '.ham-autocode', 'logs', 'review-feedback.jsonl');
+  const feedbackPath = path.join(projectDir, REVIEW_FEEDBACK_JSONL);
   if (!fs.existsSync(feedbackPath)) return [];
 
   try {

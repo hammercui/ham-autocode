@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { readJSON, atomicWriteJSON } from '../state/atomic.js';
+import { AGENT_STATUS_JSON, STATE_DISPATCH } from '../paths.js';
 
 interface AgentState {
   status: 'available' | 'cooldown';
@@ -25,11 +26,11 @@ const FAILURE_THRESHOLD = 2;
 const COOLDOWN_DURATION_MS = 30 * 60 * 1000; // 30 min
 
 function statusPath(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode', 'dispatch', 'agent-status.json');
+  return path.join(projectDir, AGENT_STATUS_JSON);
 }
 
 function ensureDir(projectDir: string): void {
-  const dir = path.join(projectDir, '.ham-autocode', 'dispatch');
+  const dir = path.join(projectDir, STATE_DISPATCH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 

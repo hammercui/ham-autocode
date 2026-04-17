@@ -14,6 +14,7 @@ import { handleExecute, handleValidate, handleRecover } from './commands/cmd-exe
 import { handleLearn } from './commands/cmd-learn.js';
 import { handleHealth, handleResearch } from './commands/cmd-health.js';
 import { handleTraceCmd, handleSession, handleCommit, handleRules, handleSpec, handleToken } from './commands/cmd-misc.js';
+import { handleMigrate } from './commands/cmd-migrate.js';
 
 function usage(): string {
   return `ham-autocode v3.9.2
@@ -54,6 +55,7 @@ const handlers: Record<string, Handler> = {
   health: handleHealth,
   quota: handleQuota,
   token: handleToken,
+  migrate: handleMigrate,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

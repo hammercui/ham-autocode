@@ -7,6 +7,7 @@
 import { evolveFromTask, readBrain, saveBrain } from './project-brain.js';
 import { readTask } from '../state/task-graph.js';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
+import { LEARNING_AUTO_STATE, LEARNING_OBSERVATIONS } from '../paths.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -16,7 +17,7 @@ interface AutoLearnState {
 }
 
 function statePath(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode', 'learning', 'auto-state.json');
+  return path.join(projectDir, LEARNING_AUTO_STATE);
 }
 
 function loadState(projectDir: string): AutoLearnState {
@@ -64,7 +65,7 @@ export function autoLearnStatus(projectDir: string): AutoLearnState {
  * Consume PostToolUse observations → file co-occurrence in brain.
  */
 function consumeObservations(projectDir: string): void {
-  const obsPath = path.join(projectDir, '.ham-autocode', 'learning', 'observations.jsonl');
+  const obsPath = path.join(projectDir, LEARNING_OBSERVATIONS);
   if (!fs.existsSync(obsPath)) return;
 
   try {

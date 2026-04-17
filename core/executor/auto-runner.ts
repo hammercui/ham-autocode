@@ -22,6 +22,7 @@ import { loadConfig } from '../state/config.js';
 import { parseOpenCodeOutput } from './dispatcher.js';
 import { diagnoseFailure, saveDiagnosis } from './diagnosis.js';
 import type { TaskState, RoutingTarget } from '../types.js';
+import { AUTO_PROGRESS_JSON, STATE_DISPATCH } from '../paths.js';
 
 // ==================== Types ====================
 
@@ -99,12 +100,12 @@ let _progressState: AutoProgress | null = null;
 let _projectDir = '';
 
 function progressPath(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode', 'dispatch', 'auto-progress.json');
+  return path.join(projectDir, AUTO_PROGRESS_JSON);
 }
 
 function initProgress(projectDir: string, remaining: number): void {
   _projectDir = projectDir;
-  const dir = path.join(projectDir, '.ham-autocode', 'dispatch');
+  const dir = path.join(projectDir, STATE_DISPATCH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   _progressState = {
     status: 'running',

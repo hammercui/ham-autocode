@@ -5,11 +5,12 @@ import { atomicWriteJSON, readJSON } from './atomic.js';
 import { withLock } from './lock.js';
 import { validateTask as validateTaskSchema } from './validator.js';
 import type { TaskState, TaskStatus } from '../types.js';
+import { STATE_TASKS, ROOT } from '../paths.js';
 
 const TASK_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 export function tasksDir(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode', 'tasks');
+  return path.join(projectDir, STATE_TASKS);
 }
 
 function taskPath(projectDir: string, taskId: string): string {
@@ -45,7 +46,7 @@ export function writeTask(projectDir: string, task: TaskState): void {
   validateTaskId(task.id);
   const dir = tasksDir(projectDir);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const sd = path.join(projectDir, '.ham-autocode');
+  const sd = path.join(projectDir, ROOT);
   withLock(sd, () => {
     atomicWriteJSON(taskPath(projectDir, task.id), task);
   });
@@ -67,7 +68,7 @@ export function readAllTasks(projectDir: string): TaskState[] {
 /** Delete a task file. No-op if task does not exist. */
 export function deleteTask(projectDir: string, taskId: string): void {
   validateTaskId(taskId);
-  const sd = path.join(projectDir, '.ham-autocode');
+  const sd = path.join(projectDir, ROOT);
   withLock(sd, () => {
     const p = taskPath(projectDir, taskId);
     if (fs.existsSync(p)) fs.unlinkSync(p);
@@ -91,7 +92,7 @@ export function updateTaskStatus(
   status: TaskStatus,
   extra: Partial<TaskState> = {},
 ): TaskState {
-  const dir = path.join(projectDir, '.ham-autocode');
+  const dir = path.join(projectDir, ROOT);
   return withLock(dir, () => {
     const task = readTask(projectDir, taskId);
     if (!task) throw new Error(`Task ${taskId} not found`);

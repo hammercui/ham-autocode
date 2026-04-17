@@ -2,6 +2,7 @@
 import path from 'path';
 import { readJSON } from './atomic.js';
 import type { HarnessConfig } from '../types.js';
+import { HARNESS_JSON } from '../paths.js';
 
 export const DEFAULTS: HarnessConfig = {
   schemaVersion: 2,
@@ -33,7 +34,7 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
 export function loadConfig(projectDir: string): HarnessConfig {
   const defaults = JSON.parse(JSON.stringify(DEFAULTS)) as Record<string, unknown>;
   const { data: userConfig, error } = readJSON<Record<string, unknown>>(
-    path.join(projectDir, '.ham-autocode', 'harness.json'),
+    path.join(projectDir, HARNESS_JSON),
   );
   if (error && error.code !== 'ENOENT') throw error;
   return (userConfig

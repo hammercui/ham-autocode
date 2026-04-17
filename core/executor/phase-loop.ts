@@ -18,6 +18,7 @@ import { readAllTasks, writeTask, nextTaskId, deleteTask } from '../state/task-g
 import { appendLog } from '../state/pipeline.js';
 import { routeTask } from '../routing/router.js';
 import type { TaskState } from '../types.js';
+import { DEFERRED_PROMPT_TMP, AUTO_PROGRESS_JSON } from '../paths.js';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ function handleDeferredTask(projectDir: string, _taskId: string, bundle: string)
 ${bundle}`;
 
   try {
-    const tmpFile = path.join(projectDir, '.ham-autocode', '.deferred-prompt.tmp');
+    const tmpFile = path.join(projectDir, DEFERRED_PROMPT_TMP);
     fs.writeFileSync(tmpFile, prompt, 'utf-8');
 
     execSync(`claude -p < "${tmpFile.replace(/\\/g, '/')}"`, {
@@ -165,7 +166,7 @@ export async function runFullAuto(
   const startTime = Date.now();
 
   // P2-#5: 清零 progress 文件，避免监控看到上一轮旧数据
-  const progressFile = path.join(projectDir, '.ham-autocode', 'dispatch', 'auto-progress.json');
+  const progressFile = path.join(projectDir, AUTO_PROGRESS_JSON);
   try {
     const dir = path.dirname(progressFile);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

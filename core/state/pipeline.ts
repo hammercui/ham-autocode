@@ -5,13 +5,14 @@ import { withLock } from './lock.js';
 import { migrate } from './migrate.js';
 import { validatePipeline } from './validator.js';
 import type { PipelineState, PipelineStatus } from '../types.js';
+import { PIPELINE_JSON, ROOT } from '../paths.js';
 
 function pipelinePath(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode', 'pipeline.json');
+  return path.join(projectDir, PIPELINE_JSON);
 }
 
 function stateDir(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode');
+  return path.join(projectDir, ROOT);
 }
 
 export function readPipeline(projectDir: string): PipelineState | null {

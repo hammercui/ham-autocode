@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { atomicWriteJSON, readJSON } from '../state/atomic.js';
+import { COMPETITIVE_ANALYSIS } from '../paths.js';
 
 export interface CompetitorProfile {
   name: string;
@@ -33,7 +34,7 @@ export interface CompetitiveAnalysis {
 }
 
 function analysisPath(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode', 'research', 'competitive-analysis.json');
+  return path.join(projectDir, COMPETITIVE_ANALYSIS);
 }
 
 /**

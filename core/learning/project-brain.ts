@@ -18,6 +18,7 @@
 import fs from 'fs';
 import path from 'path';
 import { readJSON, atomicWriteJSON } from '../state/atomic.js';
+import { LEARNING_BRAIN } from '../paths.js';
 import type { TaskState } from '../types.js';
 
 export interface ProjectBrain {
@@ -71,7 +72,7 @@ export interface ProjectBrain {
 }
 
 function brainPath(projectDir: string): string {
-  return path.join(projectDir, '.ham-autocode', 'learning', 'project-brain.json');
+  return path.join(projectDir, LEARNING_BRAIN);
 }
 
 /**

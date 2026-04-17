@@ -3,6 +3,7 @@ import { readPipeline } from '../state/pipeline.js';
 import { readAllTasks } from '../state/task-graph.js';
 import { queryTrace } from './logger.js';
 import { readJSON } from '../state/atomic.js';
+import { CONTEXT_BUDGET } from '../paths.js';
 
 export interface SessionReport {
   project: string;
@@ -49,7 +50,7 @@ export function generateSessionReport(projectDir: string): SessionReport {
   const totalCommands = entries.length;
 
   // Read budget
-  const budgetPath = path.join(projectDir, '.ham-autocode', 'context', 'budget.json');
+  const budgetPath = path.join(projectDir, CONTEXT_BUDGET);
   const { data: budgetData } = readJSON<BudgetState>(budgetPath);
   const totalTokensConsumed = budgetData?.consumed ?? 0;
 

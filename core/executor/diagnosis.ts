@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { TaskState } from '../types.js';
+import { STATE_LOGS } from '../paths.js';
 
 export type FailureCategory =
   | 'spec-issue'       // spec 描述不清/文件路径错误
@@ -55,7 +56,7 @@ export function diagnoseFailure(
  * 将诊断追加到 diagnosis.jsonl
  */
 export function saveDiagnosis(projectDir: string, entry: DiagnosisEntry): void {
-  const logDir = path.join(projectDir, '.ham-autocode', 'logs');
+  const logDir = path.join(projectDir, STATE_LOGS);
   if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
   fs.appendFileSync(path.join(logDir, 'diagnosis.jsonl'), JSON.stringify(entry) + '\n');
 }

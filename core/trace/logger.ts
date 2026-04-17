@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { STATE_LOGS, TRACE_JSONL } from '../paths.js';
 
 export interface TraceEntry {
   time: string;
@@ -30,8 +31,8 @@ export interface AgentExecEntry {
 const MAX_SIZE = 1024 * 1024; // 1MB
 
 export function appendTrace(projectDir: string, entry: TraceEntry): void {
-  const logDir = path.join(projectDir, '.ham-autocode', 'logs');
-  const logFile = path.join(logDir, 'trace.jsonl');
+  const logDir = path.join(projectDir, STATE_LOGS);
+  const logFile = path.join(projectDir, TRACE_JSONL);
 
   try {
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
@@ -53,7 +54,7 @@ export function queryTrace(
   projectDir: string,
   filter?: { taskId?: string; result?: string; limit?: number },
 ): TraceEntry[] {
-  const logFile = path.join(projectDir, '.ham-autocode', 'logs', 'trace.jsonl');
+  const logFile = path.join(projectDir, TRACE_JSONL);
   const limit = filter?.limit ?? 50;
 
   if (!fs.existsSync(logFile)) return [];
@@ -83,7 +84,7 @@ const AGENT_LOG_FILE = 'agent-exec.jsonl';
 
 /** 记录一次 agent 执行 */
 export function appendAgentExec(projectDir: string, entry: AgentExecEntry): void {
-  const logDir = path.join(projectDir, '.ham-autocode', 'logs');
+  const logDir = path.join(projectDir, STATE_LOGS);
   const logFile = path.join(logDir, AGENT_LOG_FILE);
 
   try {
@@ -106,7 +107,7 @@ export function queryAgentExec(
   projectDir: string,
   filter?: { agent?: string; taskId?: string; limit?: number },
 ): AgentExecEntry[] {
-  const logFile = path.join(projectDir, '.ham-autocode', 'logs', AGENT_LOG_FILE);
+  const logFile = path.join(projectDir, STATE_LOGS, AGENT_LOG_FILE);
   const limit = filter?.limit ?? 100;
 
   if (!fs.existsSync(logFile)) return [];
@@ -128,7 +129,7 @@ export function queryAgentExec(
 
 /** 清除 agent-exec.jsonl 历史数据 */
 export function resetAgentExecLog(projectDir: string): { cleared: boolean } {
-  const logFile = path.join(projectDir, '.ham-autocode', 'logs', AGENT_LOG_FILE);
+  const logFile = path.join(projectDir, STATE_LOGS, AGENT_LOG_FILE);
   try {
     if (fs.existsSync(logFile)) {
       fs.unlinkSync(logFile);
