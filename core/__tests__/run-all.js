@@ -20,6 +20,7 @@ const suites = [
   'hashline-test.js',
   'todo-enforcer-test.js',
   'router-v2-test.js',
+  'claude-sub-test.js',
 ];
 
 let passed = 0;

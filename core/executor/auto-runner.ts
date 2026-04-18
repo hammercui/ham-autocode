@@ -20,6 +20,8 @@ import type { ReviewResult } from './review-gate.js';
 import { getAvailableAgent, recordSuccess, recordFailure } from './agent-status.js';
 import { loadConfig } from '../state/config.js';
 import { parseOpenCodeOutput } from './dispatcher.js';
+import { parseClaudeSubOutput } from './claude-sub.js';
+import { recordResult as recordAbResult } from '../routing/ab-log.js';
 import { diagnoseFailure, saveDiagnosis } from './diagnosis.js';
 import { snapshot as hashSnapshot, verify as hashVerify } from '../quality/hashline.js';
 import { enforceTodos } from '../quality/todo-enforcer.js';
@@ -29,7 +31,7 @@ import { AUTO_PROGRESS_JSON, STATE_DISPATCH } from '../paths.js';
 // ==================== Types ====================
 
 export interface AutoRunOptions {
-  agent?: 'codexfake' | 'opencode';
+  agent?: 'codexfake' | 'opencode' | 'cc-sonnet' | 'cc-haiku';
   timeout?: number;         // ms, 默认 600000 (10 min)
   concurrency?: number;     // 最大并行数，默认无限制
   dryRun?: boolean;
@@ -59,6 +61,8 @@ export interface TaskExecResult {
   fallbackUsed?: boolean;
   qualityPassed?: boolean;
   review?: ReviewResult;
+  /** v4.2: agent 执行消耗的总 token（input + output）。A/B log 使用。 */
+  totalTokens?: number;
 }
 
 export interface WaveResult {
@@ -210,11 +214,32 @@ function resolveGptModelForAuto(projectDir: string): string {
   try {
     const config = loadConfig(projectDir).routing;
     const provider = config.opencodeGptProviders?.[0] || 'github-copilot';
-    const model = config.opencodeGptModel || 'gpt-5.3-codex';
+    const model = config.opencodeGptModel || 'gpt-5.4-mini';
     return `${provider}/${model}`;
   } catch {
-    return 'github-copilot/gpt-5.3-codex';
+    return 'github-copilot/gpt-5.4-mini';
   }
+}
+
+/** v4.2: 解析 Claude Code 子 agent 模型名 (cc-sonnet / cc-haiku) */
+function resolveCcSubagentModelForAuto(projectDir: string, target: 'cc-sonnet' | 'cc-haiku'): string {
+  try {
+    const sub = loadConfig(projectDir).routing.ccSubagent;
+    if (target === 'cc-sonnet') return sub?.sonnet || 'claude-sonnet-4-6';
+    return sub?.haiku || 'claude-haiku-4-5-20251001';
+  } catch {
+    return target === 'cc-sonnet' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
+  }
+}
+
+/** v4.2: 按 agent 类型选择正确的 token/耗时解析器 */
+function parseAgentOutput(agentName: string, stdout: string): { tokensIn: number; tokensOut: number; totalTokens: number; cost?: number } {
+  if (agentName === 'cc-sonnet' || agentName === 'cc-haiku') {
+    const r = parseClaudeSubOutput(stdout);
+    return { tokensIn: r.tokensIn, tokensOut: r.tokensOut, totalTokens: r.totalTokens, cost: r.cost };
+  }
+  const r = parseOpenCodeOutput(stdout);
+  return { tokensIn: r.tokensIn, tokensOut: r.tokensOut, totalTokens: r.totalTokens, cost: r.cost };
 }
 
 /** 写 bundle 到临时文件 */
@@ -279,9 +304,12 @@ async function executeTask(
 
   // 确定 agent
   const routedTarget: RoutingTarget = options.agent || task.routing?.target || 'codexfake';
-  const fallbackChain = routedTarget === 'codexfake'
-    ? ['codexfake', 'opencode']
-    : ['opencode', 'codexfake'];
+  // v4.2: 各路由目标有对应 fallback 链
+  let fallbackChain: string[];
+  if (routedTarget === 'codexfake') fallbackChain = ['codexfake', 'opencode'];
+  else if (routedTarget === 'cc-sonnet') fallbackChain = ['cc-sonnet', 'codexfake'];
+  else if (routedTarget === 'cc-haiku') fallbackChain = ['cc-haiku', 'opencode'];
+  else fallbackChain = ['opencode', 'codexfake'];
 
   // T5: L4 FAIL 重试标记（限 1 次）
   let hasRetried = false;
@@ -323,6 +351,10 @@ async function executeTask(
       if (agentName === 'codexfake') {
         const gptModel = resolveGptModelForAuto(projectDir);
         shellCmd = `opencode run --dangerously-skip-permissions --format json --model "${gptModel}" < "${bundlePathUnix}"`;
+      } else if (agentName === 'cc-sonnet' || agentName === 'cc-haiku') {
+        // v4.2: Claude Code 子 agent — claude -p --model 从 stdin 读取 prompt
+        const ccModel = resolveCcSubagentModelForAuto(projectDir, agentName);
+        shellCmd = `claude -p --model "${ccModel}" --output-format json --dangerously-skip-permissions < "${bundlePathUnix}"`;
       } else {
         shellCmd = `opencode run --dangerously-skip-permissions --format json < "${bundlePathUnix}"`;
       }
@@ -362,7 +394,7 @@ async function executeTask(
       const { created, modified } = checkFiles(projectDir, task.files || []);
 
       // P0: 从 opencode --format json 输出中解析 token 统计
-      const tokenStats = parseOpenCodeOutput(agentStdout);
+      const tokenStats = parseAgentOutput(agentName, agentStdout);
 
       // v4.1 L0.5: Hashline — detect collateral damage.
       // Concurrent wave peers' declared files are accepted (prevents false positives when wave runs in parallel).
@@ -471,6 +503,7 @@ async function executeTask(
           taskId: task.id, taskName: task.name, agent: agentName,
           result: 'ok', durationMs, filesCreated: created, filesModified: modified,
           fallbackUsed: attempt > 0, qualityPassed: true, review,
+          totalTokens: tokenStats.totalTokens || undefined,
         };
       }
 
@@ -497,8 +530,8 @@ async function executeTask(
               taskId: task.id, taskName: task.name, agent: agentName,
               result: 'ok', duration_ms: durationMs,
               filesCreated: created, filesModified: 0,
-              tokensIn: parseOpenCodeOutput(agentStdout).tokensIn || undefined,
-              tokensOut: parseOpenCodeOutput(agentStdout).tokensOut || undefined,
+              tokensIn: parseAgentOutput(agentName, agentStdout).tokensIn || undefined,
+              tokensOut: parseAgentOutput(agentName, agentStdout).tokensOut || undefined,
             });
             if (_progressState) {
               _progressState.completed++;
@@ -741,7 +774,14 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
         const peerFiles = peerTasks
           .filter(t => t.id !== task.id)
           .flatMap(t => t.files || []);
-        return executeTask(projectDir, task, options, peerFiles);
+        const res = await executeTask(projectDir, task, options, peerFiles);
+        // v4.2: 回填 R2 随机档 A/B 结果（仅当 routing target 是 opencode/cc-haiku 时记录）
+        const rt = task.routing?.target;
+        if (rt === 'opencode' || rt === 'cc-haiku') {
+          const ok = res.result === 'ok' ? 'ok' : 'fail';
+          recordAbResult(projectDir, task.id, ok, res.totalTokens, res.durationMs);
+        }
+        return res;
       });
       const batchResults = await Promise.allSettled(promises);
       for (const r of batchResults) {
