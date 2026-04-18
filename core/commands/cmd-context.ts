@@ -5,7 +5,8 @@
  */
 import { summarizeFile } from '../context/summary-cache.js';
 import { breakdownClaudeCodeContext } from '../executor/context-template.js';
-import { readAllTasks } from '../state/task-graph.js';
+import { readAllTasks, readTask } from '../state/task-graph.js';
+import { buildTreeContext, contextForFiles } from '../context/hierarchical.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function handleContext(args: string[], projectDir: string): any {
@@ -14,6 +15,28 @@ export function handleContext(args: string[], projectDir: string): any {
   if (sub === 'summary') {
     if (!args[2]) throw new Error('Usage: context summary <file>');
     return summarizeFile(projectDir, args[2]);
+  }
+
+  // v4.2: 分层 CONTEXT.md (LSP-based)
+  if (sub === 'build') {
+    return buildTreeContext(projectDir, { log: (m) => process.stderr.write(`[ctx] ${m}\n`) });
+  }
+
+  if (sub === 'for-task') {
+    if (!args[2]) throw new Error('Usage: context for-task <task-id>');
+    const task = readTask(projectDir, args[2]);
+    if (!task) throw new Error(`Task ${args[2]} not found`);
+    const files = task.files || [];
+    if (files.length === 0) return { taskId: task.id, context: '', note: 'task has no files' };
+    const ctx = contextForFiles(projectDir, files);
+    return { taskId: task.id, files, contextChars: ctx.length, context: ctx };
+  }
+
+  if (sub === 'for-files') {
+    const files = args.slice(2);
+    if (files.length === 0) throw new Error('Usage: context for-files <file1> [file2...]');
+    const ctx = contextForFiles(projectDir, files);
+    return { files, contextChars: ctx.length, context: ctx };
   }
 
   if (sub === 'analyze') {
@@ -44,5 +67,5 @@ export function handleContext(args: string[], projectDir: string): any {
     };
   }
 
-  throw new Error(`Unknown context subcommand: ${sub}. Available: summary, analyze`);
+  throw new Error(`Unknown context subcommand: ${sub}. Available: summary, analyze, build, for-task, for-files`);
 }

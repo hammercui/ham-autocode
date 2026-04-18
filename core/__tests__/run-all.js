@@ -23,6 +23,7 @@ const suites = [
   'claude-sub-test.js',
   'gitignore-patch-test.js',
   'run-context-test.js',
+  'hierarchical-test.js',
 ];
 
 let passed = 0;
