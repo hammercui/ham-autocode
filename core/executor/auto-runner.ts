@@ -353,8 +353,10 @@ async function executeTask(
         shellCmd = `opencode run --dangerously-skip-permissions --format json --model "${gptModel}" < "${bundlePathUnix}"`;
       } else if (agentName === 'cc-sonnet' || agentName === 'cc-haiku') {
         // v4.2: Claude Code 子 agent — claude -p --model 从 stdin 读取 prompt
+        // 默认剥离 MCP (节省子 agent 启动 context)；HAM_CC_SUB_KEEP_MCP=1 保留
         const ccModel = resolveCcSubagentModelForAuto(projectDir, agentName);
-        shellCmd = `claude -p --model "${ccModel}" --output-format json --dangerously-skip-permissions < "${bundlePathUnix}"`;
+        const mcpFlags = process.env.HAM_CC_SUB_KEEP_MCP === '1' ? '' : ` --strict-mcp-config --mcp-config '{"mcpServers":{}}'`;
+        shellCmd = `claude -p --model "${ccModel}" --output-format json --dangerously-skip-permissions${mcpFlags} < "${bundlePathUnix}"`;
       } else {
         shellCmd = `opencode run --dangerously-skip-permissions --format json < "${bundlePathUnix}"`;
       }

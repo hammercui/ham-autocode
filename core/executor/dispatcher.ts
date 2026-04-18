@@ -60,9 +60,11 @@ export function buildDispatchCommand(
     case 'cc-sonnet':
     case 'cc-haiku': {
       // v4.2: 同账号降档 — 通过 claude -p --model 调用子 agent
+      // 默认剥离所有 MCP (节省子 agent 启动 context)；如需保留设 HAM_CC_SUB_KEEP_MCP=1
       const model = options?.model || resolveCcSubagentModel(target, options?.projectDir);
+      const mcpFlags = process.env.HAM_CC_SUB_KEEP_MCP === '1' ? '' : ` --strict-mcp-config --mcp-config '{"mcpServers":{}}'`;
       return {
-        command: `claude -p --model "${model}" --output-format json --dangerously-skip-permissions '${escaped}'`,
+        command: `claude -p --model "${model}" --output-format json --dangerously-skip-permissions${mcpFlags} '${escaped}'`,
         agent: target,
         model,
       };
