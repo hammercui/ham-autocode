@@ -1,19 +1,36 @@
-# Runtime state (machine-owned, not checked in)
-.ham-autocode/state/
+# ============================================================
+# .ham-autocode/ selective ignore
+#
+# Track: docs/ runtime/ INDEX.md state/tasks/ (durable progress for machine handoff)
+# Ignore: high-churn runtime data (logs, live progress, observations)
+# ============================================================
+
+# High-churn runtime (秒级/持续追加,无版本化价值)
+.ham-autocode/state/logs/
+.ham-autocode/state/dispatch/
+.ham-autocode/state/context/
+.ham-autocode/state/worktrees/
+.ham-autocode/state/learning/observations.jsonl
+.ham-autocode/state/learning/auto-state.json
+.ham-autocode/state/progress.json
+.ham-autocode/*.tmp
+.ham-autocode/.*.tmp
+
 # Legacy top-level locations (pre-v4.1, before 'ham-cli migrate')
 .ham-autocode/tasks/
 .ham-autocode/logs/
 .ham-autocode/learning/
 .ham-autocode/dispatch/
 .ham-autocode/context/
-.ham-autocode/research/
 .ham-autocode/worktrees/
 .ham-autocode/routing/
 .ham-autocode/pipeline.json
 .ham-autocode/harness.json
 .ham-autocode/progress.json
-.ham-autocode/*.tmp
-# Note: docs/, runtime/, INDEX.md ARE tracked (plugin's own documentation)
+
+# Note: state/tasks/*.json IS tracked — task graph is the durable progress
+#       marker needed for cross-machine handoff. Changes are infrequent
+#       (pending → in_progress → done) so it's not noisy.
 .setting/
 
 # OS

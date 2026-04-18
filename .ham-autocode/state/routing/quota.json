@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "codex": {
+      "target": "codex",
+      "available": true,
+      "consecutiveFailures": 0,
+      "lastFailure": null,
+      "unavailableSince": null,
+      "reason": null
+    }
+  },
+  "updatedAt": "2026-04-14T02:00:34.658Z"
+}

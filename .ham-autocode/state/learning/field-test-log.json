@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "project": "ham-autocode",
+      "phase": "manual",
+      "category": "framework-gap",
+      "severity": "P1",
+      "description": "Missing health check skill in auto workflow",
+      "context": "Manually recorded via CLI",
+      "id": "ft-mnxyao88",
+      "timestamp": "2026-04-14T01:36:32.552Z",
+      "status": "open"
+    },
+    {
+      "id": "ft-mny1uo1s",
+      "project": "ham-autocode",
+      "timestamp": "2026-04-14T03:16:04.288Z",
+      "category": "accuracy",
+      "severity": "P1",
+      "description": "health check missed tsconfig/package.json in app/ subdirectory — monorepo structure not supported",
+      "status": "resolved"
+    },
+    {
+      "id": "ft-mny1uush",
+      "project": "ham-autocode",
+      "timestamp": "2026-04-14T03:16:13.025Z",
+      "category": "accuracy",
+      "severity": "P1",
+      "description": "uncommitted analyzer path truncation — file path shows ore/index.ts instead of core/index.ts",
+      "status": "resolved"
+    },
+    {
+      "id": "ft-mny1v14j",
+      "project": "ham-autocode",
+      "timestamp": "2026-04-14T03:16:21.235Z",
+      "category": "ux-friction",
+      "severity": "P2",
+      "description": "drift detector did not find onboarding marked as pending but code already implemented — keyword matching too shallow",
+      "status": "resolved"
+    },
+    {
+      "id": "ft-mny2ileb",
+      "project": "ham-autocode",
+      "timestamp": "2026-04-14T03:34:40.595Z",
+      "category": "accuracy",
+      "severity": "P2",
+      "description": "health check checkTests detects npm test script but runs in wrong cwd for monorepo — should use pkgDir consistently",
+      "status": "open"
+    }
+  ],
+  "aggregated": [
+    {
+      "pattern": "framework-gap:Missing health check skill in auto workflow",
+      "category": "framework-gap",
+      "occurrences": 1,
+      "projects": [
+        "ham-autocode"
+      ],
+      "suggestedPriority": "P2",
+      "firstSeen": "2026-04-14T01:36:32.552Z",
+      "lastSeen": "2026-04-14T01:36:32.552Z"
+    }
+  ],
+  "lastUpdated": "2026-04-14T03:34:40.596Z"
+}
