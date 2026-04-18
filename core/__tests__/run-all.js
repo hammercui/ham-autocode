@@ -21,6 +21,7 @@ const suites = [
   'todo-enforcer-test.js',
   'router-v2-test.js',
   'claude-sub-test.js',
+  'gitignore-patch-test.js',
 ];
 
 let passed = 0;
