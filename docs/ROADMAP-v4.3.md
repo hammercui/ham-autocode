@@ -1,132 +1,117 @@
-# v4.3 Roadmap — 跨任务共享记忆
+# v4.3 Roadmap — 主 agent token 瘦身 + 子 agent 质量保障
 
-> **目标**：让多 agent 协同时，后续任务能无损继承前置任务的"事实性记忆"，
-> 在不烧 Opus 编排 token 的前提下保证质量不降。
+> **核心目标修正**：
+> - ✅ **省主 agent token**（Opus 账号，昂贵稀缺，这是真钱）
+> - ✅ **子 agent 质量**（输出好 = 主 agent 不用重试/复盘 = 间接省主 token）
+> - ❌ **不优先省子 agent token**（opencode 免费 / codexfake 走订阅 / cc-sub 可控）
 
-## 背景
+## 成本账核实（2026-04-18 实测 ham-video）
 
-v4.2 把"目录级 LSP 符号树"作为默认注入，field test 发现每 task 烧掉 ~1300 tokens
-注入同目录无关文件的符号，命中率极低（10 个文件注入，任务只改 1 个）。
+### 主 agent 侧消耗来源
 
-**v4.3 第一步（已完成 2026-04-18）**：
-- 分层 CONTEXT.md 默认关闭（`HAM_HIERARCHICAL_CONTEXT=1` opt-in）
-- 改为窄带"符号指路"：只列 `task.files` + 依赖任务文件的 top-level 符号
-- 每 task 节省 **60-66% prompt tokens**
+| 消耗来源 | 实测 | 主付 |
+|---|---:|---|
+| `ham-cli pipeline status` stdout | **2187 tokens** | 是 |
+| `ham-cli context analyze` stdout | 607 tokens | 是 |
+| `ham-cli dag status` stdout | 30 tokens | 是 |
+| `ham-cli execute auto-status` | 73 tokens | 是 |
+| spec-generator 生成 spec（每 task） | 1-3K input+output | 是 |
+| L4 review 反馈回流 | 200-1000 / 次 | 是 |
+| 维护 ham-autocode 代码时 Read 文件 | 每文件 200-5000 | 是 |
+| **CLAUDE.md + MEMORY.md 开场注入** | ~5-10K | 是 |
 
-**v4.3 第二步（本文档范围）**：解决 agent 之间如何共享"非代码类"记忆。
+### 子 agent 侧（v4.3-step1 已优化）
 
-## 问题陈述
+v4.2 → v4.3 step1 每 task prompt 从 1850 → 635 tokens（-66%）。但这是**便宜 token**，
+仅作"质量 × 预算纪律"副产品看待。
 
-当前跨 task 传递只有两条窄带：
-1. **代码本身** — 后任务 Read 前任务产出的文件
-2. **`task.spec.interface` 注入** — 只是前任务的 spec 文本，不是实际 export
+## v4.3 实施任务（按主 token ROI 排序）
 
-缺口：
-| 记忆类型 | 当前 | 差距 |
+### P0：`ham-cli` stdout 瘦身（主 token 最大漏斗）
+
+| ID | 改动 | 预计省（每次调用） |
+|---|---|---:|
+| T1 | `pipeline status` 默认不输出 log 数组，加 `--log=full\|tail:N\|none`（默认 tail:5） | **~1900 tokens** |
+| T2 | `context analyze` 默认只返回 totals + top-3；加 `--detail` 输出全量 | ~400 tokens |
+| T3 | `dag status` 去掉 `cycles:[]` 空数组等噪声 | ~15 tokens |
+| T4 | 所有 JSON 输出默认紧凑格式（`JSON.stringify` 无 indent），加 `--pretty` 可选 | 每命令省 10-30% |
+| T5 | `execute full-auto` 默认 summary-only（总成功数 / 失败 / 时间），详情入 `.ham-autocode/state/logs/auto.log`；`--verbose` 恢复现行 | **每 phase 省 2-5K** |
+
+**累计预期**：主 session 单次 full-auto 流程省 **5-10K tokens**（根据 phase 数和主动轮询频率）。
+
+### P1：spec-generator 预算控制（主 token 第二漏斗）
+
+| ID | 改动 | 预计省 |
+|---|---|---:|
+| T6 | spec-generator prompt 加硬性长度上限（description ≤ 600 chars, interface ≤ 400, acceptance ≤ 400） | 每 spec 省 300-800 tokens 主侧 input |
+| T7 | 超长 spec 回退到"bullet 格式"自动压缩；压缩产物仍满足 L1/L2 门禁 | 同上 |
+| T8 | 主 session 的 spec 生成 prompt 本身审计（目前 ~2K 系统 prompt，能否精简） | 每 task 省 200-500 tokens |
+
+### P2：L4 review 结构化输出（主 token 第三漏斗）
+
+| ID | 改动 | 预计省 |
+|---|---|---:|
+| T9 | review agent 输出 JSON schema：`{verdict, issues:[], rule_for_future}`，主 session 只读 verdict + issues 数组 | 每次 review 省 200-500 tokens |
+| T10 | review 详细叙述存 `.ham-autocode/state/logs/review/<taskId>.md`，主 session 按需读 | 同上 |
+
+### P3：子 agent 质量（间接省主 token — 减少重试 / 复盘）
+
+这是原 v4.3 roadmap 的核心（exports/lessons），**仍做但降级优先级**：
+
+| ID | 改动 | 主 token 间接节省 |
 |---|---|---|
-| 前任务的导出符号（interface/class/const） | agent 需 grep 再发现 | 应有精确目录 |
-| 前任务做出的决策（"Pattern A over B"） | 无记录 | 应有 append-only 日志 |
-| 前任务踩的坑（"don't use React.memo here"） | 无记录 | 同上 |
-| 约定（命名/模式） | 散在代码里 | 保持现状（agent 看相邻文件即可） |
+| T11 | exports.jsonl：task done 后 LSP 提取 exports，下 task 自动反查 spec 文本中引用 | 减少 agent 幻觉重建接口 → 减少 L4 打回重试 → **每次重试省主侧 2-5K** |
+| T12 | lessons.jsonl：L4 review 提炼 rule，按 scope 前缀匹配注入下次 prompt | 减少重复踩坑 → 同上 |
+| T13 | 注入命中率日志：lessons/exports 被 agent 输出真引用的比例，低于 30% 自动停用该条 | 防止 memory 膨胀 |
 
-## 设计原则
+### P4：代码精简延续（主 agent 维护侧 token）
 
-- **事实优先，不做 AI 合并**：符号位置、rule 陈述，不做 brain.json 式"architecture.summary"。
-- **append-only**：JSONL 日志，无并发合并逻辑。
-- **按文件名反查**：只把与当前 `task.files` 目录前缀匹配的条目注入 prompt，避免无关记忆污染。
-- **被动生成**：执行循环内自动捕获，不依赖用户显式运行 `ham-cli learn`。
+| ID | 改动 | 主维护时节省 |
+|---|---|---|
+| T14 | 合并 `core/executor/{claude-app,claude-code,claude-sub,codex,opencode,agent-teams}.ts` 进 dispatcher.ts（-246 行） | 主下次调 dispatcher 时少 Read 5 个文件 |
+| T15 | `core/health/` 砍掉 esm-cjs-detector.ts + uncommitted-analyzer.ts（-614 行，保留 checker + drift） | 同上 |
+| T16 | `core/research/competitor.ts` 评估必要性；冷门 → 删 | -139 行 |
 
-## 数据结构
+### P5：开场注入优化（每次新 session 主 agent 烧掉）
 
-### 1. 符号导出目录 `state/context/exports.jsonl`
-
-每 task 完成后，LSP 扫描 `task.files` 导出符号，追加一行：
-```json
-{"taskId":"task-003","ts":"2026-04-18T12:00:00Z","file":"app/src/renderer/pages/Setup.tsx","exports":[{"name":"CapabilityStep","kind":"interface","line":29},{"name":"CAPABILITY_STEPS","kind":"const","line":43}]}
-```
-
-**用途**：下一个 task 的 prompt 里，若 `spec.interface` 文本 mentions `CapabilityStep`，
-自动注入 `Resolved: CapabilityStep at app/src/renderer/pages/Setup.tsx:29 (from task-003)`。
-
-**LSP 已有**：复用 `core/lsp/client.ts` 的 `documentSymbol` + `core/context/hierarchical.ts` 的 flatten 逻辑。
-
-### 2. 任务遗产 `state/context/lessons.jsonl`
-
-每 task 完成后，由 L4 review 阶段或 agent 自主声明追加：
-```json
-{"taskId":"task-005","ts":"...","scope":["app/src/renderer/pages/"],"rule":"Setup 页面的 step 状态由 CAPABILITY_STEPS 驱动，新增能力需同步更新 task-1 的数组而非硬编码"}
-```
-
-**用途**：下个 task 若 `task.files` 路径前缀匹配 `scope` 数组任一条 → 注入 rule 到 prompt。
-
-**生成来源**（按优先级）：
-1. L4 review agent 在 review prompt 里额外问一句 `rule_for_future_tasks: ...`
-2. 执行 agent 自主在输出里 emit `<LESSON scope="...">...</LESSON>` 标签
-3. 手动 `ham-cli lessons add <scope> <rule>`（fallback）
-
-### 3. 任务决策 `state/context/decisions.jsonl`（可选，视必要性）
-
-```json
-{"taskId":"task-008","ts":"...","decision":"用 TanStack Query 而非 SWR","reason":"项目已有 TanStack Query 依赖，避免引入新库"}
-```
-
-仅在决策与代码可读性强相关、而 commit message 难以覆盖时启用。初版可只做 exports + lessons。
-
-## 注入策略（context-template.ts）
-
-扩展 `buildMinimalContext`：
-
-```
-## Symbols in scope                 ← v4.3 已实装
-<来自 task.files + dep files 的 LSP 输出>
-
-## Exports from prior tasks         ← v4.3-step2 新增
-<按 task.files 目录前缀 + 名字命中筛选>
-
-## Lessons from prior tasks         ← v4.3-step2 新增
-<按 task.files scope 前缀匹配的 rule，每条 1 行>
-```
-
-预算：
-- exports：最多 10 条，≤400 tokens
-- lessons：最多 5 条，≤200 tokens
-- 总新增：≤600 tokens per task（可接受，相比 v4.2 同目录全量 1300 tokens 仍净省）
-
-## 实施任务拆分
-
-| ID | 任务 | 复杂度 | 路由 |
-|---|---|---|---|
-| T1 | exports.jsonl 写入：task 完成 hook 调 LSP 提取 exports | 低 | codexfake |
-| T2 | exports 查询函数 + 注入到 prompt | 低 | opencode |
-| T3 | lessons.jsonl 写入 CLI：`ham-cli lessons add <scope> <rule>` | 低 | opencode |
-| T4 | lessons scope 匹配 + 注入 | 中 | codexfake |
-| T5 | L4 review prompt 扩展 `rule_for_future_tasks` 字段 | 中 | claude-code |
-| T6 | execute 流程钩子：task done → 调 T1 写 exports | 中 | claude-code |
-| T7 | 测试：exports 注入命中验证；lessons scope 前缀匹配 | 中 | codexfake |
-| T8 | README + CHANGELOG v4.3 | 低 | claude-app |
+| ID | 改动 | 每次会话节省 |
+|---|---|---|
+| T17 | CLAUDE.md 去冗余：检查是否有"历史决策陈述"能迁移到 memory | 每会话 500-1500 tokens |
+| T18 | MEMORY.md 审计：每条目的"last used"追踪，6 个月未命中自动归档 | 每会话 300-800 |
 
 ## 成功指标
 
-1. **命中率**：下 task prompt 里注入的 exports 条目中，至少 50% 被 agent 在输出里引用
-2. **复现失败率下降**：同一批 lessons 生效前后，L4 review 发现的"重复踩坑"下降 ≥30%
-3. **Token 预算**：per task 总注入（spec + symbols + exports + lessons）维持 ≤1000 tokens
+1. **主 agent 单次 full-auto phase 总 token** 从当前水位下降 **≥ 40%**
+   - 测量方法：同一个 phase，v4.2 vs v4.3 同版本 planPhase → executePhase → verify 全流程主 session token 记录
+2. **子 agent prompt 质量不退化**：L4 review 通过率不低于 v4.2 实测 60%
+3. **子 agent 输出重试率下降 ≥ 20%**（受 P3 影响）
+
+## 任务复杂度 × 路由建议
+
+| ID | 复杂度 | 路由 |
+|---|---|---|
+| T1-T4（CLI 瘦身）| 低 | opencode / codexfake |
+| T5（full-auto summary 模式）| 中 | codexfake |
+| T6-T8（spec-generator 预算） | 中 | claude-code |
+| T9-T10（review 结构化） | 中 | claude-code |
+| T11-T13（exports/lessons） | 中高 | claude-code |
+| T14-T16（代码合并/精简） | 中 | codexfake |
+| T17-T18（文档审计） | 低 | claude-app / opencode |
 
 ## 风险与降级
 
-- **exports.jsonl 膨胀**：按 7 天 TTL 轮换，超龄自动丢弃
-- **lessons 污染**：scope 必须明确（目录前缀 / 文件名模式），全局 rule 拒收
-- **多任务并发写入**：JSONL append-only 天然安全；读取不要求原子快照
-- **kill switch**：`HAM_TASK_MEMORY=0` 全部关闭
+- **stdout 瘦身破坏兼容性**：老的脚本 / UI 可能依赖 log 数组 → 所有瘦身都提供 `--verbose` 或 `--log=full` 恢复
+- **spec 预算过严导致 acceptance 信息丢失**：每种任务类型单独校准预算，过严打开 `HAM_SPEC_NO_BUDGET=1`
+- **lessons 污染**：命中率监控 T13 是硬约束，低于阈值自动停用
+- **review 结构化 agent 不配合**：fallback 到 prose 解析（regex 抽 verdict）
 
-## 与 learning 模块的区别
+## 与 v4.2 的区别
 
-v4.2 已删除的 `core/learning/{project-brain,auto-learn}.ts`：
-- ❌ `brain.architecture.summary` — 叙述性文本，AI 合成
-- ❌ `brain.evolvedFrom` 计数 — 没实际用途的元数据
-- ❌ `brain.provenPatterns` — 抽象 pattern，没指向具体符号
+| 维度 | v4.2 | v4.3 |
+|---|---|---|
+| 优化对象 | 子 agent prompt | **主 agent token** |
+| 主要手段 | 注入分层 CONTEXT.md | stdout 瘦身 + spec/review 结构化 + 代码精简 |
+| 成功指标 | 子 agent prompt 体积 | 主 session token 消耗 |
+| 记忆机制 | brain.json（已删） | exports/lessons JSONL（降级到 P3） |
 
-v4.3 保留的"轻记忆"：
-- ✅ exports：纯 LSP 输出，`file:line name kind` 四元组
-- ✅ lessons：短句 rule + 明确 scope，不做泛化
-
-**一句话**：learning 想做 RAG，v4.3 只做结构化引用目录。
+**一句话**：v4.3 把"省 token"的靶子从便宜的子 agent 端换到昂贵的主 agent 端。
