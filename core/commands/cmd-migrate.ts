@@ -31,7 +31,7 @@ function buildPlan(projectDir: string): MigrationPlan[] {
   const legacyRoot = path.join(projectDir, ROOT);
   const newState = path.join(projectDir, STATE);
 
-  const stateDirs = ['tasks', 'logs', 'learning', 'dispatch', 'context', 'research', 'worktrees', 'routing'];
+  const stateDirs = ['tasks', 'logs', 'dispatch', 'context', 'research', 'worktrees', 'routing'];
   for (const d of stateDirs) {
     plans.push({
       src: path.join(legacyRoot, d),
@@ -125,9 +125,6 @@ const GITIGNORE_BLOCK = `${GITIGNORE_SENTINEL}
 !.ham-autocode/state/
 !.ham-autocode/state/tasks/
 !.ham-autocode/state/tasks/*.json
-!.ham-autocode/state/learning/
-!.ham-autocode/state/learning/project-brain.json
-!.ham-autocode/state/learning/field-test-log.json
 ${GITIGNORE_END_SENTINEL}`;
 
 /** v4.2: 向 .gitignore 注入 ham-autocode allowlist 块（幂等）。 */

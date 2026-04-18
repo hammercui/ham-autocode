@@ -233,3 +233,70 @@ export function contextForFiles(projectDir: string, files: string[]): string {
   }
   return parts.join('\n\n---\n\n');
 }
+
+// ─── Narrow symbol map（v4.3 默认注入路径） ──────────────────
+// 只列 task.files 对应文件的 top-level 符号，不扫同目录其它文件。
+// 从缓存的 per-dir tree md 中精确切出，零 LSP 运行时开销。
+
+/**
+ * 精准符号指路：只为给定文件列表输出 `file:Lline kind name` 行。
+ * 典型输出 < 500 字符，10x 小于 contextForFiles 的同目录全量。
+ *
+ * @param files 相对 projectDir 的文件路径数组（task.files 或 dep files）
+ * @param opts.maxLines 输出行数上限（防止文件有 100+ 符号时膨胀）
+ */
+export function symbolMapForFiles(
+  projectDir: string,
+  files: string[],
+  opts: { maxLines?: number } = {}
+): string {
+  if (files.length === 0) return '';
+  const treeDir = path.join(projectDir, STATE_CONTEXT, 'tree');
+  if (!fs.existsSync(treeDir)) return '';
+
+  const maxLines = opts.maxLines ?? 40;
+  const out: string[] = [];
+  let emitted = 0;
+
+  // group files by their dir so we open each dir md once
+  const byDir = new Map<string, Set<string>>();
+  for (const f of files) {
+    const norm = f.replace(/\\/g, '/');
+    const d = path.dirname(norm) || '.';
+    const base = path.basename(norm);
+    if (!byDir.has(d)) byDir.set(d, new Set());
+    byDir.get(d)!.add(base);
+  }
+
+  for (const [dir, basenames] of byDir) {
+    const flat = dirToFlatName(dir);
+    const mdPath = path.join(treeDir, `${flat}.md`);
+    if (!fs.existsSync(mdPath)) continue;
+    const md = fs.readFileSync(mdPath, 'utf-8');
+    // md 结构：`## filename\n- ...\n- ...\n\n## nextfile\n...`
+    const sections = md.split(/\n## /).slice(1);  // skip leading `# dir`
+    for (const section of sections) {
+      const nl = section.indexOf('\n');
+      if (nl < 0) continue;
+      const fileHeader = section.slice(0, nl).trim();
+      if (!basenames.has(fileHeader)) continue;
+      const body = section.slice(nl + 1);
+      const symLines = body.split('\n').filter(l => l.startsWith('- '));
+      const fileRel = dir === '.' ? fileHeader : `${dir}/${fileHeader}`;
+      for (const line of symLines) {
+        if (emitted >= maxLines) { out.push('  ...[truncated, run ham-cli context for-files for full list]'); return out.join('\n'); }
+        // 原格式: `- interface \`Foo\` (L10)` → 转成 `- app/x.ts:10 interface Foo`
+        const m = line.match(/^- (\S+)\s+`([^`]+)`\s+\(L(\d+)\)\s*$/);
+        if (m) {
+          out.push(`- ${fileRel}:${m[3]} ${m[1]} ${m[2]}`);
+        } else {
+          out.push(`- ${fileRel} ${line.slice(2).trim()}`);
+        }
+        emitted++;
+      }
+    }
+  }
+
+  return out.join('\n');
+}
+

@@ -45,11 +45,10 @@ export function handleContext(args: string[], projectDir: string): any {
       return { error: 'No tasks found. Run in a project with .planning/ tasks.' };
     }
     const breakdowns = tasks.map(t => ({ id: t.id, name: t.name, ...breakdownClaudeCodeContext(projectDir, t) }));
-    const totals = { spec: 0, brain: 0, dependencies: 0 };
+    const totals = { spec: 0, dependencies: 0 };
     let grand = 0;
     for (const b of breakdowns) {
       totals.spec += b.sections.spec;
-      totals.brain += b.sections.brain;
       totals.dependencies += b.sections.dependencies;
       grand += b.total;
     }
@@ -60,7 +59,6 @@ export function handleContext(args: string[], projectDir: string): any {
       avgPerTask: Math.round(grand / tasks.length),
       breakdown: {
         spec: { tokens: totals.spec, pct: pct(totals.spec) },
-        brain: { tokens: totals.brain, pct: pct(totals.brain), slimmable: true },
         dependencies: { tokens: totals.dependencies, pct: pct(totals.dependencies) },
       },
       perTask: breakdowns,

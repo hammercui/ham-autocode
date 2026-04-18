@@ -13,7 +13,6 @@ import { analyzeCriticalPath } from '../dag/critical-path.js';
 import { estimatePERT } from '../dag/estimation.js';
 import { calculateEVM } from '../dag/earned-value.js';
 import { renderGantt } from '../dag/gantt.js';
-import { onTaskComplete } from '../learning/auto-learn.js';
 import { recordFailure, recordSuccess } from '../routing/quota.js';
 import type { TaskState, TaskStatus, ErrorType } from '../types.js';
 
@@ -35,7 +34,6 @@ export function handleDag(args: string[], projectDir: string): any {
     try { updatePipelineFields(projectDir, { current_task: null }); } catch { /* ignore */ }
     const completedTask = readTask(projectDir, args[2]);
     if (completedTask?.routing?.target) recordSuccess(projectDir, completedTask.routing.target);
-    onTaskComplete(projectDir, args[2], true);
     return result;
   }
   if (sub === 'fail') {
@@ -51,7 +49,6 @@ export function handleDag(args: string[], projectDir: string): any {
       const failedTask = readTask(projectDir, taskId);
       if (failedTask?.routing?.target) recordFailure(projectDir, failedTask.routing.target, errorType);
     }
-    onTaskComplete(projectDir, taskId, false);
     return result;
   }
   if (sub === 'retry') {

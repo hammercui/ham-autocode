@@ -1,18 +1,12 @@
 /**
  * Context Bundle Templates for Subagents.
  *
- * v3.6 fix: 接通 ContextManager + brain + entities + DAG 依赖产出管道。
- * 所有 5 个 target 都能拿到 "刚好够用" 的上下文包。
+ * v4.3: 移除 learning/project-brain 注入路径（本项目无 brain.json 数据；其他项目若需
+ * 架构摘要可通过 hierarchical CONTEXT.md / LSP symbols 获得）。
  *
- * Token budgets (per target):
- * - opencode:    ~1-1.5K tokens (task + conventions + file summaries)
- * - codexfake:   ~2-2.5K tokens (task + conventions + file contents/summaries + entities + patterns)
- * - claude-app:  ~1K tokens (task summary + conventions)
- * - claude-code: ~3-5K tokens (task + brain index + entities + patterns)
- * - agent-teams: ~2K tokens per teammate (task + architecture + file summaries)
+ * Token budgets (per target)：见 CONTEXT_BUDGET 表。
  */
 
-import { readBrain, getBrainContext as getBrainContextFn } from '../learning/project-brain.js';
 import { summarizeFile } from '../context/summary-cache.js';
 import { readTask } from '../state/task-graph.js';
 import type { TaskState, RoutingTarget } from '../types.js';
@@ -78,18 +72,45 @@ export function buildMinimalContext(
       result = buildClaudeCodeContext(projectDir, task); break;
   }
 
-  // v4.2: 分层 CONTEXT.md 注入（默认开启；HAM_HIERARCHICAL_CONTEXT=0 可显式关闭）
-  if (process.env.HAM_HIERARCHICAL_CONTEXT !== '0' && task.files && task.files.length > 0) {
+  // v4.3: 窄带符号指路（默认开启）— 只列 task.files + 依赖任务文件的 top-level 符号，
+  // 典型 < 500 字符。agent 自带本地文件访问能力，我们只负责"指路"不负责"搬运"。
+  // HAM_SYMBOL_MAP=0 可关闭；HAM_HIERARCHICAL_CONTEXT=1 切回 v4.2 的同目录全量注入。
+  if (task.files && task.files.length > 0) {
     try {
-      // 动态 import 避免引入 LSP client 到 opencode 等不需要它的路径
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { contextForFiles } = require('../context/hierarchical.js');
-      const hier = contextForFiles(projectDir, task.files);
-      if (hier && hier.length > 0) {
-        result.instruction += `\n\n## Directory Context (LSP symbols)\n${hier}`;
-        result.estimatedTokens += Math.ceil(hier.length / 4);
+      const mod = require('../context/hierarchical.js');
+      if (process.env.HAM_HIERARCHICAL_CONTEXT === '1') {
+        // 兼容路径：老的全量注入
+        const hier = mod.contextForFiles(projectDir, task.files);
+        if (hier && hier.length > 0) {
+          result.instruction += `\n\n## Directory Context (LSP symbols)\n${hier}`;
+          result.estimatedTokens += Math.ceil(hier.length / 4);
+        }
+      } else if (process.env.HAM_SYMBOL_MAP !== '0') {
+        // 默认：窄带符号指路。task.files + dep files（agent 自己去读实际代码）
+        const depFiles: string[] = [];
+        for (const depId of task.blockedBy || []) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { readTask } = require('../state/task-graph.js');
+            const dep = readTask(projectDir, depId);
+            if (dep?.status === 'done' && dep.files) {
+              for (const f of dep.files) if (!task.files.includes(f)) depFiles.push(f);
+            }
+          } catch { /* skip */ }
+        }
+        const mapOwn = mod.symbolMapForFiles(projectDir, task.files, { maxLines: 30 });
+        const mapDep = mod.symbolMapForFiles(projectDir, depFiles, { maxLines: 20 });
+        if (mapOwn || mapDep) {
+          const lines = ['', '## Symbols in scope (agent reads actual code if needed)'];
+          if (mapOwn) lines.push('### Task files', mapOwn);
+          if (mapDep) lines.push('### Dependency files', mapDep);
+          const block = lines.join('\n');
+          result.instruction += `\n${block}`;
+          result.estimatedTokens += Math.ceil(block.length / 4);
+        }
       }
-    } catch { /* hierarchical context optional */ }
+    } catch { /* context injection optional */ }
   }
 
   // 上下文利用率检查（40% Smart Zone 阈值）
@@ -104,48 +125,16 @@ export function buildMinimalContext(
 
 // ==================== 共享工具函数 ====================
 
-/** 获取 brain conventions 文本 */
-function getConventions(projectDir: string): string {
-  const brain = readBrain(projectDir);
-  if (!brain) return '';
-  const c = brain.conventions;
-  const parts = [
-    c.importStyle && `imports=${c.importStyle}`,
-    c.fileNaming && `naming=${c.fileNaming}`,
-    c.testPattern && `test=${c.testPattern}`,
-  ].filter(Boolean);
-  return parts.length > 0 ? `Conventions: ${parts.join(', ')}` : '';
-}
-
-/** 获取 brain architecture 中与任务相关的模块 */
-function getRelatedModules(projectDir: string, task: TaskState): string {
-  const brain = readBrain(projectDir);
-  if (!brain?.architecture?.keyModules?.length) return '';
-  const taskFiles = task.files || [];
-  // 只用文件路径匹配模块，不用任务名（避免 "test" 匹配 app/test 等误命中）
-  const related = brain.architecture.keyModules.filter(m =>
-    taskFiles.some(f => f.startsWith(m.path))
-  );
-  if (related.length === 0) return '';
-  return related.map(m => `- ${m.path}: ${m.role}`).join('\n');
-}
-
-/** 获取任务相关文件的阅读清单（路径 + 简短说明，不含文件内容） */
+/** 任务相关文件的阅读清单（任务文件 + 依赖任务源码文件，不含文件内容） */
 function getReadingList(projectDir: string, task: TaskState): string {
   const taskFiles = new Set(task.files || []);
-  const brain = readBrain(projectDir);
-  const modules = brain?.architecture?.keyModules || [];
   const entries: string[] = [];
 
-  // 1. 任务文件本身（agent 必须读）
   for (const f of taskFiles) {
-    const mod = modules.find(m => f.startsWith(m.path));
     const summary = summarizeFile(projectDir, f);
-    const desc = mod ? mod.role : (summary.tokens > 0 ? `${summary.tokens} tokens` : 'new file');
-    entries.push(`- ${f} — ${desc}`);
+    entries.push(`- ${f} — ${summary.tokens > 0 ? `${summary.tokens} tokens` : 'new file'}`);
   }
 
-  // 2. 依赖任务的源码文件（跳过配置文件，agent 主要需要接口定义）
   const configExts = new Set(['.json', '.yaml', '.yml', '.toml', '.md']);
   const deps = task.blockedBy || [];
   for (const depId of deps) {
@@ -154,9 +143,8 @@ function getReadingList(projectDir: string, task: TaskState): string {
     for (const f of depTask.files || []) {
       if (taskFiles.has(f)) continue;
       const ext = f.slice(f.lastIndexOf('.'));
-      if (configExts.has(ext)) continue; // 跳过 package.json/tsconfig.json 等配置文件
-      const mod = modules.find(m => f.startsWith(m.path));
-      entries.push(`- ${f} — upstream from ${depId}${mod ? ', ' + mod.role : ''}`);
+      if (configExts.has(ext)) continue;
+      entries.push(`- ${f} — upstream from ${depId}`);
     }
   }
 
@@ -192,7 +180,6 @@ function buildOpenCodeContext(projectDir: string, task: TaskState): MinimalConte
     task.spec?.interface ? `Interface: ${task.spec.interface}` : '',
     task.spec?.acceptance ? `Acceptance: ${task.spec.acceptance}` : '',
     task.files?.length ? `Files: ${task.files.join(', ')}` : '',
-    getConventions(projectDir),
   ];
 
   // 文件摘要（~500 tokens 预算）
@@ -221,14 +208,7 @@ function buildCodexContext(projectDir: string, task: TaskState): MinimalContext 
     task.spec?.interface ? `Interface: ${task.spec.interface}` : '',
     task.spec?.acceptance ? `Acceptance: ${task.spec.acceptance}` : '',
     task.files?.length ? `Files: ${task.files.join(', ')}` : '',
-    getConventions(projectDir),
   ];
-
-  // 相关模块
-  const modules = getRelatedModules(projectDir, task);
-  if (modules) {
-    lines.push('', '## Project Modules (relevant)', modules);
-  }
 
   // 文件摘要（~800 tokens 预算）
   const summaries = getReadingList(projectDir, task);
@@ -257,7 +237,6 @@ function buildClaudeAppContext(projectDir: string, task: TaskState): MinimalCont
     `Task: ${task.name}`,
     task.spec?.description || '',
     task.files?.length ? `Files: ${task.files.join(', ')}` : '',
-    getConventions(projectDir),
   ];
 
   // 依赖产出
@@ -275,7 +254,6 @@ export interface ContextBreakdown {
   total: number;
   sections: {
     spec: number;         // task 描述、interface、acceptance、files
-    brain: number;        // learning/project-brain 注入
     dependencies: number; // 依赖任务产出
   };
 }
@@ -289,18 +267,16 @@ export function breakdownClaudeCodeContext(projectDir: string, task: TaskState):
     task.files?.length ? `Files: ${task.files.join(', ')}` : '',
   ].filter(Boolean).join('\n');
 
-  const brain = getBrainContextFn(projectDir, task.name) || '';
   const deps = getDependencyOutputs(projectDir, task) || '';
 
   const sections = {
     spec: tk(specLines),
-    brain: tk(brain),
     dependencies: tk(deps),
   };
   return { total: Object.values(sections).reduce((a, b) => a + b, 0), sections };
 }
 
-/** Claude Code: task + compact brain index + related entities (~3-5K tokens) */
+/** Claude Code: task + dependencies (~1-2K tokens 基础，分层 CONTEXT.md 另注入) */
 function buildClaudeCodeContext(projectDir: string, task: TaskState): MinimalContext {
   const lines = [
     `# ${task.name}`,
@@ -309,12 +285,6 @@ function buildClaudeCodeContext(projectDir: string, task: TaskState): MinimalCon
     task.spec?.acceptance ? `Acceptance: ${task.spec.acceptance}` : '',
     task.files?.length ? `Files: ${task.files.join(', ')}` : '',
   ];
-
-  // v3.5: Progressive disclosure — compact brain index (~150 tokens)
-  const brainIndex = getBrainContextFn(projectDir, task.name);
-  if (brainIndex) {
-    lines.push('', brainIndex);
-  }
 
   // 依赖产出
   const deps = getDependencyOutputs(projectDir, task);
@@ -326,17 +296,14 @@ function buildClaudeCodeContext(projectDir: string, task: TaskState): MinimalCon
   return { instruction: text, estimatedTokens: Math.ceil(text.length / 4) };
 }
 
-/** Agent Teams: task + architecture + file summaries (~2K tokens per member) */
+/** Agent Teams: task + file summaries (~2K tokens per member) */
 function buildTeamContext(projectDir: string, task: TaskState): MinimalContext {
-  const brain = readBrain(projectDir);
   const lines = [
     `# ${task.name}`,
     task.spec?.description || '',
     task.spec?.interface ? `Interface: ${task.spec.interface}` : '',
     task.spec?.acceptance ? `Acceptance: ${task.spec.acceptance}` : '',
     task.files?.length ? `Own files: ${task.files.join(', ')}` : '',
-    brain ? `Project: ${brain.architecture.summary}` : '',
-    getConventions(projectDir),
   ];
 
   // 文件摘要（~600 tokens 预算）

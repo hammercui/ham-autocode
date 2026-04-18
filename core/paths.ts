@@ -20,7 +20,6 @@ export const STATE = path.join(ROOT, 'state');
 
 export const STATE_TASKS = path.join(STATE, 'tasks');
 export const STATE_LOGS = path.join(STATE, 'logs');
-export const STATE_LEARNING = path.join(STATE, 'learning');
 export const STATE_DISPATCH = path.join(STATE, 'dispatch');
 export const STATE_CONTEXT = path.join(STATE, 'context');
 export const STATE_RESEARCH = path.join(STATE, 'research');
@@ -36,9 +35,6 @@ export const TRACE_JSONL = path.join(STATE_LOGS, 'trace.jsonl');
 export const AGENT_STATUS_JSON = path.join(STATE_DISPATCH, 'agent-status.json');
 export const AUTO_PROGRESS_JSON = path.join(STATE_DISPATCH, 'auto-progress.json');
 export const REVIEW_FEEDBACK_JSONL = path.join(STATE_LOGS, 'review-feedback.jsonl');
-export const LEARNING_AUTO_STATE = path.join(STATE_LEARNING, 'auto-state.json');
-export const LEARNING_OBSERVATIONS = path.join(STATE_LEARNING, 'observations.jsonl');
-export const LEARNING_BRAIN = path.join(STATE_LEARNING, 'project-brain.json');
 export const CONTEXT_SUMMARIES = path.join(STATE_CONTEXT, 'summaries.json');
 export const CONTEXT_BUDGET = path.join(STATE_CONTEXT, 'budget.json');
 export const COMPETITIVE_ANALYSIS = path.join(STATE_RESEARCH, 'competitive-analysis.json');

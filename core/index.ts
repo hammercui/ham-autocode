@@ -11,7 +11,6 @@ import { handleDag } from './commands/cmd-dag.js';
 import { handleContext } from './commands/cmd-context.js';
 import { handleRoute, handleTeams, handleQuota } from './commands/cmd-route.js';
 import { handleExecute, handleValidate, handleRecover } from './commands/cmd-execute.js';
-import { handleLearn } from './commands/cmd-learn.js';
 import { handleHealth, handleResearch } from './commands/cmd-health.js';
 import { handleTraceCmd, handleSession, handleCommit, handleRules, handleSpec, handleToken } from './commands/cmd-misc.js';
 import { handleMigrate } from './commands/cmd-migrate.js';
@@ -50,7 +49,6 @@ const handlers: Record<string, Handler> = {
   teams: handleTeams,
   rules: handleRules,
   spec: handleSpec,
-  learn: handleLearn,
   research: handleResearch,
   health: handleHealth,
   quota: handleQuota,
