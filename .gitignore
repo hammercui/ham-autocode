@@ -1,5 +1,19 @@
-# Runtime state (generated in target projects, not part of plugin)
-.ham-autocode/
+# Runtime state (machine-owned, not checked in)
+.ham-autocode/state/
+# Legacy top-level locations (pre-v4.1, before 'ham-cli migrate')
+.ham-autocode/tasks/
+.ham-autocode/logs/
+.ham-autocode/learning/
+.ham-autocode/dispatch/
+.ham-autocode/context/
+.ham-autocode/research/
+.ham-autocode/worktrees/
+.ham-autocode/routing/
+.ham-autocode/pipeline.json
+.ham-autocode/harness.json
+.ham-autocode/progress.json
+.ham-autocode/*.tmp
+# Note: docs/, runtime/, INDEX.md ARE tracked (plugin's own documentation)
 .setting/
 
 # OS
