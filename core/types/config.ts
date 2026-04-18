@@ -32,6 +32,11 @@ export interface RoutingConfig {
   opencodeGptModel: string;
   /** 模型供应商列表，按优先级排序。可选: 'github-copilot', 'openai' */
   opencodeGptProviders: string[];
+  /** v4.2: Claude Code 子 agent 模型名（claude -p --model） */
+  ccSubagent?: {
+    sonnet: string;
+    haiku: string;
+  };
 }
 
 export interface RecoveryConfig {

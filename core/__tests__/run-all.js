@@ -19,6 +19,7 @@ const suites = [
   'spec-lint-test.js',
   'hashline-test.js',
   'todo-enforcer-test.js',
+  'router-v2-test.js',
 ];
 
 let passed = 0;

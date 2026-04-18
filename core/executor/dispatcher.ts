@@ -57,6 +57,17 @@ export function buildDispatchCommand(
         agent: 'claude-code',
       };
 
+    case 'cc-sonnet':
+    case 'cc-haiku': {
+      // v4.2: 同账号降档 — 通过 claude -p --model 调用子 agent
+      const model = options?.model || resolveCcSubagentModel(target, options?.projectDir);
+      return {
+        command: `claude -p --model "${model}" --output-format json --dangerously-skip-permissions '${escaped}'`,
+        agent: target,
+        model,
+      };
+    }
+
     case 'claude-app':
       // Claude App 通过另一个账号的对话窗口执行，输出 instruction 供复制
       return {
@@ -84,10 +95,22 @@ function resolveGptModel(projectDir?: string): string {
   try {
     const config = loadConfig(projectDir || '.').routing;
     const provider = config.opencodeGptProviders?.[0] || 'github-copilot';
-    const model = config.opencodeGptModel || 'gpt-5.3-codex';
+    const model = config.opencodeGptModel || 'gpt-5.4-mini';
     return `${provider}/${model}`;
   } catch {
-    return 'github-copilot/gpt-5.3-codex';
+    return 'github-copilot/gpt-5.4-mini';
+  }
+}
+
+/** v4.2: 解析 claude-code 子 agent 模型名 (claude -p --model) */
+function resolveCcSubagentModel(target: 'cc-sonnet' | 'cc-haiku', projectDir?: string): string {
+  try {
+    const config = loadConfig(projectDir || '.').routing;
+    const sub = config.ccSubagent;
+    if (target === 'cc-sonnet') return sub?.sonnet || 'claude-sonnet-4-6';
+    return sub?.haiku || 'claude-haiku-4-5-20251001';
+  } catch {
+    return target === 'cc-sonnet' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
   }
 }
 
@@ -97,9 +120,20 @@ export function checkAgentAvailable(target: RoutingTarget): { available: boolean
     return { available: true }; // 这些不需要外部 CLI
   }
 
+  const { execSync } = require('child_process');
+
+  // v4.2: cc-sonnet/cc-haiku 通过 claude CLI 执行
+  if (target === 'cc-sonnet' || target === 'cc-haiku') {
+    try {
+      execSync('claude --version', { stdio: 'pipe', timeout: 5000 });
+      return { available: true };
+    } catch {
+      return { available: false, error: 'claude CLI not found in PATH' };
+    }
+  }
+
   // codex 和 opencode 路由目标都通过 opencode CLI 执行
   try {
-    const { execSync } = require('child_process');
     execSync('opencode --version', { stdio: 'pipe', timeout: 5000 });
     return { available: true };
   } catch {

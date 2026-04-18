@@ -10,8 +10,12 @@ export const DEFAULTS: HarnessConfig = {
   validation: { mode: 'strict', maxAttempts: 2, gates: ['lint', 'typecheck', 'test'], onFinalFail: 'block' },
   routing: {
     confirmThreshold: 90, codexMinSpecScore: 80, codexMinIsolationScore: 70, defaultTarget: 'claude-code',
-    opencodeGptModel: 'gpt-5.3-codex',
+    opencodeGptModel: 'gpt-5.4-mini',
     opencodeGptProviders: ['github-copilot', 'openai'],
+    ccSubagent: {
+      sonnet: 'claude-sonnet-4-6',
+      haiku: 'claude-haiku-4-5-20251001',
+    },
   },
   recovery: { lowRiskStrategy: 'checkpoint', highRiskThreshold: 70, highRiskStrategy: 'worktree' },
 };

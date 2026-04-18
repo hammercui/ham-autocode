@@ -46,8 +46,10 @@ export interface MinimalContext {
  */
 const CONTEXT_BUDGET: Record<string, number> = {
   opencode: 6000,     // glm-4.7: ~16K window → 40% ≈ 6K
-  codexfake: 12000,   // gpt-5.3-codex: ~32K → 40% ≈ 12K
-  'claude-code': 40000, // Opus 4.6: ~200K → 但实际 subagent 保守用
+  codexfake: 12000,   // gpt-5.4-mini: ~32K → 40% ≈ 12K
+  'cc-haiku': 8000,   // v4.2: Haiku 4.5 ~200K 但作为简单任务保守用
+  'cc-sonnet': 20000, // v4.2: Sonnet 4.6 中复杂任务
+  'claude-code': 40000, // Opus 4.6
   'claude-app': 20000,
   'agent-teams': 8000,
 };

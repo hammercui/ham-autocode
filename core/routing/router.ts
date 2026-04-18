@@ -1,80 +1,67 @@
 /**
- * Route a task to the appropriate executor based on scoring rules.
+ * v4.2 Router — 6 条规则决策链（R1-R6）。
  *
- * Rules (from design):
- * - specScore >= codexMinSpecScore AND isolationScore >= codexMinIsolationScore -> codex
- * - task type in [doc, config, hotfix] -> claude-app
- * - Otherwise -> claude-code (default)
- * - If complexityScore >= confirmThreshold -> needsConfirmation = true
+ * R1  isolation ≥ 80 AND complexity ≤ 50   → codexfake   (独立中等 → gpt-5.4-mini)
+ * R2  complexity ≤ 40                      → random(opencode, cc-haiku) + A/B log
+ * R3  complexity ≤ 60 AND isolation ≥ 60   → codexfake
+ * R4  complexity ≤ 75                      → cc-sonnet
+ * R5  (批量级，由 shouldUseAgentTeams 处理)
+ * R6  default                              → claude-code (Opus 兜底)
+ *
+ * 不再把 doc/config/hotfix 路由到 claude-app — claude-app 现为发起者角色，仅通过
+ * --agent claude-app 手工指派。
  */
 
 import { scoreTask } from './scorer.js';
 import { loadConfig } from '../state/config.js';
 import { writeTask } from '../state/task-graph.js';
 import { resolveTarget } from './quota.js';
+import { pickRandomSimple } from './ab-log.js';
 import type { TaskState, TaskScores, RoutingDecision, RoutingTarget, HarnessConfig } from '../types.js';
-
-type TaskType = 'doc' | 'config' | 'hotfix' | 'default';
 
 interface RouteResult extends RoutingDecision {
   confirmed: boolean;
 }
 
-function inferTaskType(task: TaskState & { type?: string }): TaskType {
-  if (task.type) return task.type as TaskType;
-
-  const haystack = [
-    task.phase,
-    task.name,
-    task.spec?.description,
-    ...(task.files || []),
-  ].filter(Boolean).join(' ').toLowerCase();
-
-  if (/\b(doc|docs|readme)\b/.test(haystack)) return 'doc';
-  if (/\b(config|settings|json|ya?ml|toml|ini|env)\b/.test(haystack)) return 'config';
-  if (/\b(hotfix|patch|urgent|incident)\b/.test(haystack)) return 'hotfix';
-  return 'default';
-}
-
 export function routeTask(task: TaskState & { type?: string }, allTasks: TaskState[], projectDir?: string): RouteResult {
-  // 静态配置驱动路由（v3.9.1: 删除了 readInsights 自适应，参见 Harness Engineering 四大支柱分析）
   const config = loadConfig(projectDir || '.').routing;
   const scores: TaskScores = scoreTask(task, allTasks);
-  const taskType = inferTaskType(task);
+  const files = (task.files || []).length;
 
-  let target: RoutingTarget = config.defaultTarget || 'codexfake';
-  let reason = 'default';
+  let target: RoutingTarget;
+  let reason: string;
   let needsConfirmation = false;
 
-  // Rule 0: Simple tasks → opencode (free/cheap model, glm-4.7 级别能力足够)
-  if (scores.complexityScore <= 40 && (task.files || []).length <= 5 &&
-      !(scores.specScore >= config.codexMinSpecScore && scores.isolationScore >= config.codexMinIsolationScore)) {
-    target = 'opencode';
-    reason = `simple task (complexity:${scores.complexityScore}, files:${(task.files || []).length}) → opencode`;
-  }
-  // Rule 1: High spec + high isolation → codex (opencode + gpt-5.3-codex)
-  else if (scores.specScore >= config.codexMinSpecScore &&
-      scores.isolationScore >= config.codexMinIsolationScore) {
+  // R1: 独立中等 → codexfake
+  if (scores.isolationScore >= 80 && scores.complexityScore <= 50) {
     target = 'codexfake';
-    reason = `specScore(${scores.specScore}) >= ${config.codexMinSpecScore} AND isolationScore(${scores.isolationScore}) >= ${config.codexMinIsolationScore} → opencode+gpt`;
+    reason = `R1 isolation≥80 & complexity≤50 → codexfake (gpt-5.4-mini)`;
   }
-  // Rule 2: Doc/config/hotfix → claude-app (another account, lightweight)
-  else if (['doc', 'config', 'hotfix'].includes(taskType)) {
-    target = 'claude-app';
-    reason = `task type ${taskType} routes to claude-app`;
+  // R2: 简单 → random(opencode, cc-haiku)
+  else if (scores.complexityScore <= 40) {
+    const bucket = projectDir
+      ? pickRandomSimple(projectDir, task.id, scores.complexityScore, files)
+      : (Math.random() < 0.5 ? 'opencode' : 'cc-haiku') as 'opencode' | 'cc-haiku';
+    target = bucket;
+    reason = `R2 simple (complexity:${scores.complexityScore}) → random pick ${bucket}`;
   }
-  // Rule 3: High complexity → claude-code (Opus 4.6, strongest reasoning)
-  else if (scores.complexityScore >= 70) {
-    target = 'claude-code';
-    reason = `high complexity (${scores.complexityScore}) → claude-code (Opus)`;
+  // R3: 中等独立 → codexfake
+  else if (scores.complexityScore <= 60 && scores.isolationScore >= 60) {
+    target = 'codexfake';
+    reason = `R3 complexity≤60 & isolation≥60 → codexfake (gpt-5.4-mini)`;
   }
-  // Rule 4: Default → codex (opencode + gpt model, medium complexity)
+  // R4: 中复杂 → cc-sonnet
+  else if (scores.complexityScore <= 75) {
+    target = 'cc-sonnet';
+    reason = `R4 complexity≤75 → cc-sonnet`;
+  }
+  // R6: 兜底 → claude-code (Opus)
   else {
-    target = 'codexfake';
-    reason = `default → opencode+gpt (spec:${scores.specScore} complexity:${scores.complexityScore} isolation:${scores.isolationScore})`;
+    target = 'claude-code';
+    reason = `R6 default high-complexity (${scores.complexityScore}) → claude-code (Opus)`;
   }
 
-  // v3.2: Quota-aware fallback — check if target is available
+  // Quota-aware fallback (保留接口)
   if (projectDir) {
     const resolved = resolveTarget(projectDir, target);
     if (resolved.fallbackApplied) {
@@ -83,21 +70,14 @@ export function routeTask(task: TaskState & { type?: string }, allTasks: TaskSta
     }
   }
 
-  // Confirmation gate
   if (scores.complexityScore >= config.confirmThreshold) {
     needsConfirmation = true;
   }
 
-  return {
-    target,
-    reason,
-    needsConfirmation,
-    confirmed: false,
-    scores,
-  };
+  return { target, reason, needsConfirmation, confirmed: false, scores };
 }
 
-/** Determine whether a wave of tasks should use Agent Teams mode (AT1) */
+/** R5: Determine whether a wave of tasks should use Agent Teams mode */
 export function shouldUseAgentTeams(wave: TaskState[], config: HarnessConfig): boolean {
   if (wave.length < 3) return false;
   return wave.every(t => (t.scores?.isolationScore || 0) >= (config.routing?.codexMinIsolationScore || 70));

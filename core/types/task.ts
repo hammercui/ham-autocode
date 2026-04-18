@@ -33,7 +33,7 @@ export interface TaskScores {
   isolationScore: number;
 }
 
-export type RoutingTarget = 'claude-code' | 'codexfake' | 'claude-app' | 'agent-teams' | 'opencode';
+export type RoutingTarget = 'claude-code' | 'codexfake' | 'claude-app' | 'agent-teams' | 'opencode' | 'cc-sonnet' | 'cc-haiku';
 
 export interface TaskRouting {
   target: RoutingTarget;

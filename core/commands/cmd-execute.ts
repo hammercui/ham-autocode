@@ -35,6 +35,9 @@ export function handleExecute(args: string[], projectDir: string): any {
       'claude-app': new ClaudeAppAdapter(),
       'agent-teams': new AgentTeamsAdapter(),
       'opencode': new OpenCodeAdapter(),
+      // v4.2: 子 agent 共用 ClaudeCodeAdapter 的 instruction 格式
+      'cc-sonnet': new ClaudeCodeAdapter(),
+      'cc-haiku': new ClaudeCodeAdapter(),
     };
     const adapter = adapters[target];
     if (!adapter) throw new Error(`Unknown routing target: ${target}`);

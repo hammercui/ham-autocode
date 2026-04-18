@@ -8,6 +8,7 @@ import { routeTask, routeAllTasks, shouldUseAgentTeams } from '../routing/router
 import { scoreTask } from '../routing/scorer.js';
 import { AgentTeamsAdapter } from '../executor/agent-teams.js';
 import { quotaStatus } from '../routing/quota.js';
+import { abStats } from '../routing/ab-log.js';
 // RoutingTarget 已在精简后不再直接使用
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,6 +16,9 @@ export function handleRoute(args: string[], projectDir: string): any {
   const sub = args[1];
   if (sub === 'batch') {
     return routeAllTasks(readAllTasks(projectDir), projectDir).map(t => ({ id: t.id, routing: t.routing }));
+  }
+  if (sub === 'ab-stats') {
+    return abStats(projectDir);
   }
   if (sub === 'confirm') {
     const taskId = args[2];

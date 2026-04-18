@@ -25,6 +25,8 @@ export const STATE_DISPATCH = path.join(STATE, 'dispatch');
 export const STATE_CONTEXT = path.join(STATE, 'context');
 export const STATE_RESEARCH = path.join(STATE, 'research');
 export const STATE_WORKTREES = path.join(STATE, 'worktrees');
+export const STATE_ROUTING = path.join(STATE, 'routing');
+export const ROUTING_AB_LOG = path.join(STATE_ROUTING, 'ab-log.jsonl');
 
 /** File paths under state/. */
 export const PROGRESS_JSON = path.join(STATE, 'progress.json');
