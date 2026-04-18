@@ -168,5 +168,5 @@ context 平均 553 tokens/task
 | 版本 | 内容 | 预期 |
 |------|------|------|
 | **v4.1 ✅ SHIPPED** | 瘦身 -241 行 + Spec Prompt 压缩 + Hashline L0.5 + Todo Enforcer L2.5 + 文档自治 `.ham-autocode/` + migrate | 实测 Opus spec **-89~91%** (远超 -30% 目标) |
-| v4.2 | 瘦身 Step 2 (P2 重构) + 借鉴 P1 (MCP 按需 + 分层 CONTEXT) | 代码量 -30%, token 再 -15% |
+| v4.2 | 瘦身 Step 2 (P2 重构) + 借鉴 P1 (MCP 按需 + 分层 CONTEXT) + **migrate 自动 patch .gitignore** (v4.1 实测遗漏,每个客户项目需手改) | 代码量 -30%, token 再 -15% |
 | v4.3 | 借鉴 P2 (后台 agent 池)（视 v4.1/4.2 压测结果决定） | 并发提升 |
