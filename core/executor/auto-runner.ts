@@ -267,11 +267,13 @@ function shouldDefer(projectDir: string, task: TaskState, options: AutoRunOption
   return null;
 }
 
-/** 执行单个任务（含 fallback） */
+/** 执行单个任务（含 fallback）。
+ *  peerFiles: 本 wave 内其他并发任务声明的 files，Hashline 需要把它们当作合法变更。 */
 async function executeTask(
   projectDir: string,
   task: TaskState,
-  options: AutoRunOptions
+  options: AutoRunOptions,
+  peerFiles: string[] = [],
 ): Promise<TaskExecResult> {
   const timeout = options.timeout || 600000;
 
@@ -362,8 +364,10 @@ async function executeTask(
       // P0: 从 opencode --format json 输出中解析 token 统计
       const tokenStats = parseOpenCodeOutput(agentStdout);
 
-      // v4.1 L0.5: Hashline — detect collateral damage before expensive L1-L4 gates
-      const hashResult = hashVerify(projectDir, preSnapshot, task.files || []);
+      // v4.1 L0.5: Hashline — detect collateral damage.
+      // Concurrent wave peers' declared files are accepted (prevents false positives when wave runs in parallel).
+      const allowedFiles = [...(task.files || []), ...peerFiles];
+      const hashResult = hashVerify(projectDir, preSnapshot, allowedFiles);
       if (!hashResult.ok) {
         log(`${task.id} ✗ L0.5 Hashline: ${hashResult.reason}`);
         log(`${task.id}   collateral: ${hashResult.collateralDamage.slice(0, 5).join(', ')}`);
@@ -727,12 +731,17 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
 
     for (let i = 0; i < autoTasks.length; i += concurrency) {
       const batch = autoTasks.slice(i, i + concurrency);
+      // v4.1: collect peer declared files so Hashline accepts concurrent wave writes
+      const peerTasks = batch.map(b => readTask(projectDir, b.id)).filter((t): t is TaskState => !!t);
       const promises = batch.map(async (w) => {
         const task = readTask(projectDir, w.id);
         if (!task) {
           return { taskId: w.id, taskName: w.name, agent: 'none', result: 'skip' as const, durationMs: 0, filesCreated: 0, filesModified: 0 };
         }
-        return executeTask(projectDir, task, options);
+        const peerFiles = peerTasks
+          .filter(t => t.id !== task.id)
+          .flatMap(t => t.files || []);
+        return executeTask(projectDir, task, options, peerFiles);
       });
       const batchResults = await Promise.allSettled(promises);
       for (const r of batchResults) {

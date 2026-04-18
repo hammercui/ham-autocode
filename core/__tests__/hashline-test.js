@@ -113,4 +113,19 @@ function cleanup(dir) {
   } finally { cleanup(dir); }
 }
 
+// Case 8: concurrent wave — peer's declared files should NOT be collateral
+{
+  const dir = mkTempRepo();
+  try {
+    const pre = snapshot(dir, ['a.ts']);
+    // simulate two concurrent tasks:
+    // task-A declared a.ts, task-B declared b.ts, both executed in same wave
+    fs.writeFileSync(path.join(dir, 'a.ts'), 'A edit\n');
+    fs.writeFileSync(path.join(dir, 'b.ts'), 'B edit by peer\n');
+    // task-A verify: declared = a.ts + peer(b.ts)
+    const r = verify(dir, pre, ['a.ts', 'b.ts']);
+    assert.strictEqual(r.ok, true, `peer-declared file should not be collateral: ${r.reason}`);
+  } finally { cleanup(dir); }
+}
+
 console.log('hashline tests passed');
