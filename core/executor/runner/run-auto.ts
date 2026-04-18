@@ -15,6 +15,10 @@ import { createRunContext, updateProgress, clearActiveCtx, log } from './progres
 import { getNextWave, dagStatus, dagSkip } from './helpers.js';
 import { executeTask, shouldDefer } from './task-exec.js';
 import { commitWave } from './wave-commit.js';
+import { buildTreeContext } from '../../context/hierarchical.js';
+
+/** 同一 node 进程内只 rebuild 一次 tree（phase-loop 可能多次调 runAuto） */
+let _treeBuiltThisSession = false;
 
 export async function runAuto(projectDir: string, options: AutoRunOptions): Promise<AutoRunResult> {
   const startTime = Date.now();
@@ -27,6 +31,21 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
   log(`Starting auto-execution...`);
   log(`DAG: ${status.remaining} remaining, ${status.done} done, ${status.total} total`);
   const ctx = createRunContext(projectDir, status.remaining);
+
+  // v4.2: 自动 rebuild hierarchical context tree（~1-2s，保证 tree 新鲜）
+  // - 同 node 进程内只 rebuild 一次（phase-loop 可能多次调 runAuto）
+  // - HAM_SKIP_CONTEXT_REBUILD=1 跳过（CI / 用户刚手动 build 过）
+  if (!_treeBuiltThisSession && process.env.HAM_SKIP_CONTEXT_REBUILD !== '1' && status.remaining > 0) {
+    try {
+      const tRebuild = Date.now();
+      const stats = await buildTreeContext(projectDir, { log: () => { /* silent in runAuto */ } });
+      log(`Context tree rebuilt: ${stats.dirs} dirs, ${stats.symbols} symbols in ${Date.now() - tRebuild}ms`);
+      _treeBuiltThisSession = true;
+    } catch (e) {
+      log(`⚠ context tree rebuild failed: ${(e as Error).message.slice(0, 100)} — continuing without hierarchical context`);
+      _treeBuiltThisSession = true;  // 失败也标记，避免重复失败
+    }
+  }
 
   const allDeferredTasks: DeferredTask[] = [];
 

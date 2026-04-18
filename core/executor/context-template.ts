@@ -78,8 +78,8 @@ export function buildMinimalContext(
       result = buildClaudeCodeContext(projectDir, task); break;
   }
 
-  // v4.2: 分层 CONTEXT.md 注入 (env 开关控制，默认关)
-  if (process.env.HAM_HIERARCHICAL_CONTEXT === '1' && task.files && task.files.length > 0) {
+  // v4.2: 分层 CONTEXT.md 注入（默认开启；HAM_HIERARCHICAL_CONTEXT=0 可显式关闭）
+  if (process.env.HAM_HIERARCHICAL_CONTEXT !== '0' && task.files && task.files.length > 0) {
     try {
       // 动态 import 避免引入 LSP client 到 opencode 等不需要它的路径
       // eslint-disable-next-line @typescript-eslint/no-require-imports
