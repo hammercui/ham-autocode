@@ -22,6 +22,7 @@ const suites = [
   'router-v2-test.js',
   'claude-sub-test.js',
   'gitignore-patch-test.js',
+  'run-context-test.js',
 ];
 
 let passed = 0;

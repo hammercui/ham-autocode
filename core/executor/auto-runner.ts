@@ -102,41 +102,54 @@ interface AutoProgress {
   eta: string;
 }
 
-let _progressState: AutoProgress | null = null;
-let _projectDir = '';
+/**
+ * v4.2: RunContext — 显式封装一次 runAuto 调用的状态。
+ * 消除之前的两个模块级变量 (_activeCtx?.progress / _projectDir)，改为显式传参。
+ * log() 仍用 _activeCtx 单例（避免给 46 处日志调用加参数）；其它所有
+ * progress 变更都通过传入的 ctx 访问。
+ */
+export interface RunContext {
+  projectDir: string;
+  progress: AutoProgress;
+}
+
+/** 仅供 log() 隐式使用。runAuto 进入时 set，退出时 clear。 */
+let _activeCtx: RunContext | null = null;
 
 function progressPath(projectDir: string): string {
   return path.join(projectDir, AUTO_PROGRESS_JSON);
 }
 
-function initProgress(projectDir: string, remaining: number): void {
-  _projectDir = projectDir;
+function createRunContext(projectDir: string, remaining: number): RunContext {
   const dir = path.join(projectDir, STATE_DISPATCH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  _progressState = {
-    status: 'running',
-    startedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    currentWave: 0,
-    completed: 0, failed: 0, skipped: 0, deferred: 0,
-    remaining,
-    currentTasks: [],
-    recentLog: [],
-    avgTaskDurationSec: 0, etaSeconds: 0, eta: 'calculating...',
+  const ctx: RunContext = {
+    projectDir,
+    progress: {
+      status: 'running',
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      currentWave: 0,
+      completed: 0, failed: 0, skipped: 0, deferred: 0,
+      remaining,
+      currentTasks: [],
+      recentLog: [],
+      avgTaskDurationSec: 0, etaSeconds: 0, eta: 'calculating...',
+    },
   };
-  flushProgress();
+  _activeCtx = ctx;
+  writeProgress(ctx);
+  return ctx;
 }
 
-function updateProgress(patch: Partial<AutoProgress>): void {
-  if (!_progressState) return;
-  Object.assign(_progressState, patch, { updatedAt: new Date().toISOString() });
-  flushProgress();
+function updateProgress(ctx: RunContext, patch: Partial<AutoProgress>): void {
+  Object.assign(ctx.progress, patch, { updatedAt: new Date().toISOString() });
+  writeProgress(ctx);
 }
 
-function flushProgress(): void {
-  if (!_progressState || !_projectDir) return;
+function writeProgress(ctx: RunContext): void {
   try {
-    fs.writeFileSync(progressPath(_projectDir), JSON.stringify(_progressState, null, 2), 'utf-8');
+    fs.writeFileSync(progressPath(ctx.projectDir), JSON.stringify(ctx.progress, null, 2), 'utf-8');
   } catch { /* best effort */ }
 }
 
@@ -154,11 +167,11 @@ export function readProgress(projectDir: string): AutoProgress | null {
 function log(msg: string): void {
   const time = new Date().toISOString().slice(11, 19);
   process.stdout.write(`[auto ${time}] ${msg}\n`);
-  // 同步写入进度文件的 recentLog
-  if (_progressState) {
-    _progressState.recentLog.push(`[${time}] ${msg}`);
-    if (_progressState.recentLog.length > 20) _progressState.recentLog.shift();
-    flushProgress();
+  // 同步写入进度文件的 recentLog（_activeCtx 由 runAuto 设置）
+  if (_activeCtx) {
+    _activeCtx.progress.recentLog.push(`[${time}] ${msg}`);
+    if (_activeCtx.progress.recentLog.length > 20) _activeCtx.progress.recentLog.shift();
+    writeProgress(_activeCtx);
   }
 }
 
@@ -333,10 +346,10 @@ async function executeTask(
     const preSnapshot = hashSnapshot(projectDir, task.files || []);
 
     // B3: 实时更新 currentTasks — spawn 后立即标记 agent 和 status
-    if (_progressState) {
-      const ct = _progressState.currentTasks.find(t => t.taskId === task.id);
+    if (_activeCtx) {
+      const ct = _activeCtx.progress.currentTasks.find(t => t.taskId === task.id);
       if (ct) { ct.agent = agentName; ct.status = 'running'; ct.startedAt = new Date().toISOString(); }
-      flushProgress();
+      writeProgress(_activeCtx);
     }
 
     let agentStdout = '';
@@ -495,11 +508,11 @@ async function executeTask(
 
         const tokenInfo = tokenStats.totalTokens > 0 ? `, ${tokenStats.totalTokens} tokens` : '';
         log(`${task.id} ✓ ${Math.round(durationMs / 1000)}s (${agentName}, ${created} files created${tokenInfo})`);
-        if (_progressState) {
-          _progressState.completed++;
-          _progressState.remaining = Math.max(0, _progressState.remaining - 1);
-          _progressState.currentTasks = _progressState.currentTasks.filter(t => t.taskId !== task.id);
-          flushProgress();
+        if (_activeCtx) {
+          _activeCtx.progress.completed++;
+          _activeCtx.progress.remaining = Math.max(0, _activeCtx.progress.remaining - 1);
+          _activeCtx.progress.currentTasks = _activeCtx.progress.currentTasks.filter(t => t.taskId !== task.id);
+          writeProgress(_activeCtx);
         }
         return {
           taskId: task.id, taskName: task.name, agent: agentName,
@@ -535,11 +548,11 @@ async function executeTask(
               tokensIn: parseAgentOutput(agentName, agentStdout).tokensIn || undefined,
               tokensOut: parseAgentOutput(agentName, agentStdout).tokensOut || undefined,
             });
-            if (_progressState) {
-              _progressState.completed++;
-              _progressState.remaining = Math.max(0, _progressState.remaining - 1);
-              _progressState.currentTasks = _progressState.currentTasks.filter(t => t.taskId !== task.id);
-              flushProgress();
+            if (_activeCtx) {
+              _activeCtx.progress.completed++;
+              _activeCtx.progress.remaining = Math.max(0, _activeCtx.progress.remaining - 1);
+              _activeCtx.progress.currentTasks = _activeCtx.progress.currentTasks.filter(t => t.taskId !== task.id);
+              writeProgress(_activeCtx);
             }
             return {
               taskId: task.id, taskName: task.name, agent: agentName,
@@ -638,7 +651,7 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
   const status = dagStatus(projectDir);
   log(`Starting auto-execution...`);
   log(`DAG: ${status.remaining} remaining, ${status.done} done, ${status.total} total`);
-  initProgress(projectDir, status.remaining);
+  const ctx = createRunContext(projectDir, status.remaining);
 
   const allDeferredTasks: DeferredTask[] = [];
 
@@ -711,7 +724,7 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     if (wave.length === 0) break;
 
     waveNum++;
-    updateProgress({ currentWave: waveNum, currentTasks: wave.map(w => ({ taskId: w.id, agent: 'pending', status: 'queued', startedAt: '' })) });
+    updateProgress(ctx, { currentWave: waveNum, currentTasks: wave.map(w => ({ taskId: w.id, agent: 'pending', status: 'queued', startedAt: '' })) });
     log(`\n=== Wave ${waveNum}: ${wave.length} tasks [${wave.map(t => t.id).join(', ')}] ===`);
 
     // Wave 级别 agent-teams 判断:
@@ -820,7 +833,7 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
       ? (etaSec >= 60 ? `~${Math.round(etaSec / 60)} min remaining` : `~${etaSec}s remaining`)
       : (remainingCount === 0 ? 'done' : 'calculating...');
 
-    updateProgress({
+    updateProgress(ctx, {
       completed: totalCompleted, failed: totalFailed, skipped: totalSkipped,
       deferred: allDeferredTasks.length,
       remaining: remainingCount,
@@ -886,7 +899,9 @@ export async function runAuto(projectDir: string, options: AutoRunOptions): Prom
     .map(([a, s]) => `${a}: ${s.count} tasks (avg ${Math.round(s.totalMs / s.count / 1000)}s)`)
     .join(' | ');
 
-  updateProgress({ status: totalFailed > 0 ? 'failed' : 'completed', remaining: 0, currentTasks: [] });
+  updateProgress(ctx, { status: totalFailed > 0 ? 'failed' : 'completed', remaining: 0, currentTasks: [] });
+  // 清理 _activeCtx 避免下次 runAuto 之间状态泄漏
+  _activeCtx = null;
   log(`\n=== Complete ===`);
   log(`Total: ${totalTasks} tasks, ${totalCompleted} ok, ${totalFailed} failed, ${totalSkipped} skipped`);
   log(`Time: ${Math.round(totalTimeMs / 1000)}s | ${agentSummary}`);
