@@ -4,7 +4,7 @@
 
 > Coordinate multiple AI agents to autonomously complete entire software projects — saving 82% token cost.
 
-**v4.0** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Guide](docs/GUIDE.md) | [Roadmap](docs/ROADMAP-v4.0.md) | [中文文档](README.zh-CN.md)
+**v4.2** | [CHANGELOG](CHANGELOG.md) | [Architecture](ARCHITECTURE.md) | [Guide](docs/GUIDE.md) | [Roadmap](.ham-autocode/docs/plans/ROADMAP-v4.2-routing-v2.md) | [中文文档](README.zh-CN.md)
 
 ## What is it?
 
@@ -23,6 +23,18 @@ ham-cli execute full-auto --dry-run    # Preview without executing
 ```
 
 The architecture is informed by Harness Engineering practices (OpenAI, Anthropic, Stripe, Hashimoto) — used as methodology, not as goal. The project follows a **Skill-First principle**: community skills (gstack, GSD, Superpowers) are preferred; self-built modules only cover what they don't — multi-agent dispatch, DAG scheduling, and quality gates for autonomous execution.
+
+## What's new in v4.2
+
+- **Routing v2** — 7 agent targets with decision tree R1-R6. New `cc-sonnet` / `cc-haiku` sub-agents via `claude -p --model` fill the gap between free gpt models and Opus; R2 random archive (opencode vs cc-haiku) feeds offline A/B data
+- **gpt-5.4-mini** replaces gpt-5.3-codex as codexfake backing model (slightly stronger, same github-copilot/openai providers)
+- **Hierarchical CONTEXT.md via LSP** — zero-dep LSP client spawns `typescript-language-server`, builds per-directory symbol trees under `.ham-autocode/state/context/tree/`. Injected into every agent task. 101 files / 877 symbols built in 1.7s
+- **MCP stripping for cc-sub agents** — `claude -p --strict-mcp-config --mcp-config '{"mcpServers":{}}'` → sub-agent cold-start **-80% duration** (26s → 5s real measurement)
+- **auto-runner.ts split** — 980-line single file → 6 modules under `runner/`, max 369 lines, API fully backward compatible
+- **migrate auto-patches .gitignore** — idempotent allowlist block injection, no manual editing for new projects
+- **RunContext + ab-log closure** — explicit context object replaces 2 module-level state vars; R2 random results recorded to `state/routing/ab-log.jsonl` with `route ab-stats` CLI
+
+See [CHANGELOG.md](CHANGELOG.md#420--2026-04-18) for full breakdown and per-metric impact.
 
 ## 7-Layer Architecture
 
@@ -141,42 +153,55 @@ ham-cli <command>     # or: node dist/index.js <command>
 | Execute  | `execute auto\|full-auto\|prepare\|run\|auto-status\|stats`                                         |
 | DAG      | `dag init\|status\|next-wave\|complete\|fail\|skip\|visualize\|critical-path\|estimate\|evm\|gantt` |
 | DAG Edit | `dag add\|remove\|add-dep\|remove-dep\|re-init --merge\|scope-cut\|impact\|move`                    |
-| Route    | `route <id>\|batch\|confirm`                                                                        |
-| Context  | `context summary <file>`                                                                            |
+| Route    | `route <id>\|batch\|confirm\|ab-stats` (v4.2)                                                       |
+| Context  | `context summary\|analyze\|build\|for-task <id>\|for-files <f>` (v4.2)                              |
+| Migrate  | `migrate\|migrate gitignore\|migrate --dry-run` (v4.2 auto-patches .gitignore)                      |
 | Learn    | `learn brain\|detail\|scan\|entities\|status`                                                       |
 | Health   | `health check\|quick\|drift\|uncommitted\|esm-cjs`                                                  |
 | Validate | `validate detect\|gates`                                                                            |
 | Commit   | `commit auto\|message\|rollback`                                                                    |
 | Pipeline | `pipeline status\|resume\|log`                                                                      |
 
+### Environment toggles (v4.2)
+
+| Var                         | Default | Effect                                                                         |
+| --------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `HAM_HIERARCHICAL_CONTEXT`  | on      | Inject LSP directory symbol tree into agent tasks. Set `=0` to disable.        |
+| `HAM_SKIP_CONTEXT_REBUILD`  | off     | Skip auto-rebuild of symbol tree at runAuto entry (~1-2s). Set `=1` for CI.    |
+| `HAM_CC_SUB_KEEP_MCP`       | off     | Keep MCPs when spawning cc-sonnet/cc-haiku. Set `=1` to opt out of stripping.  |
+
 ## Verified Evidence
 
-Tested on real projects (ham-video — 60 tasks across 5 milestones):
+Tested on real projects (ham-video — 63 tasks across 5 milestones, includes v4.2 Phase 5):
 
 | Metric | Value |
 |--------|-------|
-| Unit test suites | 8/8 passing |
-| Total tasks completed | 60 (opencode 22/22, codexfake 8/8, full-auto 13/14) |
-| full-auto success rate | 60% (v3.9.2) → 86% (v4.0 round 1) → **100% (v4.0 round 2)** |
-| L4 FAIL auto-retry | 2/3 retries succeeded (67%) — v4.0 feature |
+| Unit test suites | **16/16 passing** (v4.2) |
+| Total tasks completed | 63 |
+| full-auto success rate | 60% (v3.9.2) → 86% (v4.0 round 1) → **100% (v4.0 round 2 + v4.1/4.2)** |
+| L4 FAIL auto-retry | 2/3 retries succeeded (67%) |
 | Token cost per task | 35,549 tokens via opencode (free, glm-4.7) |
-| Opus spec generation | ~$0.032/task |
+| Opus spec generation | ~$0.032/task, **-89~91% compression vs baseline** (v4.1) |
 | Cost savings vs pure Opus | 82-91% |
-| L4 review | Caught real bugs: hardcoded steps, out-of-scope changes, missing files |
-| Failure diagnosis (v4.0) | 5-category classification → diagnosis.jsonl |
+| cc-sub agent cold start | **-80%** (26s → 5s) after MCP stripping (v4.2) |
+| Hierarchical context build | 101 files / 877 symbols in **1.7s** (v4.2 via LSP) |
 | CI | GitHub Actions, Node 18 + 22 matrix |
 
 ## Configuration
 
-Zero-config by default. Override in `.ham-autocode/harness.json`:
+Zero-config by default. Override in `.ham-autocode/state/harness.json`:
 
 ```json
 {
   "routing": {
     "codexMinSpecScore": 80,
     "codexMinIsolationScore": 70,
-    "opencodeGptModel": "github-copilot/gpt-5.3-codex",
-    "opencodeGptProviders": ["copilot"]
+    "opencodeGptModel": "gpt-5.4-mini",
+    "opencodeGptProviders": ["github-copilot", "openai"],
+    "ccSubagent": {
+      "sonnet": "claude-sonnet-4-6",
+      "haiku": "claude-haiku-4-5-20251001"
+    }
   },
   "validation": { "mode": "strict", "maxAttempts": 2 },
   "recovery": { "highRiskThreshold": 70 },

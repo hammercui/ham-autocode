@@ -2,6 +2,83 @@
 
 All notable changes to ham-autocode will be documented in this file.
 
+## [4.2.0] - 2026-04-18
+
+### Added — Routing v2 (commit `a239c6f`)
+
+- **`cc-sonnet` / `cc-haiku`** new routing targets via `claude -p --model`
+  (same Claude Code account, cheaper models fill the gap between free gpt and Opus)
+- **Decision tree R1-R6** replaces the old rule chain:
+  - R1: isolation≥80 & complexity≤50 → codexfake (gpt-5.4-mini)
+  - R2: complexity≤40 → random(opencode, cc-haiku) + ab-log
+  - R3: complexity≤60 & isolation≥60 → codexfake
+  - R4: complexity≤75 → cc-sonnet
+  - R5: wave≥3 & all isolation≥70 → agent-teams
+  - R6: default → claude-code (Opus)
+- **`gpt-5.4-mini`** replaces gpt-5.3-codex as codexfake backing model
+- **A/B logging** — R2 random choices write `state/routing/ab-log.jsonl`, queryable via `ham-cli route ab-stats`
+- **`claude-app` removed from routing** — retained as type for manual `--agent claude-app` dispatch only
+
+### Added — claude-sub parser + ab-log closure (commit `b80b213`)
+
+- `core/executor/claude-sub.ts` parses `claude -p --output-format json` output
+  (session_id, duration_ms, total_cost_usd, usage.input/output/cache tokens)
+- auto-runner `parseAgentOutput()` dispatches to right parser by agent type
+- Fallback chains differentiated per target (codexfake→opencode, cc-sonnet→codexfake, cc-haiku→opencode)
+- `TaskExecResult.totalTokens` field for A/B analytics
+
+### Added — migrate auto-patches .gitignore (commit `72ac264`)
+
+- `patchGitignore()` idempotently injects the v4.1 allowlist block
+  (`.ham-autocode/*` ignore + `!.ham-autocode/docs/**` etc.)
+- Auto-comments conflicting blanket `.ham-autocode/` lines
+- `ham-cli migrate gitignore` standalone subcommand + `--dry-run` preview
+
+### Added — Hierarchical CONTEXT.md via LSP (commits `7d7c8cd`, `8a9f7bf`)
+
+- **Zero-dep LSP client** — `core/lsp/client.ts` spawns `typescript-language-server --stdio`,
+  hand-rolled JSON-RPC 2.0 framing with Content-Length headers
+- **`ham-cli context build`** — glob workspace, documentSymbol per file, write
+  per-directory markdown symbol trees under `.ham-autocode/state/context/tree/`
+- **`ham-cli context for-task <id>` / `context for-files <f>`** — assemble ancestor-dir
+  context with token budget (per-dir 3.2K chars / total 12K chars hard cap)
+- **Default-on injection** — `buildMinimalContext` appends `## Directory Context` to
+  every agent task. Disable with `HAM_HIERARCHICAL_CONTEXT=0`
+- **Auto-rebuild at runAuto entry** — session-flag prevents re-rebuild across phases.
+  Skip with `HAM_SKIP_CONTEXT_REBUILD=1`. Measured: 101 files / 877 symbols / 1.7s
+
+### Changed — cc-sub MCP stripping (commit `7048d30`)
+
+- `claude -p --strict-mcp-config --mcp-config '{"mcpServers":{}}'` by default for cc-sonnet/cc-haiku
+- **Real measurement**: sub-agent cold start **26.1s → 5.2s (-80%)**
+- Opt-out: `HAM_CC_SUB_KEEP_MCP=1`
+
+### Refactor — rules engine flattened (commit `7048d30`)
+
+- `core/rules/engine.ts` deleted (51 lines of 3:1 wrapper)
+- Rule definitions flattened into plain array in `core/rules/core-rules.ts`
+- Public API unchanged: `listRules` / `checkRules` / `checkRulesSummary`
+
+### Refactor — RunContext + auto-runner split (commits `41b4b3a`, `85013cf`)
+
+- Explicit `RunContext { projectDir, progress }` object replaces two module-level vars
+- `_activeCtx` singleton kept only for `log()` implicit access (46 call sites preserved)
+- **auto-runner.ts 980→26 line facade** + 6 modules under `runner/`:
+  - types.ts (85) / progress.ts (98) / helpers.ts (119)
+  - wave-commit.ts (49) / task-exec.ts (369) / run-auto.ts (281)
+- External API fully backward compatible: `runAuto` / `readProgress` / `AutoRunOptions` / `AutoRunResult`
+
+### Verified — ham-video Phase 5 field test
+
+- 3 tasks (clamp / chunk / usePrevious utility files)
+- All 3 routed to codexfake (R1), 3/3 ok in 108s, L4 review PASS
+- Phase 5 commit: `8569db3` on ham-video
+- See `.ham-autocode/docs/plans/retros/v4.2-field-test-20260418.md`
+
+### Tests
+
+- 11 → **16 test suites**: +spec-lint, +hashline (v4.1) ; +router-v2, +claude-sub, +gitignore-patch, +run-context, +hierarchical (v4.2)
+
 ## [3.9.2] - 2026-04-16
 
 ### Added — execute full-auto (24h 自治执行循环)
